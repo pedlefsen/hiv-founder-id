@@ -1,0 +1,27 @@
+I found this on https://groups.google.com/forum/#!topic/phyml-forum/yeIwFkwsI8c posted 4/16/2014:
+
+In the function Dist_And_BioNJ (in utilities.c) replace the following block of
+instructions:
+>>
+  Bionj(mat);
+  tree      = mat->tree;
+  tree->mat = mat;
+
+  return tree;
+<<
+
+with
+>>
+  Bionj(mat);
+  tree      = mat->tree;
+  tree->mat = mat;
+  Print_Mat(mat);
+
+  return tree;
+<<
+
+and recompile. That should do the trick.
+
+Regards,
+
+-Stephane Guindon-
