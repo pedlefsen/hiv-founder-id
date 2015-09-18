@@ -19,25 +19,23 @@ use Text::Wrap; # for wrap
 $Text::Wrap::columns = 72;# TODO: DEHACKIFY MAGIC #
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O );
+use vars qw( $opt_D $opt_V );
 use vars qw( $VERBOSE $DEBUG );
 
 sub clusterInformativeSites {
   @ARGV = @_;
 
   sub clusterInformativeSites_usage {
-    print "\tclusterInformativeSites [-DV] [-(o|O) <Output File>] <informativeSites.txt> [<Output File>]\n";
+    print "\tclusterInformativeSites [-DV] <input_fasta_filename> <informativeSites.txt> [<output dir>]\n";
     exit;
   }
 
-  # This means -D, -o, -O, -V are ok, but nothin' else.
+  # This means -D, -V are ok, but nothin' else.
   # opt_D means print debugging output.
-  # opt_o is an optional filename to put the output.  Otherwise, STDOUT.
-  # opt_O is just like opt_o except it'll overwrite the file if it exists.
   # opt_V means be verbose.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O ) = ();
-  if( not getopts('DVo:O:') ) {
+  ( $opt_D, $opt_V ) = ();
+  if( not getopts('DV') ) {
     clusterInformativeSites_usage();
   }
   
@@ -51,6 +49,8 @@ sub clusterInformativeSites {
     $| = 1; # Autoflush.
   }
 
+  my $original_fasta_filename = shift @ARGV || clusterInformativeSites_usage();
+
   my $informative_sites_file = shift @ARGV || clusterInformativeSites_usage();
   my ( $informative_sites_file_path, $informative_sites_file_short ) =
     ( $informative_sites_file =~ /^(.*?)\/([^\/]+)$/ );
@@ -58,8 +58,10 @@ sub clusterInformativeSites {
     $informative_sites_file_short = $informative_sites_file;
     $informative_sites_file_path = ".";
   }
-  my ( $informative_sites_file_short_nosuffix, $informative_sites_file_suffix ) =
-    ( $informative_sites_file_short =~ /^([^\.]+)(\..+)?$/ );
+
+  my $output_dir = shift @ARGV || $informative_sites_file_path;
+
+  if( $VERBOSE ) { print "Output will be written in directory \"$output_dir\".."; }
 
   if( $VERBOSE ) { print "Opening file \"$informative_sites_file\".."; }
   
@@ -80,6 +82,10 @@ sub clusterInformativeSites {
   while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
   
     ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+
+    if( $DEBUG ) {
+      print "LINE: $line\n";
+    }
   
     next unless $line;
     next if $line =~ /^\s/;
@@ -103,7 +109,9 @@ sub clusterInformativeSites {
   if( $VERBOSE ) { print ".done.\n"; }
 
   # Ok, great.  Now, for all non-consensus entries, replace '.' with the consensus value.
-  die unless( $seqorder[ 0 ] eq 'Consensus' );
+  unless( $seqorder[ 0 ] eq 'Consensus' ) {
+    die "Unexpected first sequence in informative sites output: $seqorder[ 0 ] (expected 'Consensus')";
+  }
   shift @seqorder; # Remove `Consensus`
   
   if( $DEBUG ) {
@@ -114,31 +122,14 @@ sub clusterInformativeSites {
   my $alignment_length = scalar( @consensus_as_list );
   delete $seqs{ "Consensus" };
 
-  my $output_file = $opt_o || $opt_O || shift @ARGV;
-  if( $output_file ) {
-  
-    if( !$opt_O && -e $output_file ) {
-      print "The file \"$output_file\" exists.  Use -O to overwrite.\n";
-      exit;
-    }
-  
-    if( $VERBOSE ) { print "Opening file \"$output_file\" for writing.."; }
-  
-    unless( open OUTPUT_FH, ">$output_file" ) {
-      warn "Unable to open output file \"$output_file\": $!";
-      return 1;
-    }
-  
-    if( $VERBOSE ) { print ".done.\n"; }
-  
-  } else {
-  
-    unless( open OUTPUT_FH, ">&STDOUT" ) {
-      warn "Unable to rename STDOUT: $!";
-      return 1;
-    }
-  
+  my $insites_fasta_file =
+    "${output_dir}/${informative_sites_file_short}.fasta";
+  if( $VERBOSE ) { print "Opening file \"$insites_fasta_file\" for writing.."; }
+  unless( open INSITES_FASTA_FH, ">$insites_fasta_file" ) {
+    warn "Unable to open insites_fasta file \"$insites_fasta_file\": $!";
+    return 1;
   }
+  if( $VERBOSE ) { print ".done.\n"; }
 
   if( $VERBOSE ) {
     print "Printing alignment of informative sites..";
@@ -160,19 +151,19 @@ sub clusterInformativeSites {
     
     # add newlines / wraparound to $seq
     $seq_wrapped = wrap( '', '',  $seq );
-    print OUTPUT_FH "> $seq_name\n$seq_wrapped\n";
+    print INSITES_FASTA_FH "> $seq_name\n$seq_wrapped\n";
   } # End foreac $seq_name
   
   if( $VERBOSE ) { print ".done.\n"; }
   
-  if( $VERBOSE && $output_file ) { print "Closing file \"$output_file\".."; }
-  close OUTPUT_FH;
-  if( $VERBOSE && $output_file ) { print ".done.\n"; }
+  if( $VERBOSE ) { print "Closing file \"$insites_fasta_file\".."; }
+  close INSITES_FASTA_FH;
+  if( $VERBOSE ) { print ".done.\n"; }
 
   if( $VERBOSE ) {
     print "Calling R to cluster informative sites..";
   }
-  my $R_output = `export clusterInformativeSites_inputFilename="$output_file"; echo \$clusterInformativeSites_inputFilename; R -f clusterInformativeSites.R --vanilla --slave`;
+  my $R_output = `export clusterInformativeSites_inputFilename="$insites_fasta_file"; echo \$clusterInformativeSites_inputFilename; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; echo \$clusterInformativeSites_originalFastaFilename; export clusterInformativeSites_outputDir="$output_dir"; echo \$clusterInformativeSites_outputDir; R -f clusterInformativeSites.R --vanilla --slave`;
 
   if( $VERBOSE ) {
     print ".done.\n";

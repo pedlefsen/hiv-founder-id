@@ -11,7 +11,7 @@
 ##      reconstruction of the founders.
 ##
 ##      Note that this creates output files in subdirectories named
-##      after the input fasta file name.
+##      after the input fasta file name (unless you specify an output dir).
 ##      
 ###******************************************************************************
 
@@ -34,7 +34,7 @@ sub identify_founders {
   # This means -D, -o, -O, -V are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_o is an optional directory to put the output; default depends on input filename.
-  # opt_O is just like opt_o except it'll overwrite the files if they exist.
+  # opt_O is just like opt_o.  Same thing.
   # opt_V means be verbose.
   # But first reset the opt vars.
   ( $opt_D, $opt_V, $opt_o, $opt_O ) = ();
@@ -88,7 +88,7 @@ sub identify_founders {
     $extra_flags .= "-V ";
   }
   
-  # Run InSites and get the stat; also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
+  # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
   foreach my $input_fasta_file ( @input_fasta_files ) {
@@ -111,11 +111,20 @@ sub identify_founders {
         $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
     }
 
-    # Get the run id for pathnames.
-    $id_string = `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
-    ( $id_string ) = ( $id_string =~ /JOB ID IS (\d+)/ );
+    my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}//${input_fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
+    my ( $num_seqs, $mean_diversity ) =
+      ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([\.\d]+)\s+/ );
+    print "Number of sequences: $num_seqs\n";
+    print "Mean pairwise diversity: $mean_diversity\n";
+
+    `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    print `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`, "\n";
+    my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    print "Informative sites to private sites ratio: $in_sites_stat\n";
+
+    `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
+
+    # ERE I AM.  Need to do the clustering and then redo the original alignments and consensus including non-informative sites.
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {
