@@ -210,15 +210,19 @@ sub runPhyML {
     my ( $firstName, $secondName, $i, $j );
     for( $i = 0; $i < scalar( @seqNames ); $i++ ) {	# print distance between same group
       $firstName = $seqNames[ $i ];
-      for( $j = ( $i + 1 ); $j < scalar( @seqNames ); $j++ ) {
-        $secondName = $seqNames[ $j ];
-        print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";
-        if( !defined( $pwDistHashRef->{ $firstName }->{ $secondName } ) ) {
-          warn "Error: no distance value between $firstName and $secondName\n"
-        } else {
-          push @diversity, $pwDistHashRef->{ $firstName }->{ $secondName };
-        }
-      } # End foreach $j
+      if( !defined( $pwDistHashRef->{ $firstName } ) ) {
+        warn "Error: no distance values from $firstName\n"
+      } else {
+        for( $j = ( $i + 1 ); $j < scalar( @seqNames ); $j++ ) {
+          $secondName = $seqNames[ $j ];
+          if( !defined( $pwDistHashRef->{ $firstName }->{ $secondName } ) ) {
+            warn "Error: no distance value between $firstName and $secondName\n"
+          } else {
+            push @diversity, $pwDistHashRef->{ $firstName }->{ $secondName };
+            print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";
+          }
+        } # End foreach $j
+      } # End if $firstName is in the hash
     } # End foreach $i
   } # Else if at least two sequences in the group
 
@@ -325,7 +329,7 @@ sub ChangetoPhylip {
 					die "Error: the sequence length of $seqName is not same as others.\n";
 				}
 			}	
-			$seqName = $1;
+			$seqName = $seqCount . $1; # PAUL CHANGED; ADDED THE index
 			$seqCount++;
 		}else {
 			$seq .= $line;		

@@ -108,11 +108,10 @@ sub clusterInformativeSites {
   close INFORMATIVE_SITES_FILE_FH;
   if( $VERBOSE ) { print ".done.\n"; }
 
-  # Ok, great.  Now, for all non-consensus entries, replace '.' with the consensus value.
-  unless( $seqorder[ 0 ] eq 'Consensus' ) {
-    die "Unexpected first sequence in informative sites output: $seqorder[ 0 ] (expected 'Consensus')";
+  # Ok, great.  Now, for all entries, replace '.' with the consensus value.
+  if( $seqorder[ 0 ] eq 'Consensus' ) {
+    shift @seqorder; # Remove `Consensus` if it's there.
   }
-  shift @seqorder; # Remove `Consensus`
   
   if( $DEBUG ) {
     print "Sequences: ", join( ", ", @seqorder ), "\n";
