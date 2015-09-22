@@ -65,6 +65,10 @@ sub runInSitesOnline {
 
   my $output_path_dir = shift @ARGV ||
     $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
+  # Remove the trailing "/" if any
+  if( defined( $output_path_dir ) ) {
+    ( $output_path_dir ) = ( $output_path_dir =~ /^(.+)\/*$/ );
+  }
   make_path( $output_path_dir );
 
     ## HACK: make sure there are no bangs in the input file (since there are, right now).
@@ -101,7 +105,9 @@ sub runInSitesOnline {
   
   # Have to submit it again, ie my $result2 = $result->submit();
   my $content = $mech->content();
-  print "OK1, \$content is $content\n";
+  if( $DEBUG ) {
+    print "OK1, \$content is $content\n";
+  }
   $mech->select('seqName',{n=>[1..1000]});
   my $result2 = $mech->submit_form(
      form_name => 'grpForm'
@@ -115,38 +121,60 @@ sub runInSitesOnline {
 #                [ local => 'DIVEIN', seqFile => $input_fasta_file_contents, seqRadio => 'fasta', datatype => 'DNA' ];
 #  my $content = $ua->request( $req )->as_string;
 
-  print "OK2, \$content is $content\n";
+  if( $DEBUG ) {
+    print "OK2\n \$content is $content\n";
+  }
   my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
 
   # Save all the files to  $output_path_dir
   #my @links = $mech->find_all_links(
   #   tag => "a", text_regex => qr/\bdownload\b/i );
 
-  print "JOB ID IS $job_id\n";
+  if( $VERBOSE ) {
+    print "JOB ID IS $job_id\n";
+  }
 
   #return 1;
 
+  my $privContent = undef;
   $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
+  $privContent = $mech->content();
+  #print( "got $privContent" );
+  while( !defined( $privContent ) || $content =~ /No such file/ ) {
+    sleep( 1 );
+    print( "trying again" );
+    $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
+    $privContent = $mech->content();
+  }
+
   my $privFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_privateSites.txt";
-  if( $VERBOSE ) { print "Opening file \"$privFile\" for writing..\n"; }
+  if( $VERBOSE ) { print "Opening file \"$privFile\" for writing.."; }
   unless( open privFileFH, ">$privFile" ) {
       warn "Unable to open output file \"$privFile\": $!\n";
       return 1;
     }
-  my $privContent = $mech->content();
   print privFileFH $privContent;
   close( privFileFH );
+  if( $VERBOSE ) { print ".done\n"; }
 
-  $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-  my $txtFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";
-  if( $VERBOSE ) { print "Opening file \"$txtFile\" for writing..\n"; }
-  unless( open txtFileFH, ">$txtFile" ) {
-      warn "Unable to open output file \"$txtFile\": $!\n";
+  my $informativeSitesContent = $mech->content();
+  #print( "got $informativeSitesContent" );
+  while( !defined( $informativeSitesContent ) || $informativeSitesContent =~ /No such file/ ) {
+    sleep( 1 );
+    print( "trying again" );
+    $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
+    $informativeSitesContent = $mech->content();
+  }
+
+  my $informativeSitesFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";
+  if( $VERBOSE ) { print "Opening file \"$informativeSitesFile\" for writing.."; }
+  unless( open informativeSitesFileFH, ">$informativeSitesFile" ) {
+      warn "Unable to open output file \"$informativeSitesFile\": $!\n";
       return 1;
     }
-  my $txtContent = $mech->content();
-  print txtFileFH $txtContent;
-  close( txtFileFH );
+  print informativeSitesFileFH $informativeSitesContent;
+  close( informativeSitesFileFH );
+  if( $VERBOSE ) { print ".done\n"; }
 
   if( $VERBOSE ) {
     select STDOUT;

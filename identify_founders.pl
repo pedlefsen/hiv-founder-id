@@ -130,9 +130,9 @@ sub identify_founders {
     print "Mean pairwise diversity: $mean_diversity\n";
 
     # Now cluster the informative sites
-    `perl clusterInformativeSites.pl $extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    my $num_clusters = `perl clusterInformativeSites.pl $extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     # Print out the number of clusters
-    ## ERE I AM
+    print "Number of founders: $num_clusters\n";
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {

@@ -60,6 +60,10 @@ sub clusterInformativeSites {
   }
 
   my $output_dir = shift @ARGV || $informative_sites_file_path;
+  # Remove the trailing "/" if any
+  if( defined( $output_dir ) ) {
+    ( $output_dir ) = ( $output_dir =~ /^(.+)\/*$/ );
+  }
 
   if( $VERBOSE ) { print "Output will be written in directory \"$output_dir\".."; }
 
@@ -163,6 +167,8 @@ sub clusterInformativeSites {
     print "Calling R to cluster informative sites..";
   }
   my $R_output = `export clusterInformativeSites_inputFilename="$insites_fasta_file"; echo \$clusterInformativeSites_inputFilename; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; echo \$clusterInformativeSites_originalFastaFilename; export clusterInformativeSites_outputDir="$output_dir"; echo \$clusterInformativeSites_outputDir; R -f clusterInformativeSites.R --vanilla --slave`;
+
+  print( $R_output );
 
   if( $VERBOSE ) {
     print ".done.\n";

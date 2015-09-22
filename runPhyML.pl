@@ -93,6 +93,10 @@ sub runPhyML {
 
   my $output_path_dir = shift @ARGV ||
     $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
+  # Remove the trailing "/" if any
+  if( defined( $output_path_dir ) ) {
+    ( $output_path_dir ) = ( $output_path_dir =~ /^(.+)\/*$/ );
+  }
   make_path( $output_path_dir );
 
   my $phylipFile = $output_path_dir . '/' . $input_fasta_file_short_nosuffix .'.phylip';	# reformatted for phyml

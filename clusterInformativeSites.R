@@ -3,7 +3,7 @@ library( "seqinr" ) # for "as.alignment", "consensus"
 library( "dynamicTreeCut" ) # for "cutreeDynamic"
 
 # Cluster the input sequences using Hamming distance and UPGMA, cutting the tree using "dynamic tree cutting" and use this to create cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.
-# Optionally provide an additional alignment with the same sequence names, for wich we will create analogous cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.
+# Optionally provide an additional alignment with the same sequence names, for wich we will create analogous cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.  Note that the names might have changed slightly - we will assume the sequences are in the same order and use this second file for the names to output if the file is present.
 # if output.dir is null, output dirs will gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
 clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, output.dir = NULL ) {
 
@@ -22,9 +22,9 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
 
   if( !is.null( full.fasta.file ) ) {
       full.fasta.file.path <-
-          gsub( "/^(.*?)\\/[^\\/]+$/", "\\1", full.fasta.file );
+          gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
       full.fasta.file.short <-
-          gsub( "/^.*?\\/([^\\/]+)$/", "\\1", full.fasta.file );
+          gsub( "^.*?\\/([^\\/]+)$", "\\1", full.fasta.file );
     
       if( is.null( output.dir ) ) {
           full.output.dir = full.fasta.file.path;
@@ -32,6 +32,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
           full.output.dir = output.dir;
       }
       full.fasta <- read.dna( full.fasta.file, format = "fasta" );
+      ## Fix labels.  Assuming input orders are the same.
+      rownames( in.fasta ) <- rownames( full.fasta );
   } else {
       full.fasta <- NULL;
   }
@@ -51,14 +53,14 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
   #clusters <- sort( clusters );
   
   # Write out one fasta file for each cluster, and a separate one containing just its consensus sequence.
-  for( cluster.i in 1:max( clusters ) ) {
+  for( cluster.i in min( clusters ):max( clusters ) ) {
       cluster.fasta <- in.fasta[ names( clusters[ clusters == cluster.i ] ), ];
 
       # Write the cluster alignment as a fasta file
       cluster.fasta.file = paste( insites.output.dir, "/", insites.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" );
-      warning( insites.output.dir );
-      warning( insites.fasta.file.short );
-      warning( cluster.fasta.file );
+      # warning( insites.output.dir );
+      # warning( insites.fasta.file.short );
+      # warning( cluster.fasta.file );
       write.dna( cluster.fasta, cluster.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
       
       # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
@@ -70,6 +72,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
         cluster.full.fasta <- full.fasta[ names( clusters[ clusters == cluster.i ] ), ];
   
         # Write the cluster alignment as a fasta file
+        ## TODO: REMOVE
+        #print( paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
         write.dna( cluster.full.fasta, paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
         
         # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
@@ -80,8 +84,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
   } # End foreach cluster.i
 
   # Return the number of clusters (equivalently the index of the largest cluster)
-  return( max( clusters ) );
-} # clusterSequences ( insites.fasta.file, full.fasta.file )
+  return( length( unique( clusters ) ) );
+} # clusterSequences ( insites.fasta.file, full.fasta.file, output.dir )
 
 ## Here is where the action is.
 insites.fasta.file <- Sys.getenv( "clusterInformativeSites_inputFilename" ); # alignment of just informative sites
@@ -94,9 +98,9 @@ if( output.dir == "" ) {
     output.dir <- NULL;
 }
 ## TODO: REMOVE
-warning( paste( "insites alignment input file:", insites.fasta.file ) );
-warning( paste( "original alignment input file:", original.fasta.file ) );
-warning( paste( "output dir:", output.dir ) );
+# warning( paste( "insites alignment input file:", insites.fasta.file ) );
+# warning( paste( "original alignment input file:", original.fasta.file ) );
+# warning( paste( "output dir:", output.dir ) );
 
 if( file.exists( insites.fasta.file ) ) {
     if( is.null( original.fasta.file ) || file.exists( original.fasta.file ) ) {
