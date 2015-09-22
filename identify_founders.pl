@@ -12,6 +12,8 @@
 ##
 ##      Note that this creates output files in subdirectories named
 ##      after the input fasta file name (unless you specify an output dir).
+##
+##      Try: perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ -V rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      
 ###******************************************************************************
 
