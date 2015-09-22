@@ -121,9 +121,11 @@ sub runInSitesOnline {
 #                [ local => 'DIVEIN', seqFile => $input_fasta_file_contents, seqRadio => 'fasta', datatype => 'DNA' ];
 #  my $content = $ua->request( $req )->as_string;
 
-  if( $DEBUG ) {
+  #if( $DEBUG ) {
     print "OK2\n \$content is $content\n";
-  }
+  #}
+  ## ERE I AM!!
+## Aligned informative sites:</td><td>None
   my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
 
   # Save all the files to  $output_path_dir
@@ -142,7 +144,7 @@ sub runInSitesOnline {
   #print( "got $privContent" );
   while( !defined( $privContent ) || $content =~ /No such file/ ) {
     sleep( 1 );
-    print( "trying again" );
+    print( "trying again to get the private sites file" );
     $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
     $privContent = $mech->content();
   }
@@ -157,11 +159,12 @@ sub runInSitesOnline {
   close( privFileFH );
   if( $VERBOSE ) { print ".done\n"; }
 
+  $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
   my $informativeSitesContent = $mech->content();
-  #print( "got $informativeSitesContent" );
-  while( !defined( $informativeSitesContent ) || $informativeSitesContent =~ /No such file/ ) {
+  print( "got $informativeSitesContent" );
+  while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
+    print( "trying again to get the informative sites file." );
     sleep( 1 );
-    print( "trying again" );
     $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
     $informativeSitesContent = $mech->content();
   }
