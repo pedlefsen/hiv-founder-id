@@ -112,10 +112,16 @@ sub clusterInformativeSites {
   close INFORMATIVE_SITES_FILE_FH;
   if( $VERBOSE ) { print ".done.\n"; }
 
-  # Ok, great.  Now, for all entries, replace '.' with the consensus value.
-  if( $seqorder[ 0 ] eq 'Consensus' ) {
-    shift @seqorder; # Remove `Consensus` if it's there.
+  # Maybe there are no informative sites.  We are just done, then.
+  if( !scalar( @seqorder ) ) {
+    print( "0\n" );
+    return( 0 );
   }
+
+  # Ok, great.  Now, for all entries, replace '.' with the consensus value.
+  die unless( $seqorder[ 0 ] eq 'Consensus' );
+
+  shift @seqorder; # Remove `Consensus`
   
   if( $DEBUG ) {
     print "Sequences: ", join( ", ", @seqorder ), "\n";

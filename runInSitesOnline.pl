@@ -125,7 +125,7 @@ sub runInSitesOnline {
     print "OK2\n \$content is $content\n";
   #}
   ## ERE I AM!!
-## Aligned informative sites:</td><td>None
+  my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
   my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
 
   # Save all the files to  $output_path_dir
@@ -134,6 +134,9 @@ sub runInSitesOnline {
 
   if( $VERBOSE ) {
     print "JOB ID IS $job_id\n";
+    if( $no_informative_sites ) {
+      print "NO INFORMATIVE SITES\n";
+    }
   }
 
   #return 1;
@@ -159,14 +162,19 @@ sub runInSitesOnline {
   close( privFileFH );
   if( $VERBOSE ) { print ".done\n"; }
 
-  $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-  my $informativeSitesContent = $mech->content();
-  print( "got $informativeSitesContent" );
-  while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
-    print( "trying again to get the informative sites file." );
-    sleep( 1 );
+  my $informativeSitesContent = "";
+  if( $no_informative_sites ) {
+    $informativeSitesContent = "";
+  } else {
     $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
     $informativeSitesContent = $mech->content();
+    print( "got $informativeSitesContent" );
+    while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
+      print( "trying again to get the informative sites file." );
+      sleep( 1 );
+      $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
+      $informativeSitesContent = $mech->content();
+    }
   }
 
   my $informativeSitesFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";

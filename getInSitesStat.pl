@@ -71,7 +71,7 @@ sub getInSitesStat {
   my ( $private_sites_file_short_nosuffix, $private_sites_file_suffix ) =
     ( $private_sites_file_short =~ /^([^\.]+)(\..+)?$/ );
 
-  my $informative_no_gaps;
+  my $informative_no_gaps = 0; # default for when informative sites file is empty
   if( $informative_sites_file eq '-' ) {
     $informative_no_gaps = 0;
   } else {
