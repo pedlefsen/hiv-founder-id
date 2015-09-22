@@ -119,7 +119,9 @@ sub clusterInformativeSites {
   }
 
   # Ok, great.  Now, for all entries, replace '.' with the consensus value.
-  die unless( $seqorder[ 0 ] eq 'Consensus' );
+  unless( $seqorder[ 0 ] eq 'Consensus' ) {
+    die( "First sequence is not 'Consensus' it is instead '$seqorder[ 0 ]'" );
+  }
 
   shift @seqorder; # Remove `Consensus`
   
@@ -150,7 +152,9 @@ sub clusterInformativeSites {
     }
     @seq_as_list = @{ $seqs{ $seq_name } };
 
-    die unless( scalar( @seq_as_list ) == $alignment_length );
+    unless( scalar( @seq_as_list ) == $alignment_length ) {
+      die( "alignment length error: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
+    }
     for( my $i = 0; $i < scalar( @seq_as_list ); $i++ ) {
       if( $seq_as_list[ $i ] eq '.' ) {
         $seq_as_list[ $i ] = $consensus_as_list[ $i ];

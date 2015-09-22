@@ -93,7 +93,6 @@ sub identify_founders {
   if( $VERBOSE ) {
     $extra_flags .= "-V ";
   }
-  
   # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
@@ -120,7 +119,6 @@ sub identify_founders {
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    print "Informative sites to private sites ratio: $in_sites_stat\n";
 
     # Run phyML, get stats
     `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
@@ -128,13 +126,27 @@ sub identify_founders {
     my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}//${input_fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
     my ( $num_seqs, $mean_diversity ) =
       ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([\.\d]+)\s+/ );
+    print "Input fasta file: $input_fasta_file_short\n";
     print "Number of sequences: $num_seqs\n";
     print "Mean pairwise diversity: $mean_diversity\n";
+    print "Informative sites to private sites ratio: $in_sites_stat"; # Newline is already on there
 
-    # Now cluster the informative sites
-    my $num_clusters = `perl clusterInformativeSites.pl $extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
-    # Print out the number of clusters
-    print "Number of founders: $num_clusters\n";
+    # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
+    my $mean_diversity_threshold = 0.001;
+    my $in_sites_ratio_threshold = 0.20;
+    if( $mean_diversity > $mean_diversity_threshold ) {
+      print( "DIVERSITY THRESHOLD EXCEEDED\n" );
+    }
+    if( $in_sites_stat > $in_sites_ratio_threshold ) {
+      print( "RATIO THRESHOLD EXCEEDED\n" );
+    }
+    if( ( $mean_diversity > $mean_diversity_threshold ) || ( $in_sites_stat > $in_sites_ratio_threshold ) ) {
+      my $num_clusters = `perl clusterInformativeSites.pl $extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+      # Print out the number of clusters
+      print "Number of founders: $num_clusters\n\n";
+    } else {
+      print "Number of founders: 1\n\n";
+    }
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {
