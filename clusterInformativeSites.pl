@@ -122,68 +122,69 @@ sub clusterInformativeSites {
   if( $VERBOSE ) { print ".done.\n"; }
 
   # Maybe there are no informative sites.  We are just done, then.
+  my $insites_fasta_file = "";
   if( !scalar( @seqorder ) ) {
-    print( "0\n" );
-    return( 0 );
-  }
-
-  # Ok, great.  Now, for all entries, replace '.' with the consensus value.
-  unless( $seqorder[ 0 ] eq 'Consensus' ) {
-    die( "First sequence is not 'Consensus' it is instead '$seqorder[ 0 ]'" );
-  }
-
-  shift @seqorder; # Remove `Consensus`
+    $force_one_cluster = 1;
+    $insites_fasta_file = $original_fasta_filename;
+  } else {
+    # Ok, great.  Now, for all entries, replace '.' with the consensus value.
+    unless( $seqorder[ 0 ] eq 'Consensus' ) {
+      die( "First sequence is not 'Consensus' it is instead '$seqorder[ 0 ]'" );
+    }
   
-  if( $DEBUG ) {
-    print "Sequences: ", join( ", ", @seqorder ), "\n";
-  }
-
-  my @consensus_as_list = @{ $seqs{ "Consensus" } };
-  my $alignment_length = scalar( @consensus_as_list );
-  delete $seqs{ "Consensus" };
-
-  my $insites_fasta_file =
-    "${output_dir}/${informative_sites_file_short}.fasta";
-  if( $VERBOSE ) { print "Opening file \"$insites_fasta_file\" for writing.."; }
-  unless( open INSITES_FASTA_FH, ">$insites_fasta_file" ) {
-    warn "Unable to open insites_fasta file \"$insites_fasta_file\": $!";
-    return 1;
-  }
-  if( $VERBOSE ) { print ".done.\n"; }
-
-  if( $VERBOSE ) {
-    print "Printing alignment of informative sites..";
-  }
-  my $seq_wrapped;
-  foreach my $seq_name ( @seqorder ) {
-    if( $DEBUG ) {
-      print $seq_name, "\n";
-    }
-    @seq_as_list = @{ $seqs{ $seq_name } };
-
-    unless( scalar( @seq_as_list ) == $alignment_length ) {
-      print( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
-      print( ">Consensus\n", join( "", @consensus_as_list ), "\n" );
-      print( ">$seq_name\n", join( "", @seq_as_list ), "\n" );
-      die( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
-    }
-    for( my $i = 0; $i < scalar( @seq_as_list ); $i++ ) {
-      if( $seq_as_list[ $i ] eq '.' ) {
-        $seq_as_list[ $i ] = $consensus_as_list[ $i ];
-      }
-    }
-    $seq = join "", @seq_as_list;
+    shift @seqorder; # Remove `Consensus`
     
-    # add newlines / wraparound to $seq
-    $seq_wrapped = wrap( '', '',  $seq );
-    print INSITES_FASTA_FH "> $seq_name\n$seq_wrapped\n";
-  } # End foreac $seq_name
+    if( $DEBUG ) {
+      print "Sequences: ", join( ", ", @seqorder ), "\n";
+    }
   
-  if( $VERBOSE ) { print ".done.\n"; }
+    my @consensus_as_list = @{ $seqs{ "Consensus" } };
+    my $alignment_length = scalar( @consensus_as_list );
+    delete $seqs{ "Consensus" };
   
-  if( $VERBOSE ) { print "Closing file \"$insites_fasta_file\".."; }
-  close INSITES_FASTA_FH;
-  if( $VERBOSE ) { print ".done.\n"; }
+    $insites_fasta_file =
+      "${output_dir}/${informative_sites_file_short}.fasta";
+    if( $VERBOSE ) { print "Opening file \"$insites_fasta_file\" for writing.."; }
+    unless( open INSITES_FASTA_FH, ">$insites_fasta_file" ) {
+      warn "Unable to open insites_fasta file \"$insites_fasta_file\": $!";
+      return 1;
+    }
+    if( $VERBOSE ) { print ".done.\n"; }
+  
+    if( $VERBOSE ) {
+      print "Printing alignment of informative sites..";
+    }
+    my $seq_wrapped;
+    foreach my $seq_name ( @seqorder ) {
+      if( $DEBUG ) {
+        print $seq_name, "\n";
+      }
+      @seq_as_list = @{ $seqs{ $seq_name } };
+  
+      unless( scalar( @seq_as_list ) == $alignment_length ) {
+        print( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
+        print( ">Consensus\n", join( "", @consensus_as_list ), "\n" );
+        print( ">$seq_name\n", join( "", @seq_as_list ), "\n" );
+        die( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
+      }
+      for( my $i = 0; $i < scalar( @seq_as_list ); $i++ ) {
+        if( $seq_as_list[ $i ] eq '.' ) {
+          $seq_as_list[ $i ] = $consensus_as_list[ $i ];
+        }
+      }
+      $seq = join "", @seq_as_list;
+      
+      # add newlines / wraparound to $seq
+      $seq_wrapped = wrap( '', '',  $seq );
+      print INSITES_FASTA_FH "> $seq_name\n$seq_wrapped\n";
+    } # End foreac $seq_name
+    
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Closing file \"$insites_fasta_file\".."; }
+    close INSITES_FASTA_FH;
+    if( $VERBOSE ) { print ".done.\n"; }
+  } # End if there are no informative sites .. else ..
 
   if( $VERBOSE ) {
     print "Calling R to cluster informative sites..";
@@ -193,8 +194,7 @@ sub clusterInformativeSites {
       print( "Clustering..\n" );
     }
   }
-  my $R_output = `export clusterInformativeSites_forceOneCluster="$force_one_cluster"; export clusterInformativeSites_inputFilename="$insites_fasta_file"; echo \$clusterInformativeSites_inputFilename; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; echo \$clusterInformativeSites_originalFastaFilename; export clusterInformativeSites_outputDir="$output_dir"; echo \$clusterInformativeSites_outputDir; R -f clusterInformativeSites.R --vanilla --slave`;
-
+  my $R_output = `export clusterInformativeSites_forceOneCluster="$force_one_cluster"; export clusterInformativeSites_inputFilename="$insites_fasta_file"; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; export clusterInformativeSites_outputDir="$output_dir"; R -f clusterInformativeSites.R --vanilla --slave`;
   print( $R_output );
 
   if( $VERBOSE ) {

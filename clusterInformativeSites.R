@@ -71,11 +71,11 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       print( in.dist );
     }
     dendro <- hclust( in.dist, method = "average" ); # UPGMA
-    clusters <-
+    clusters <- suppressWarnings(
         cutreeDynamic(
             dendro, cutHeight = NULL, minClusterSize = 2,
             method = "hybrid", distM = as.matrix( in.dist )
-        );
+        ) );
     names( clusters ) <- dendro$labels;
   } else {
     die( "There are no sequences to work with; if there are no informative sites then you must supply the full alignment fasta file, and set force.one.cluster to TRUE." );
