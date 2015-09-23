@@ -11,6 +11,11 @@
 ##      getInSitesStat.  Note that this creates output files in
 ##      subdirectories named after the input fasta file name.
 ##      
+##      NOTE that there is a bug (as of September, 2015) in the
+##      inSites code online, in which flanking gaps are not printed in
+##      the output (informative sites) table.  THIS MUST BE FIXED WHEN
+##      READING/USING THE FILE.
+##
 ###******************************************************************************
 
 use Getopt::Std; # for getopts
@@ -183,6 +188,7 @@ sub runInSitesOnline {
       warn "Unable to open output file \"$informativeSitesFile\": $!\n";
       return 1;
     }
+  ## NOTE that there is a bug (as of September, 2015) in the inSites code online, in which flanking gaps are not printed in the output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
   print informativeSitesFileFH $informativeSitesContent;
   close( informativeSitesFileFH );
   if( $VERBOSE ) { print ".done\n"; }

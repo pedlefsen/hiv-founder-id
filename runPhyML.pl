@@ -201,6 +201,9 @@ sub runPhyML {
     my @distances = split /\s+/, $dists;
     for( my $i = 0; $i < scalar( @distances ); $i++ ) {
       unless( $name eq $seqNames[ $i ] ) {					
+        if( $distances[ $i ] eq '-' ) { # This means the sequences are nonoverlapping (eg right half and left half)
+          next; # We just don't include these in the calculation.  PhyML pairwise diffs exclude gaps.
+        }
         $pwDistHashRef->{ $name }->{ $seqNames[ $i ] } =
           $distances[ $i ];
       }

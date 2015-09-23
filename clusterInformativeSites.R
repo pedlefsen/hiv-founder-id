@@ -5,7 +5,8 @@ library( "dynamicTreeCut" ) # for "cutreeDynamic"
 # Cluster the input sequences using Hamming distance and UPGMA, cutting the tree using "dynamic tree cutting" and use this to create cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.
 # Optionally provide an additional alignment with the same sequence names, for wich we will create analogous cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.  Note that the names might have changed slightly - we will assume the sequences are in the same order and use this second file for the names to output if the file is present.
 # if output.dir is null, output dirs will gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
-clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, output.dir = NULL ) {
+# If force.one.cluster is TRUE, won't actually cluster - will just put all seqs in "cluster 0".
+clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, output.dir = NULL, force.one.cluster = FALSE ) {
 
   insites.fasta.file.path <-
       gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
@@ -19,7 +20,6 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
   }
   
   in.fasta <- read.dna( insites.fasta.file, format = "fasta" );
-
   if( !is.null( full.fasta.file ) ) {
       full.fasta.file.path <-
           gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
@@ -32,23 +32,54 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
           full.output.dir = output.dir;
       }
       full.fasta <- read.dna( full.fasta.file, format = "fasta" );
-      ## Fix labels.  Assuming input orders are the same.
-      rownames( in.fasta ) <- rownames( full.fasta );
   } else {
       full.fasta <- NULL;
   }
-  
-  # Using Hamming distance.
-  in.dist <- dist.dna( in.fasta, model = "raw" );
-  
-  dendro <- hclust( in.dist, method = "average" ); # UPGMA
-  
-  clusters <-
-      cutreeDynamic(
-          dendro, cutHeight = NULL, minClusterSize = 2,
-          method = "hybrid", distM = as.matrix( in.dist )
-      );
-  names( clusters ) <- dendro$labels;
+
+  if( is.null( dim( in.fasta ) ) ) {
+    # No informative sites.  That's ok. But it means effectively we force one cluster.
+    force.one.cluster <- 1;
+    if( !is.null( full.fasta ) ) {
+      in.fasta <- full.fasta;
+    } else {
+      in.fasta <- NULL;
+    }
+  } else if( !is.null( full.fasta ) ) {
+    ## Fix labels.  Assuming input orders are the same.
+    rownames( in.fasta ) <- rownames( full.fasta );
+  }
+
+  if( force.one.cluster ) {
+    # All in "cluster 0"
+    clusters <- rep( 0, nrow( in.fasta ) );
+    names( clusters ) <- rownames( in.fasta );
+  } else if( !is.null( in.fasta ) ) {
+    # Cluster, using Hamming distance as the distance metric, UPGMA, and dynamic tree cutting.
+    # The pairwise.deletion = TRUE argument is necessary so that columns with any gaps are not removed.
+    # The second call adds in the count of sites with gap differences
+    # (gap in one sequence but not the other), which are not included
+    # in the first call's "raw" count. Adding them back in, we are
+    # effectively treating those as differences.
+
+    in.dist <- dist.dna( in.fasta, model = "raw", pairwise.deletion = TRUE );
+    in.dist[ is.nan( in.dist ) ] <- 0;
+    in.dist <- in.dist + dist.dna( in.fasta, model = "indel", pairwise.deletion = TRUE ); 
+    if( any( is.null( in.dist ) ) || any( is.na( in.dist ) ) || any( !is.finite( in.dist ) ) ) {
+      ## TODO: REMOVE
+      warning( "UH OH got illegal distance value" );
+      print( "UH OH got illegal distance value" );
+      print( in.dist );
+    }
+    dendro <- hclust( in.dist, method = "average" ); # UPGMA
+    clusters <-
+        cutreeDynamic(
+            dendro, cutHeight = NULL, minClusterSize = 2,
+            method = "hybrid", distM = as.matrix( in.dist )
+        );
+    names( clusters ) <- dendro$labels;
+  } else {
+    die( "There are no sequences to work with; if there are no informative sites then you must supply the full alignment fasta file, and set force.one.cluster to TRUE." );
+  }
   
   #clusters <- sort( clusters );
   
@@ -97,14 +128,21 @@ output.dir <- Sys.getenv( "clusterInformativeSites_outputDir" ); # if null, glea
 if( output.dir == "" ) {
     output.dir <- NULL;
 }
+force.one.cluster <- Sys.getenv( "clusterInformativeSites_forceOneCluster" ); # don't actually cluster?
+if( force.one.cluster == "" ) {
+    force.one.cluster <- FALSE;
+} else {
+    force.one.cluster <- TRUE;
+}
 ## TODO: REMOVE
 # warning( paste( "insites alignment input file:", insites.fasta.file ) );
 # warning( paste( "original alignment input file:", original.fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
+# warning( paste( "force one cluster?", force.one.cluster ) );
 
 if( file.exists( insites.fasta.file ) ) {
     if( is.null( original.fasta.file ) || file.exists( original.fasta.file ) ) {
-        print( clusterSequences( insites.fasta.file, original.fasta.file, output.dir ) );
+        print( clusterSequences( insites.fasta.file, original.fasta.file, output.dir, force.one.cluster ) );
     } else if( !is.null( original.fasta.file ) ) {
         stop( paste( "File does not exist:", original.fasta.file ) );
     }

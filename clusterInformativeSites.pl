@@ -19,28 +19,31 @@ use Text::Wrap; # for wrap
 $Text::Wrap::columns = 72;# TODO: DEHACKIFY MAGIC #
 
 use strict;
-use vars qw( $opt_D $opt_V );
+use vars qw( $opt_D $opt_V $opt_f );
 use vars qw( $VERBOSE $DEBUG );
 
 sub clusterInformativeSites {
   @ARGV = @_;
 
   sub clusterInformativeSites_usage {
-    print "\tclusterInformativeSites [-DV] <input_fasta_filename> <informativeSites.txt> [<output dir>]\n";
+    print "\tclusterInformativeSites [-DVf] <input_fasta_filename> <informativeSites.txt> [<output dir>]\n";
     exit;
   }
 
-  # This means -D, -V are ok, but nothin' else.
+  # This means -D, -V, and -f are ok, but nothin' else.
+  # opt_f means don't actually cluster them; instead put them all into one cluster ("cluster 0").
   # opt_D means print debugging output.
   # opt_V means be verbose.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V ) = ();
-  if( not getopts('DV') ) {
+  ( $opt_D, $opt_V, $opt_f ) = ();
+  if( not getopts('DVf') ) {
     clusterInformativeSites_usage();
   }
   
   $DEBUG ||= $opt_D;
   $VERBOSE ||= $opt_V;
+
+  my $force_one_cluster = $opt_f;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -85,8 +88,9 @@ sub clusterInformativeSites {
   my $seq;
   while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
   
-    ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
-
+    #( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+    chomp( $line ); # Actually we don't want to remove trailing tabs...
+    
     if( $DEBUG ) {
       print "LINE: $line\n";
     }
@@ -97,8 +101,13 @@ sub clusterInformativeSites {
   
     if( $VERBOSE ) { print "."; }
   
-    @fields = split "\t", $line;
-  
+    @fields = split( "\t", $line, -1 ); # The -1 means no limit, which forces inclusion of flanking empty fields.
+
+    ## NOTE that there is a bug (as of September, 2015) in the inSites
+    ## code online, in which flanking gaps are not printed in the
+    ## output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
+    @fields = map { if( $_ =~ /^\s*$/ ) { '-' } else { $_ } } @fields;
+    
     if( $DEBUG ) {
       print $fields[ 0 ], ": ";
       print join( "\t", @fields[ 4..$#fields ] ), "\n";
@@ -153,7 +162,10 @@ sub clusterInformativeSites {
     @seq_as_list = @{ $seqs{ $seq_name } };
 
     unless( scalar( @seq_as_list ) == $alignment_length ) {
-      die( "alignment length error: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
+      print( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
+      print( ">Consensus\n", join( "", @consensus_as_list ), "\n" );
+      print( ">$seq_name\n", join( "", @seq_as_list ), "\n" );
+      die( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
     }
     for( my $i = 0; $i < scalar( @seq_as_list ); $i++ ) {
       if( $seq_as_list[ $i ] eq '.' ) {
@@ -175,8 +187,13 @@ sub clusterInformativeSites {
 
   if( $VERBOSE ) {
     print "Calling R to cluster informative sites..";
+    if( $force_one_cluster ) {
+      print( "Forcing one cluster..\n" );
+    } else {
+      print( "Clustering..\n" );
+    }
   }
-  my $R_output = `export clusterInformativeSites_inputFilename="$insites_fasta_file"; echo \$clusterInformativeSites_inputFilename; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; echo \$clusterInformativeSites_originalFastaFilename; export clusterInformativeSites_outputDir="$output_dir"; echo \$clusterInformativeSites_outputDir; R -f clusterInformativeSites.R --vanilla --slave`;
+  my $R_output = `export clusterInformativeSites_forceOneCluster="$force_one_cluster"; export clusterInformativeSites_inputFilename="$insites_fasta_file"; echo \$clusterInformativeSites_inputFilename; export clusterInformativeSites_originalFastaFilename="$original_fasta_filename"; echo \$clusterInformativeSites_originalFastaFilename; export clusterInformativeSites_outputDir="$output_dir"; echo \$clusterInformativeSites_outputDir; R -f clusterInformativeSites.R --vanilla --slave`;
 
   print( $R_output );
 
