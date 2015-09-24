@@ -137,14 +137,14 @@ sub identify_founders {
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $mean_diversity_threshold = 0.001;
     my $in_sites_ratio_threshold = 0.20;
-    my $force_one_cluster = 0;
+    my $force_one_cluster = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       print( "DIVERSITY THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 1;
+      $force_one_cluster = 0;
     }
     if( $in_sites_stat > $in_sites_ratio_threshold ) {
       print( "RATIO THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 1;
+      $force_one_cluster = 0;
     }
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
