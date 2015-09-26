@@ -72,33 +72,8 @@ sub runInSitesOnline {
     $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
   # Remove the trailing "/" if any
   if( defined( $output_path_dir ) ) {
-    ( $output_path_dir ) = ( $output_path_dir =~ /^(.+)\/*$/ );
+    ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
   }
-  make_path( $output_path_dir );
-
-    ## HACK: make sure there are no bangs in the input file (since there are, right now).
-    if( 1 ) {
-      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-      if( $input_fasta_file_contents =~ /\!/ ) {
-        if( $VERBOSE ) {
-          print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps\n" );
-        }
-        $input_fasta_file_contents =~ s/\!/-/g;
-        # Now write it out to a temporary location in the output dir.
-        $input_fasta_file_path = $output_path_dir;
-        $input_fasta_file = "$input_fasta_file_path/$input_fasta_file_short";
-        if( $VERBOSE ) {
-          print( "Writing out fixed input file \"$input_fasta_file\".." );
-        }
-        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
-        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
-            warn "Unable to open output file \"$input_fasta_file\": $!\n";
-            return 1;
-          }
-        print input_fasta_fileFH $input_fasta_file_contents;
-        close( input_fasta_fileFH );
-      }
-    }
 
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://indra.mullins.microbiol.washington.edu/DIVEIN/insites.html" );

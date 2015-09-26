@@ -13,7 +13,8 @@
 ##      Note that this creates output files in subdirectories named
 ##      after the input fasta file name (unless you specify an output dir).
 ##
-##      Try: perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
+##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
+##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
 ##      
 ###******************************************************************************
 
@@ -114,6 +115,34 @@ sub identify_founders {
     } else {
       $output_path_dir_for_input_fasta_file =
         $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
+    }
+    # remove trailing "/"
+    ( $output_path_dir_for_input_fasta_file ) = ( $output_path_dir_for_input_fasta_file =~ /^(.*[^\/])\/*$/ );
+
+    ## HACK: make sure there are no bangs in the input file (since there are, right now).
+    if( 1 ) {
+      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+      if( $input_fasta_file_contents =~ /\!/ ) {
+        if( $VERBOSE ) {
+          print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps\n" );
+          ## TODOL REMOVE
+          print( $output_path_dir_for_input_fasta_file );
+        }
+        $input_fasta_file_contents =~ s/\!/-/g;
+        # Now write it out to a temporary location in the output dir.
+        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        if( $VERBOSE ) {
+          print( "Writing out fixed input file \"$input_fasta_file\".." );
+        }
+        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
+        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
+            warn "Unable to open output file \"$input_fasta_file\": $!\n";
+            return 1;
+          }
+        print input_fasta_fileFH $input_fasta_file_contents;
+        close( input_fasta_fileFH );
+      }
     }
 
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
