@@ -218,12 +218,12 @@ sub runPhyML {
     for( $i = 0; $i < scalar( @seqNames ); $i++ ) {	# print distance between same group
       $firstName = $seqNames[ $i ];
       if( !defined( $pwDistHashRef->{ $firstName } ) ) {
-        warn "Error: no distance values from $firstName\n"
+        warn "Warning: no distance values from $firstName\n"
       } else {
         for( $j = ( $i + 1 ); $j < scalar( @seqNames ); $j++ ) {
           $secondName = $seqNames[ $j ];
           if( !defined( $pwDistHashRef->{ $firstName }->{ $secondName } ) ) {
-            warn "Error: no distance value between $firstName and $secondName\n"
+            warn "Warning: no distance value between $firstName and $secondName\n"
           } else {
             push @diversity, $pwDistHashRef->{ $firstName }->{ $secondName };
             print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";

@@ -1,5 +1,6 @@
-library("ape") # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
-library( "seqinr" ) # for "as.alignment", "consensus"
+library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
+library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
+library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 library( "dynamicTreeCut" ) # for "cutreeDynamic"
 
 # Cluster the input sequences using Hamming distance and UPGMA, cutting the tree using "dynamic tree cutting" and use this to create cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.
@@ -36,7 +37,7 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       full.fasta <- NULL;
   }
 
-  if( is.null( dim( in.fasta ) ) ) {
+  if( length( in.fasta ) == 0 ) {
     # No informative sites.  That's ok. But it means effectively we force one cluster.
     force.one.cluster <- 1;
     if( !is.null( full.fasta ) ) {
@@ -46,7 +47,12 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     }
   } else if( !is.null( full.fasta ) ) {
     ## Fix labels.  Assuming input orders are the same.
-    rownames( in.fasta ) <- rownames( full.fasta );
+    if( is.null( dim( full.fasta ) ) ) {
+      # Note that apparently InSites only uses the first 1000, so the insites alignment can be shorter than the full one.
+      rownames( in.fasta ) <- names( full.fasta )[ 1:nrow( in.fasta ) ];
+    } else {
+      rownames( in.fasta ) <- rownames( full.fasta )[ 1:nrow( in.fasta ) ];
+    }
   }
 
   if( force.one.cluster ) {
@@ -70,6 +76,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       print( "UH OH got illegal distance value" );
       print( in.dist );
     }
+      ## TODO: REMOVE
+      #print( dim( in.dist ) );
     dendro <- hclust( in.dist, method = "average" ); # UPGMA
     clusters <- suppressWarnings(
         cutreeDynamic(
