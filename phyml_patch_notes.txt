@@ -32,3 +32,10 @@ and recompile. That should do the trick.
 Regards,
 
 -Stephane Guindon-
+
+### Paul adds, to remove the 4000 sequence limit from phyml_matrixonly:
+In file utilities.h, raise the limit from 4K to eg 100K:
+149c149
+< #define  N_MAX_OTU         100000
+---
+> #define  N_MAX_OTU           4000
