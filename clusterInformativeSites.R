@@ -11,6 +11,9 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
 
   insites.fasta.file.path <-
       gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
+  if( insites.fasta.file.path == insites.fasta.file ) {
+      insites.fasta.file.path <- ".";
+  }
   insites.fasta.file.short <-
       gsub( "^.*?\\/([^\\/]+)$", "\\1", insites.fasta.file );
 
