@@ -94,6 +94,9 @@ sub identify_founders {
   if( $VERBOSE ) {
     $extra_flags .= "-V ";
   }
+
+  # First remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
+  
   # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
@@ -145,6 +148,23 @@ sub identify_founders {
       }
     }
 
+    if( $VERBOSE ) {
+      print "Calling R to remove hypermutated sequences..";
+    }
+    my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
+    my $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+#    if( $VERBOSE ) {
+      print( "The number of hypermutated sequences removed is: $R_output" );
+#    }
+    # Now use the output from that..
+    $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+    $input_fasta_file_short = "${input_fasta_file_short}.removeHypermutatedSequences.fasta";
+    $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    
+    if( $VERBOSE ) {
+      print ".done.\n";
+    }
+    
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
@@ -165,16 +185,20 @@ sub identify_founders {
 
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $mean_diversity_threshold = 0.001;
-    my $in_sites_ratio_threshold = 0.20;
+    my $in_sites_ratio_threshold = 0.75;
     my $force_one_cluster = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
-      print( "DIVERSITY THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 0;
+      if( $in_sites_stat > $in_sites_ratio_threshold ) {
+        print( "DIVERSITY THRESHOLD EXCEEDED\n" );
+        print( "RATIO THRESHOLD EXCEEDED TOO\n" );
+        $force_one_cluster = 0;
+      } else {
+        print( "diversity threshold exceeded\n" );
+      }
+    } elsif( $in_sites_stat > $in_sites_ratio_threshold ) {
+        print( "ratio threshold exceeded\n" );
     }
-    if( $in_sites_stat > $in_sites_ratio_threshold ) {
-      print( "RATIO THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 0;
-    }
+
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
