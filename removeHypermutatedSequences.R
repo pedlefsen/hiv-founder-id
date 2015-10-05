@@ -54,9 +54,9 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
               num.potential.mut <- num.potential.mut + 1;
               #if( ( as.character( .consensus[ window.start.i + 0 ] ) == "g" ) && ( as.character( .consensus[ window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( .consensus[ window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
               if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) { # don't enforce context in reference sequence
-                  print( window.start.i );
-                  print( as.character( in.fasta[ seq.i, window.start.i + 0:2 ] ) );
-                  print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
+                  #print( window.start.i );
+                  #print( as.character( in.fasta[ seq.i, window.start.i + 0:2 ] ) );
+                  #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
                   num.mut <- num.mut + 1;
               }
           }
@@ -66,9 +66,9 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
               num.potential.control <- num.potential.control + 1;
               #if( ( as.character( .consensus[ window.start.i + 0 ] ) == "g" ) && ( as.character( .consensus[ window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( .consensus[ window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
               if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) { # don't enforce context in reference sequence
-                  print( window.start.i );
-                  print( as.character( in.fasta[ seq.i, window.start.i + 0:2 ] ) );
-                  print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
+                  #print( window.start.i );
+                  #print( as.character( in.fasta[ seq.i, window.start.i + 0:2 ] ) );
+                  #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
                   num.control <- num.control + 1;
               }
           }
@@ -83,7 +83,8 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   for( seq.i in 1:nrow( in.fasta ) ) {
     p.value <- compute.hypermut2.p.value( seq.i );
     if( p.value < p.value.threshold ) {
-        print( paste( "Excluding", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." ) );
+        ## TODO: REMOVE
+        warning( paste( "Excluding", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." ) );
         exclude.sequence[ seq.i ] <- TRUE;
     }
   } # End foreach seq.i

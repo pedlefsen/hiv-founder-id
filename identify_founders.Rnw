@@ -26,6 +26,18 @@ source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util
 old.continue.option <- options( continue = " " )
 @ 
 
+\section{Code TODOs}
+\begin{itemize}
+  \item Add calls to PFitter.R to get tests for star-like phylogeny, plus timing estimations (formatteddays has est and CI)
+    \begin{itemize}
+      \item use distance computation from clusterInformativeSites.R
+      \item try calling separately on putative founder clusters (does each founder appear Poisson?).
+     \end{itemize}
+  \item Try recursion after a single cut, as an alternative to the full cutting using dynamicTreeCut.
+  \item Add BEAST.
+  \item Add comparison to distribution of clade-similar seqs in curated LANL alignment (see Morgane and Josh\'s method)
+\end{itemize}
+
 \section{Background on methods}
 
 \subsection{Founder identification}
@@ -578,8 +590,9 @@ data is in synmut: synmut/data/longitudinal/Shankarappa/
 
 
 \subsection{Recombination detection}
-% http://web.cbio.uct.ac.za/~darren/rdp.html
+See http://www.bioinf.manchester.ac.uk/recombination/programs.shtml
 
+% http://web.cbio.uct.ac.za/~darren/rdp.html
 RDP4 \cite[martin2015rdp4] is a program that runs multiple recombination-detection algorithms.
 
 Ireen E. Kiwelu's article \cite{Kiwelu:2012aa} describes recombination detection across subtypes using RIP and REGA, and SimPlot.
