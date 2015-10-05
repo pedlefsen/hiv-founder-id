@@ -31,7 +31,7 @@ use vars qw( $VERBOSE $DEBUG );
 # For now I'm not actually running the trainer, just using the given alignment to make a profile (hmmer-style).
 use constant PROFILLIC_EXECUTABLE => "profillic/dist/profillic_DNA_CQA";
 use constant ALIGNEDFASTATOPROFILE_EXECUTABLE => "profuse/dist/alignedFastaToProfile_DNA";
-use constant PROFILETOALIGNMENTPROFILE_EXECUTABLE => "profuse/dist/profileToAlignmentProfile_AA";
+use constant PROFILETOALIGNMENTPROFILE_EXECUTABLE => "profuse/dist/profileToAlignmentProfile_DNA";
 
 ## ERE I AM HAVE TO SET IT UP NOT WORRYING ABOUT PROFILLIC (training) JUST YET
 Readonly my %PROFILLIC_OPTIONS => (
@@ -124,7 +124,7 @@ sub runProfillic {
     print( join( ' ', @alignedfastatoprofile_cmd ), "\n" );
   }
   # run it; redirect STDOUT and STDERR
-  system( join( ' ', @alignedfastatoprofile_cmd ) . "1>$alignedfastatoprofileOutFile 2>$alignedfastatoprofileErrFile" );
+  system( join( ' ', @alignedfastatoprofile_cmd ) . " 1>$alignedfastatoprofileOutFile 2>$alignedfastatoprofileErrFile" );
   if( $VERBOSE ) {
     print( "Done running AlignedFastaToProfile." );
   }
@@ -139,7 +139,7 @@ sub runProfillic {
   ## STEP 4: Create an ungapped version
   ## TODO: DEHACKIFY! Here we are lazily not protecting the sequence names from also losing dashes.
   my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-  my $ungapped_fasta_file_contents = ( $input_fasta_file_contents =~ s/-//g );
+  $input_fasta_file_contents =~ s/-//g;
   
   # Now write it out to a temporary location in the output dir.
   my $ungapped_fasta_file = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ungapped${input_fasta_file_suffix}";
@@ -151,7 +151,7 @@ sub runProfillic {
     warn "Unable to open output file \"$ungapped_fasta_file: $!\n";
     return 1;
     }
-  print ungapped_fasta_fileFH $ungapped_fasta_file_contents;
+  print ungapped_fasta_fileFH $input_fasta_file_contents;
   close( ungapped_fasta_fileFH );
     
   ## STEP 5: Ensure the profile is at a/the maximum-likelihood point.
@@ -167,7 +167,7 @@ sub runProfillic {
                '--starting_profile', $starting_profile_file,
                '--even_starting_profile_multiple', $PROFILLIC_OPTIONS{ "even_starting_profile_multiple" },
                '--random_seed', $PROFILLIC_OPTIONS{ "random_seed" }
-    );
+      );
     
     # Run Profillic
     if( $VERBOSE ) {
@@ -175,7 +175,7 @@ sub runProfillic {
       print( join( ' ', @profillic_cmd ), "\n" );
     }
     # run it; redirect STDOUT and STDERR
-    system( join( ' ', @profillic_cmd ) . "1>$profillicOutFile 2>$profillicErrFile" );
+    system( join( ' ', @profillic_cmd ) . " 1>$profillicOutFile 2>$profillicErrFile" );
     if( $VERBOSE ) {
       print( "Done running Profillic." );
     }
@@ -206,16 +206,16 @@ sub runProfillic {
     print( join( ' ', @profiletoalignmentprofile_cmd ), "\n" );
   }
   # run it; redirect STDOUT and STDERR
-  system( join( ' ', @profiletoalignmentprofile_cmd ) . "1>$profiletoalignmentprofileOutFile 2>$profiletoalignmentprofileErrFile" );
+  system( join( ' ', @profiletoalignmentprofile_cmd ) . " 1>$profiletoalignmentprofileOutFile 2>$profiletoalignmentprofileErrFile" );
   if( $VERBOSE ) {
     print( "Done running profileToAlignmentProfile." );
   }
-  if( -s $profiletoalignmentprofileErrFile ) {
+  if( $VERBOSE && ( -s $profiletoalignmentprofileErrFile ) ) {
     open ERR, $profiletoalignmentprofileErrFile;
     my @lines = <ERR>;
     my $errMsg = join('', @lines);
     close ERR;
-    die( "Error running profileToAlignmentProfile: $errMsg" );
+    die( "STDERR while running profileToAlignmentProfile:\n$errMsg" );
   }
 
   if( $VERBOSE ) {

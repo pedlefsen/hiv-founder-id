@@ -16,6 +16,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     }
     fasta.file.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file, perl = TRUE );
+    fasta.file.short.nosuffix <-
+        gsub( "^([^\\.]+)(\\..+)?$", "\\1", fasta.file.short, perl = TRUE );
+    fasta.file.short.suffix <-
+        gsub( "^([^\\.]+)(\\..+)?$", "\\2", fasta.file.short, perl = TRUE );
 
   if( is.null( output.dir ) ) {
       output.dir = fasta.file.path;
@@ -87,7 +91,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   out.fasta <- in.fasta[ !exclude.sequence, ];
 
   # Write the subalignment as a fasta file
-  out.fasta.file = paste( output.dir, "/", fasta.file.short, ".removeHypermutatedSequences.fasta", sep = "" );
+  out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeHypermutatedSequences", fasta.file.short.suffix, sep = "" );
 
   write.dna( out.fasta, out.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
     
@@ -106,8 +110,8 @@ if( p.value.threshold == "" ) {
 }
 
 ## TODO: REMOVE
-warning( paste( "alignment input file:", fasta.file ) );
-warning( paste( "output dir:", output.dir ) );
+# warning( paste( "alignment input file:", fasta.file ) );
+# warning( paste( "output dir:", output.dir ) );
 if( file.exists( fasta.file ) ) {
     print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold ) );
 } else {

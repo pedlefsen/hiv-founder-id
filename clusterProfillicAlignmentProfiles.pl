@@ -83,17 +83,11 @@ sub clusterProfillicAlignmentProfiles {
     }
   }
   my $R_output = `export clusterProfillicAlignmentProfiles_forceOneCluster="$force_one_cluster"; export clusterProfillicAlignmentProfiles_alignmentProfileFilesListFilename="$alignment_profile_files_list_file"; export clusterProfillicAlignmentProfiles_fastaFilename="$input_fasta_file"; export clusterProfillicAlignmentProfiles_outputDir="$output_dir"; R -f clusterProfillicAlignmentProfiles.R --vanilla --slave`;
-  # The output has the file name of the consensus file.
-  if( $DEBUG ) {
-    print( "GOT: $R_output\n" );
-  }
+  # The output has the number of clusters.
+  print( $R_output );
+
   if( $VERBOSE ) {
-    print ".done.\n";
-  }
-  # Parse it to get the consensus sequence filename.
-  my ( $consensus_fasta_file ) = ( $R_output =~ /\"([^\"]+)\"/ );
-  if( $DEBUG ) {
-    print "consensus file: $consensus_fasta_file\n";
+    print "\t.done.\n";
   }
     
   if( $VERBOSE ) {
@@ -102,7 +96,7 @@ sub clusterProfillicAlignmentProfiles {
   }
   
   if( $VERBOSE ) {
-    print ".done.\n";
+    print ".Done.\n";
   }
   if( $VERBOSE ) {
     select STDOUT;

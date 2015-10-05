@@ -510,6 +510,9 @@ Recombination analysis. The GARD (www.datamonkey.org/GARD/) (17, 18), RAP Beta v
 
 Modeling the probability of multivariant infection. We have assumed that established infection with a single genotypic variant signifies that a single virus particle was involved in the transmission event and that, in the setting of low probability of transmission, this represents the minimal infectious dose. The Poisson distribution was used to model the frequency of transmission of one, two, or more variants under the assumption that the transmission of each variant occurs with the same probability, i.e., as independent events. A left truncated Poisson model was used (since the zero events, i.e., no transmission, are not observed), and the model fitted to all of the data with a maximum-likelihood method; this then allowed the frequency of zero events to be estimated given the distribution of one, two, etc., variants being detected. A corresponding transmission probability was estimated as the sum of all probabilities for observing one or more variants.
 \end{quote}
+RAP Beta is at http://www.hiv.lanl.gov/content/sequence/RAP/RAP.html
+RAP Beta version
+Purpose: This tool identifies recombinants in a aligned set of nucleotide sequences.
 
 M.-R. Abrahams's article \cite{Abrahams:2009aa} data:
 \begin{quote}
@@ -583,6 +586,7 @@ Ireen E. Kiwelu's article \cite{Kiwelu:2012aa} describes recombination detection
 \begin{quote}
 All DNA sequences (n = 1979) generated in this study were screened for evidence of inter-subtype recombination by the Recombination Identification Program (RIP 3.0) [60] and the REGA HIV-1 Subtyping Tool-Version 2.0 [61]. The identified recombinant viruses were further analyzed for subtype assignment and breakpoints identification by SimPlot software v3.5.1 [62]. The bootscanning method in SimPlot was parameterized with sliding window size of 350 bp, step increment 3 bp, and Kimura 2-parameter distance model for inferring phylogenetic trees by the NJ method. HIV-1 reference subtype sequences retrieved from the Los Alamos HIV Sequence Database were used. Identified breakpoints were visually inspected in BioEdit. To confirm the HIV-1 subtypes in the inter-subtype recombinant viruses, nucleotide sequences on both sides of the breakpoint were analyzed independently by re-constructing phylogenetic trees using the splits at the putatively identified breakpoints.
 \end{quote}
+REGA (http://dbpartners.stanford.edu:8080/RegaSubtyping/stanford-hiv/typingtool/) seems to be more about subtyping than within-host recombination.
 
 The Immonen article \cite{Immonen:2014aa} uses the phi test defined in \cite{Bruen:2006aa} to do recombination detection.
 
@@ -593,6 +597,7 @@ From \cite[Giorgi:2010aa]:
 A Poisson distribution is fitted to the observed pairwise HD distribution using a maximum likelihood method (see \cite{Lee:2009aa} for details). A $\Chi^2$ goodness of fit (GOF) is performed to test whether the HD distribution significantly diverges from a Poisson (small P-values indicate a bad fit). The test takes into account the non-independence of pairwise HD distances by comparing the observed frequencies to the expected ones if the sample were to follow a star phylogeny. Prior to the onset of positive selection, the population is assumed to undergo a rapid expansion during which the basic reproductive number $R0 > 1$. Therefore, when the sample yields a GOF P-value above 0.05 (indicating a non-significant divergence from a Poisson distribution), we can estimate the time since the MRCA using the parameters characterizing intrahost HIV evolution. Following Stafford et al. \cite[stafford2000modeling], we set $R0 = 6$ for acute HIV-1 infection samples. We assume a constant mutation rate across lineages, which we fix at an average value of $\epsilon = 2.16 × 10^{-5}$ per site and per replication cycle. This value has been adjusted from what was originally derived for HIV-1 by Mansky et al. \cite{Mansky:1995aa} by considering only base substitutions and ignoring insertions and deletions. However, it has not been corrected for possible extra purifying selection in vivo. Using these parameters, we use the mean of the fitted Poisson distribution to infer the time since the MRCA \cite{Lee:2009aa}.
 \end{quote}
 
+There is code R for Poisson Fitter! From http://www.hiv.lanl.gov/tmp/POISSON_FITTER/pp429jC8Td/PFitter.R
 From the supplemental information for \cite{Keele:2008aa}:
 \begin{quote}
 We assume a homogeneous infection in
@@ -625,52 +630,8 @@ From \cite{Mansky:1995aa}, we get an estimate of the HIV-1 mutation rate of $3.4
 Although it is widely believed that HIV-1 replication is exceptionally error-prone, we show here that the in vivo forward mutation rate of HIV-1, measured by the inactivation of lacZα, is approximately $1.4 \times 10^{−5}$ mutations/bp/cycle. This rate is approximately 20-fold lower than the in vitro error rate for RT measured using a DNA template (9, 10, 29, 30, 62, 68) and 17-fold lower than the rate measured using an RNA template (29, 30). Our reported mutation rate for HIV-1 in HOS cells is also about 3-fold lower than earlier reported rates in HeLa and CEM cells (42, 46) and is similar to the average rate reported for other retroviruses (1.5 × 10−5 mutations/bp/cycle) (69). ... This suggests that our measured mutation rate may be 2- to 3-fold lower than the actual overall mutation rate. The mutation rate of HIV-1 was previously determined, using different constraints, to be $3.4 \times 10^{−5}$ mutations/bp/cycle (46). When the rate was recalculated using the 174-nt target, the mutation rate was $2.4 \times 10^{−5}$ mutations/bp/cycle, which is similar to our result (for details, see Text S3 and Table S3 in the supplemental material).
 \end{quote}
 
-Table~\ref{tab:SCRIData.countIS.p.values.by.feature.adjusted.primaryFeatures.cancer} shows the Holm-adjusted p-values of the IS count test evaluating the primary Cancer features in the SCRI data set.
-
-\begin{minipage}{\linewidth}
-\centering
-\par
-\bigskip
-\captionof{table}{\bf SCRI IS counts vs Wang: Holm-adjusted p-values of primary Cancer features} \label{tab:SCRIData.countIS.p.values.by.feature.adjusted.primaryFeatures.cancer}
-<<echo = FALSE, results = tex>>=
-.tab <- as.matrix( SCRIData.countIS.p.values.by.feature.adjusted[ primaryFeatures.cancer ] );
-colnames( .tab ) <- "Holm-adjusted p-value";
-print( xtable( .tab, digits=4 ), floating = FALSE );
-@ 
-\par
-\bigskip
-SCRI IS counts vs Wang: Holm-adjusted p-values of primary Cancer features.
-\par
-\bigskip
-\end{minipage}
- 
-Figure~\ref{fig:SCRIData.countIS.p.value.isCancer} shows the significance of the enrichment of the isCancer feature among SCRI IS counts, by showing where the count of ISs with this feature falls in the null distribution that is obtained by independently drawing the appropriate number of unique ISs from the Wang data set without replacement, maintaining the observed distribution of counts of ISs per uniqueIS. The probability of seeing such an extreme count statistic under the null hypothesis that the isCancer feature has the same abundance among SCRI IS counts as among Wang IS counts is p\Sexpr{prettyPrintPValuesTo4Digits( SCRIData.countIS.p.values.by.feature[ "isCancer" ], " = ", "< " )}.
-
-\begin{minipage}{\linewidth}
-\centering
-\par
-\bigskip
-\captionof{figure}{\bf SCRI IS counts vs Wang: isCancer} \label{fig:SCRIData.countIS.p.value.isCancer}
-<<echo = FALSE, results = hide, fig = TRUE>>=
-.feature <- "isCancer";
-qplot(
-    c( SCRIData.countIS.feature.nulls[[ "total" ]][ , .feature ] ),
-    geom = "histogram",
-    main = "Histogram of null counts", 
-    xlab = "Counts of ISs in genes that are isCancer",  
-    fill=I("blue"), 
-    col=I("black"),
-    alpha=I(.2) ) + aes( y = ..density.. ) + labs( y = "Density" ) + geom_vline( xintercept = SCRIData.num.IS.by.feature[ .feature ], color = "red", linetype = "longdash" );
-@ 
-\par
-\bigskip
-SCRI IS counts vs Wang: isCancer \par
-(p\Sexpr{prettyPrintPValuesTo4Digits( SCRIData.countIS.p.values.by.feature[ "isCancer" ], " = ", "< " )})
-\par
-\bigskip
-\end{minipage}
-
-\clearpage
+\section{Ancestral Sequence Reconstruction}
+There is something called ASR at datamonkey. see http://www.datamonkey.org/help/asr.php
 
 \section*{Acknowledgements}
 Research reported in this document was partially supported by the Bill and Melinda Gates Foundation Award Number OPP1110049.

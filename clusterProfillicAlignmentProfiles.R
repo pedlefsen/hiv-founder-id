@@ -67,6 +67,8 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
           input.output.dir = output.dir;
       }
     input.fasta <- read.dna( input.fasta.file, format = "fasta" );
+    ## ASSUMPTION: same order in input.fasta.file and in the list..
+    names( alignment.profiles.filenames ) <- rownames( input.fasta );
   } else {
       input.fasta <- NULL;
       input.output.dir <- output.dir;
@@ -122,7 +124,7 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
       # Ensure that if there is more than one cluster, they are numbered from 1 (for some reason sometimes they are from 0)
       print( "Multiple clusters." );
       stopifnot( min( clusters ) < 2 ); # I'm assuming it's either 0 or 1:
-      clusters <- clusters + min( clusters );
+      clusters <- clusters + ( 1 - min( clusters ) );
   } else {
       stopifnot( all( clusters == 0 ) );
   }
@@ -132,12 +134,12 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
       # Write the cluster alignment as a fasta file
       ## TODO: REMOVE
       #print( paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
-       write.dna( cluster.input.fasta, paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+       write.dna( cluster.input.fasta, paste( input.output.dir, "/", input.fasta.file.short, ".Profillic_cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
         
         # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
         .input.consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.input.fasta ) ), nrow = 1 ) );
         rownames( .input.consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
-        write.dna( .input.consensus, paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+        write.dna( .input.consensus, paste( input.output.dir, "/", input.fasta.file.short, ".Profillic_cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
   } # End foreach cluster.i
 
   # Return the number of clusters (equivalently the index of the largest cluster)

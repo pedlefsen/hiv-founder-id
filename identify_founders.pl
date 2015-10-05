@@ -16,7 +16,7 @@
 ##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > Abrahams-2009aa-hiv-founder-id_resultDir/identify-founders.out 
-##      
+##      Whynot: mkdir new-Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O new-Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > new-Abrahams-2009aa-hiv-founder-id_resultDir/new-identify-founders.out 
 ###******************************************************************************
 
 use Getopt::Std; # for getopts
@@ -159,13 +159,38 @@ sub identify_founders {
 #    }
     # Now use the output from that..
     $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-    $input_fasta_file_short = "${input_fasta_file_short}.removeHypermutatedSequences.fasta";
+    $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+    ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+      ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
     $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
     
     if( $VERBOSE ) {
       print ".done.\n";
     }
-    
+
+    ## ERE I AM. I must run RAP on LANL, which gives individual
+    ## sequences that are recombinants of other individual sequences,
+    ## allowing those to be flagged for removal just like hypermutated
+    ## ones.
+    my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
+    my $RAP_result_stdout = `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
+      my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \(([^\)]+)\)/ );
+      if( $VERBOSE ) {
+        print "Calling R to remove recombined sequences..";
+      }
+      my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+  #    if( $VERBOSE ) {
+        print( "The number of recombined sequences removed is: $R_output" );
+  #    }
+      # Now use the output from that..
+      $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences_removeRecombinantSequences${input_fasta_file_suffix}";
+      ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+        ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+      $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    } # End if any recombinants were identified.
+   
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
@@ -213,7 +238,7 @@ sub identify_founders {
       my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
       print "Running Profillic..\n";
       my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-      `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file $alignment_profiles_output_files_list_file`;
+      `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
       
       print "Clustering..\n";
       my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
