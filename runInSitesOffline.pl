@@ -25,7 +25,6 @@
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
 use Path::Tiny;
-use DateTime;
 
 use strict;
 use vars qw( $opt_D $opt_V );
@@ -93,8 +92,9 @@ sub runInSitesOffline {
   ##TAH this section emulates the <SUBMIT> action from the insites.cgi script which is
   ##essentially the computational (not display) functions of insites_grp.cgi
     
-  #id is date-time instead of seq. num from divein
-  my $id = $dt->ymd('')."_".$dt->hms('');
+  my $startTime = time();
+  my $rand = int (rand (90)) + 10;
+  my $id = $startTime.$rand;
   my $datatype = "nt";
   my $seqRadio = "fasta";
   my $rsRadio = '';
@@ -106,113 +106,125 @@ sub runInSitesOffline {
   my $seqFileLines = GetFileLines ($seqFile_handle);
   # get sequence info such as sequence number, length, array of seq name and array of seq name and sequence
   my $seqInfo = GetSequences ($seqFileLines, $seqRadio);	
+  my $seqNum = shift @$seqInfo;
+  my $seqLen = shift @$seqInfo;
+  my $seqNamesRef = shift @$seqInfo;
+  my $stdNamesRef = shift @$seqInfo;
+  my $uploadDir = $output_path_dir;
+  my $seqNameNseq = shift @$seqInfo;
+  unshift @$seqNameNseq, $seqNum."\t".$seqLen;
 
+  my $seqFile = $uploadDir.'/'.$id;
+  WriteFile ($seqFile, $seqNameNseq);
+   
+  ### Now we simulate insites.cgi, the action of the grpForm form
+  my $uploadSeqFile = $seqFile;
+  my $uploadseqFile = $uploadDir.'/'.$id;
+  my %nameSeq = ();
+  $seqLen = 0;
 
-
-my $seqNum = shift @$seqInfo;
-my $seqLen = shift @$seqInfo;
-my $seqNamesRef = shift @$seqInfo;
-my $stdNamesRef = shift @$seqInfo;
-
-
-
-
-
-
-
-
-
-
-
-  my $result = $mech->submit_form(
-                                  form_name => 'alignmentForm',
-                                  fields    => { local => 'DIVEIN', seqFile => $input_fasta_file, seqRadio => 'fasta', datatype => 'DNA' }
-                       );
-  
-  # Have to submit it again, ie my $result2 = $result->submit();
-  my $content = $mech->content();
-  if( $DEBUG ) {
-    print "OK1, \$content is $content\n";
+  open SEQ, $uploadseqFile or die "couldn't open $uploadseqFile: $!\n";
+  while (my $line = <SEQ>) {
+     chomp $line;
+     next if $line =~ /^\s*$/;
+     if ($line =~ /^\d+\s(\d+)$/) {
+        $seqLen = $1;
+     } else {
+	my ($name, $seq) = split /\t/, $line;
+	$nameSeq{$name} = $seq;
+     }
   }
-  $mech->select('seqName',{n=>[1..1000]});
-  my $result2 = $mech->submit_form(
-     form_name => 'grpForm'
-  );
-  $content = $result2->content();
+  close SEQ;
 
-   #my @links = $mech->find_all_links(
-   #   tag => "a", text_regex => qr/\bdownload\b/i );
-#  my $ua = LWP::UserAgent->new();
-#  my $req = POST 'http://indra.mullins.microbiol.washington.edu/cgi-bin/DIVEIN/insites/insites_grp.cgi',
-#                [ local => 'DIVEIN', seqFile => $input_fasta_file_contents, seqRadio => 'fasta', datatype => 'DNA' ];
-#  my $content = $ua->request( $req )->as_string;
+  $seqNum = 0;
+  my @grpNames = my @grpSeqs = my %seqGrp = ();
 
-  #if( $DEBUG ) {
-    print "OK2\n \$content is $content\n";
-  #}
-  ## ERE I AM!!
-  my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
-  my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
+  my @seqs = $seqNamesRef;
+  push @grpSeqs, \@seqs;
+  $seqNum = scalar @seqs;
+  foreach my $seqName (@seqs) {
+     push @grpSeqs, \@seqs;
+     $seqNum = scalar @seqs;
+     foreach my $seqName (@seqs) {
+        $seqGrp{$seqName} = "default";
+     }
+   }
 
-  # Save all the files to  $output_path_dir
-  #my @links = $mech->find_all_links(
-  #   tag => "a", text_regex => qr/\bdownload\b/i );
+   my @seqNameNseqs = ();
+   for (my $i=0; $i<@grpSeqs; $i++) {
+      foreach my $seqName (@{$grpSeqs[$i]}) {
+         my $nameNseq = $seqName."\t".$nameSeq{$seqName};
+ 	 push @seqNameNseqs, $nameNseq;
+      }
+   }
+   my $refName = "Consensus";
+   my $refSeq = GetConsensus (\@seqNameNseqs, $seqLen);
+   $seqFile = $uploadseqFile."_seq4insites.phy";
+   $seqNum += 1;
+   my $refNameNseq = $refName."\t".$refSeq;
+   unshift @seqNameNseqs, $refNameNseq;
+   unshift @seqNameNseqs, $seqNum."\t".$seqLen;
+   WriteFile ($seqFile, \@seqNameNseqs);
 
-  if( $VERBOSE ) {
-    print "JOB ID IS $job_id\n";
-    if( $no_informative_sites ) {
-      print "NO INFORMATIVE SITES\n";
-    }
-  }
 
-  #return 1;
+   return 1;
+#/  my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
+#/  my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
+#/
+#/  if( $VERBOSE ) {
+#/    print "JOB ID IS $job_id\n";
+#/    if( $no_informative_sites ) {
+#/      print "NO INFORMATIVE SITES\n";
+#/    }
+#/  }
+#/
+#/
+#/  my $privContent = undef;
+#/  $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
+#/  $privContent = $mech->content();
+#/
+#/  while( !defined( $privContent ) || $content =~ /No such file/ ) {
+#/    sleep( 1 );
+#/    print( "trying again to get the private sites file" );
+#/    $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
+#/    $privContent = $mech->content();
+#/  }
 
-  my $privContent = undef;
-  $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
-  $privContent = $mech->content();
-  #print( "got $privContent" );
-  while( !defined( $privContent ) || $content =~ /No such file/ ) {
-    sleep( 1 );
-    print( "trying again to get the private sites file" );
-    $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
-    $privContent = $mech->content();
-  }
+#/  my $privFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_privateSites.txt";
+#/  if( $VERBOSE ) { print "Opening file \"$privFile\" for writing.."; }
+#/  unless( open privFileFH, ">$privFile" ) {
+#/      warn "Unable to open output file \"$privFile\": $!\n";
+#/      return 1;
+#/    }
+#/  print privFileFH $privContent;
+#/  close( privFileFH );
+#/  if( $VERBOSE ) { print ".done\n"; }
+#/
+#/  my $informativeSitesContent = "";
+#/  if( $no_informative_sites ) {
+#/    $informativeSitesContent = "";
+#/  } else {
+#/    $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
+#/    $informativeSitesContent = $mech->content();
+#/    print( "got $informativeSitesContent" );
+#/    while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
+#/      print( "trying again to get the informative sites file." );
+#/      sleep( 1 );
+#/      $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
+#/      $informativeSitesContent = $mech->content();
+#/    }
+#/  }
 
-  my $privFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_privateSites.txt";
-  if( $VERBOSE ) { print "Opening file \"$privFile\" for writing.."; }
-  unless( open privFileFH, ">$privFile" ) {
-      warn "Unable to open output file \"$privFile\": $!\n";
-      return 1;
-    }
-  print privFileFH $privContent;
-  close( privFileFH );
-  if( $VERBOSE ) { print ".done\n"; }
-
-  my $informativeSitesContent = "";
-  if( $no_informative_sites ) {
-    $informativeSitesContent = "";
-  } else {
-    $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-    $informativeSitesContent = $mech->content();
-    print( "got $informativeSitesContent" );
-    while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
-      print( "trying again to get the informative sites file." );
-      sleep( 1 );
-      $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-      $informativeSitesContent = $mech->content();
-    }
-  }
-
-  my $informativeSitesFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";
-  if( $VERBOSE ) { print "Opening file \"$informativeSitesFile\" for writing.."; }
-  unless( open informativeSitesFileFH, ">$informativeSitesFile" ) {
-      warn "Unable to open output file \"$informativeSitesFile\": $!\n";
-      return 1;
-    }
+#/  my $informativeSitesFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";
+#/  if( $VERBOSE ) { print "Opening file \"$informativeSitesFile\" for writing.."; }
+#/  unless( open informativeSitesFileFH, ">$informativeSitesFile" ) {
+#/      warn "Unable to open output file \"$informativeSitesFile\": $!\n";
+#/      return 1;
+#/    }
   ## NOTE that there is a bug (as of September, 2015) in the inSites code online, in which flanking gaps are not printed in the output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
-  print informativeSitesFileFH $informativeSitesContent;
-  close( informativeSitesFileFH );
-  if( $VERBOSE ) { print ".done\n"; }
+#/  print informativeSitesFileFH $informativeSitesContent;
+#/  close( informativeSitesFileFH );
+#/  if( $VERBOSE ) { print ".done\n"; }
 
   if( $VERBOSE ) {
     select STDOUT;
@@ -252,89 +264,302 @@ sub CleanString {
 }
 
 # stolen and modified from Divein.pm
-# de-CGIed, and saving only the code pertinent to fasta files
-# TAH 9/15
+# toDo
+# save only the code pertinent to fasta files
+# TAH 10/15
 # usage: <info-structure> = GetSequences(<raw file lines array>,<file type code>)
 sub GetSequences {
-   if ($seqFileRadio ne "fasta") die "This program only deals with fasta files\n";
-   my ($seqFileLines, $seqFileRadio) = @_;
-   my ($seqName, %seqNameStatus, @seqNames, @stdnameNseqs, @seqInfo, %nameSeq, %countName);
-   my $seqNum = my $seqLen = my $seqCount = my $nexusFlag = my $phylipFlag = 
-      my $seqStartFlag = my $ntaxFlag = my $ncharFlag = my $fastSeqFlag = my $count =
-         0;
-   my fastaFlag = 1;
-   
-   foreach my $line (@$seqFileLines) {
-      next if $line =~ /^\s*$/;  #skip blank lines
-      $line = CleanString ($line);
-      if ($line !~ /^>/) die "Bad FASTA file.  First non-blank line doesn't start with a >";
-      if ($line =~ /^>(\S+)/) {#first line of a new sequence
-         $seqCount++;
-	 $seqNum = $seqCount;
-	 $seqName = $1;
-	 push @seqNames, $seqName;
-	 $fastSeqFlag = 0;
-      }else { #sequence lines of current sequence
-	 $line =~ s/\s//g;	# remove spaces that may be in sequences
-	 unless ($line =~ /^[A-Za-z\-\.\?]+$/) {
-	    my @nas = split //, $line;
-	    foreach my $na (@nas) {
-	       unless ($na =~ /[A-Za-z\-\.\?]/) {
-	          die "Error: couldn't recognize character $na in sequence $seqName. Please check the sequence file.";
-	       }
-	    }								
-	 }
-	 if (!$fastSeqFlag) {
-	    $nameSeq{$seqName} = "";
-	    $fastSeqFlag = 1;
-	 }
-	 $nameSeq{$seqName} .= $line;				
-      }
-    }
-    $seqLen = length $nameSeq{$seqNames[0]};	# set alignment length to be the length of first sequence
-#   print "length: $seqLen<br>";
-    if (!@seqNames) die "Error: Couldn't get sequence names from the input sequence file. Please check the sequence file.\n";
-    my %seqNamesHash;
-    foreach my $seqName (@seqNames) {
-       my $ciName = uc $seqName;
-       # name is case-insensitive, because hyphy treats lower- and upper-case same
-       if (!$seqNamesHash{$ciName}) {
-          $seqNamesHash{$ciName} = 1;
-       }else {
-          die "Error: At least two sequences have the same name of $seqName in sequence alignment file. It may be caused by the space(s) in sequence name or case-insensitve of the name.\nPlease check your input sequence file to make sure the unique sequence name or no space in sequence name.\n";
-       }		
-    }
-    if ($seqCount != $seqNum) {
-       die "Error: Number of sequences is not equal to pre-defined sequence number of $seqNum in your uploaded sequence alignment file. 
-		It may caused by the duplicated sequence names in your alignment. Please check the sequence number or remove the duplicates and upload your file again.\n";
-    }
-    foreach my $seqName (@seqNames) {	# check each sequence length in the alignment
-       if (length $nameSeq{$seqName} != $seqLen) {						
-          die "Error: Lengths of sequences are not same among the alignment. It may caused by the duplicated sequence names in your alignment. \nPlease check your input sequence file to make sure that sequences are aligned or there are no duplicates.\n";
-       }
-    }
-    my @stdSeqNames;
-    foreach my $seqName (@seqNames) {
-       my $seq = $nameSeq{$seqName};
-       my $stdName = $seqName;
-       $stdName =~ s/\W/_/g;	# replace non-letters with "_"
-       my $stdnameNseq = $stdName."\t".$seq;
-       push @stdnameNseqs, $stdnameNseq;
-       push @stdSeqNames, $stdName;
-    }
-    push @seqInfo, $seqNum, $seqLen, \@seqNames, \@stdSeqNames, \@stdnameNseqs;
-    return \@seqInfo;
+	my ($seqFileLines, $seqFileRadio) = @_;
+	my ($seqName, %seqNameStatus, @seqNames, @stdnameNseqs, @seqInfo, %nameSeq, %countName);
+	my $seqNum = my $seqLen = my $seqCount = my $nexusFlag = my $phylipFlag = my $fastaFlag = my $seqStartFlag = my $ntaxFlag = my $ncharFlag = my $fastSeqFlag = my $count = 0;
+	foreach my $line (@$seqFileLines) {
+		next if $line =~ /^\s*$/;
+		$line = CleanString ($line);
+		if ($seqFileRadio eq "nexus") {
+			if ($nexusFlag == 0 && $line =~ /^\#NEXUS$/i) {
+				$nexusFlag = 1;	
+			}elsif ($nexusFlag) {
+				if($line =~ /NTAX=(\d+)/i) {	# handled the case that ntax and nchar are not in the same line
+					$seqNum = $1;
+					$ntaxFlag = 1;
+				}
+				if($line =~ /NCHAR=(\d+)/i) {	# handled the case that ntax and nchar are not in the same line
+					$seqLen = $1;
+					$ncharFlag = 1;
+				}
+				if ($line =~ /^MATRIX$/i) {
+					$seqStartFlag = 1;
+				}elsif ($line =~ /^\;$/) {
+					$seqStartFlag = 0;
+					if (!$ntaxFlag) {
+						$seqNum = $seqCount;
+					}
+				}elsif ($seqStartFlag) {
+					unless ($line =~ /^\[\s+/) {	# ignore the line beginning with [
+						$line =~ s/\[\d+\]$// if ($line =~ /\[\d+\]$/);	# remove [\d+] on the end of line
+						if ($line =~ /^(\S+)\s+(.*)$/) {	# requires no space in sequence names, there could be spaces in sequences
+							
+							my $seqName = $1;
+							my $seq = $2;
+							$seq =~ s/\s//g;	# remove spaces that may be in sequences
+							unless ($seq =~ /^[A-Za-z\-\.\?]+$/) {
+								my @nas = split //, $seq;
+								foreach my $na (@nas) {
+									unless ($na =~ /[A-Za-z\-\.\?]/) {
+										print "<p>Error: couldn't recognize character $na in sequence $seqName. Please check the sequence file.</p>";
+										PrintFooter();
+									}
+								}								
+							}
+											
+							if (!$seqNameStatus{$seqName}) {
+								push @seqNames, $seqName;
+								$seqNameStatus{$seqName} = 1;
+								$nameSeq{$seqName} = '';
+								$seqCount++;
+							}else {
+								#print "<p>$seqName</p>";
+							}
+							
+							$nameSeq{$seqName} .= $seq;
+						}
+					} 				
+				}
+			}else {
+				print "<p>The upload sequence file is not a nexus file. The nexus file must start with #NEXUS. Please check the file and upload again.</p>";
+				PrintFooter();
+			}
+		}elsif ($seqFileRadio eq "phylip" || $seqFileRadio eq "example") {	# phylip file
+			if ($phylipFlag == 0 && $line =~ /^\s*(\d+)\s+(\d+)/) {
+				$seqNum = $1;
+				$seqLen = $2;
+				$phylipFlag = 1;
+			}elsif ($phylipFlag) {
+				if ($count < $seqNum) {
+					$line =~ /^(\S+)\s+(.*)$/;	# requires no space in sequence names, there could be spaces in sequences
+					my $seqName = $1;
+					my $seq = $2;
+					$seq =~ s/\s//g;	# remove spaces that may be in sequences
+					unless ($seq =~ /^[A-Za-z\-\.\?]+$/) {
+						my @nas = split //, $seq;
+						foreach my $na (@nas) {
+							unless ($na =~ /[A-Za-z\-\.\?]/) {
+								print "<p>Error: couldn't recognize character $na in sequence $seqName. Please check the sequence file.</p>";
+								PrintFooter();
+							}
+						}								
+					}
+					push @seqNames, $seqName;
+					$countName{$count} = $seqName;
+					$nameSeq{$seqName} = $seq;
+					$seqCount++;
+				}else {	# interleaved 
+					my $index = $count % $seqNum;
+					$line =~ s/\s//g;	# remove all spaces, the line only contains sequence
+					my $seqName = $countName{$index};
+					$nameSeq{$seqName} .= $line;
+				}				
+				$count++;
+			}else {
+				print "<p>The upload sequence file is not a phylip file. Please check the file and upload again.</p>";
+				PrintFooter();
+			}
+		}else {	# fasta file, the code can handle both interval and sequential formats
+			if (!$fastaFlag) {	# check for fasta format
+				if ($line !~ /^>/) {
+					print "<p>The upload sequence file is not a fasta file. Please check the file and upload again.</p>";
+					PrintFooter();
+				}else {
+					$fastaFlag = 1;
+				}	
+			}
+			
+			if ($line =~ /^>(\S+)/) {
+				$seqCount++;
+				$seqNum = $seqCount;
+				$seqName = $1;
+				push @seqNames, $seqName;
+				$fastSeqFlag = 0;
+			}else {
+				$line =~ s/\s//g;	# remove spaces that may be in sequences
+				unless ($line =~ /^[A-Za-z\-\.\?]+$/) {
+					my @nas = split //, $line;
+					foreach my $na (@nas) {
+						unless ($na =~ /[A-Za-z\-\.\?]/) {
+							print "<p>Error: couldn't recognize character $na in sequence $seqName. Please check the sequence file.</p>";
+							PrintFooter();
+						}
+					}								
+				}
+				if (!$fastSeqFlag) {
+					$nameSeq{$seqName} = "";
+					$fastSeqFlag = 1;
+				}
+				$nameSeq{$seqName} .= $line;				
+			}
+		}
+	}
+	
+	if ($seqFileRadio eq "nexus") {
+		if (!$seqNum && !$seqLen) {
+			print "<p>Error: Couldn't get information of pre-defined sequnece number and length. It is probably caused by missing statement of dimensions 
+			in your nexus file. Please check the sequence file.</p>";
+			PrintFooter();
+		}
+	}elsif ($seqFileRadio eq "fasta") {
+		$seqLen = length $nameSeq{$seqNames[0]};	# set alignment length to be the length of first sequence
+	}
+#	print "length: $seqLen<br>";
+	if (!@seqNames) {
+		print "<p>Error: Couldn't get sequence names from the input sequence file. Please check the sequence file.</p>";
+		PrintFooter();
+	}else {
+		my %seqNamesHash;
+		foreach my $seqName (@seqNames) {
+			#if (length $seqName > 30) {	# check length of sequence name, when compile PhyML, user can set it. now set to maximum 30 characters
+			#	print "<p>Error: The length of sequence name exceeds the maximum length of 30 characters.</p>";
+			#	PrintFooter();
+			#}
+			my $ciName = uc $seqName;
+			# name is case-insensitive, because hyphy treats lower- and upper-case same
+			if (!$seqNamesHash{$ciName}) {
+				$seqNamesHash{$ciName} = 1;
+			}else {
+				print "<p>Error: At least two sequences have the same name of $seqName in sequence alignment file. It may be caused by the space(s) in sequence name or case-insensitve of the name. ";
+				print "Please check your input sequence file to make sure the unique sequence name or no space in sequence name.</p>";
+				PrintFooter();
+			}		
+		}
+	}
+	
+	if ($seqCount != $seqNum) {
+		print "<p>Error: Number of sequences is not equal to pre-defined sequence number of $seqNum in your uploaded sequence alignment file. 
+		It may caused by the duplicated sequence names in your alignment. Please check the sequence number or remove the duplicates and upload your file again.</p>";
+		PrintFooter();
+	}
+	
+	foreach my $seqName (@seqNames) {	# check each sequence length in the alignment
+		if (length $nameSeq{$seqName} != $seqLen) {						
+			print "<p>Error: Lengths of sequences are not same among the alignment. It may caused by the duplicated sequence names in your alignment. ";
+			print "Please check your input sequence file to make sure that sequences are aligned or there are no duplicates.</p>";
+			PrintFooter();
+		}
+	}
+	
+	my @stdSeqNames;
+	foreach my $seqName (@seqNames) {
+		my $seq = $nameSeq{$seqName};
+		my $stdName = $seqName;
+		$stdName =~ s/\W/_/g;	# replace non-letters with "_"
+		my $stdnameNseq = $stdName."\t".$seq;
+		push @stdnameNseqs, $stdnameNseq;
+		push @stdSeqNames, $stdName;
+	}
+	
+#	my $seqNumNLen = $seqNum."\t".$seqLen;
+#	unshift @stdnameNseqs, $seqNumNLen;	
+#	my $datasize = $seqNum * $seqLen;
+	push @seqInfo, $seqNum, $seqLen, \@seqNames, \@stdSeqNames, \@stdnameNseqs;
+	return \@seqInfo;
 }
 
 
+## Stolen directly from Divein.pm
+## TAH 10/1/15
+sub WriteFile {
+   my ($uploadFile, $fileLines) = @_;
+   open OUT, ">$uploadFile" or die "couldn't open $uploadFile: $!\n";
+   foreach my $line (@$fileLines) {
+      print OUT $line,"\n";
+   }
+   close OUT;
+}
 
+## Stolen directly from Divein.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub GetConsensus {
+	my ($seqNameNseq, $nchar) = @_;
+	my (@seqNames, $seqArr);
+	my $element = scalar @$seqNameNseq;
+	for (my $i = 0; $i < $element; $i++) {
+		my ($seqName, $seq) = split /\t/, $seqNameNseq->[$i];
+		push @seqNames, $seqName;
+		$seq = uc $seq;
+		my $beginFlag = my $terminalFlag = 0;
+		my $nameNformatedseq = $seqName."\t";
+		for (my $j = 0; $j < $nchar; $j++) {
+			my $aa = substr($seq, $j, 1);				
+			# deal with leading gaps
+			if ($j == 0 && $aa eq "-") {
+				$beginFlag = 1;
+				$aa = " ";
+			}elsif ($beginFlag == 1 && $aa eq "-") {
+				$aa = " ";
+			}elsif ($aa ne "-") {
+				$beginFlag = 0;
+			}
+			# deal with termianl gaps
+			if (substr ($seq, $j) =~ /^\-+$/) {
+				$terminalFlag = 1;
+			}
+			if ($terminalFlag == 1) {
+				$aa = " ";
+			}
+			
+			if ($i == 0) {
+				$seqArr->[$i]->[$j] = $aa;
+			}else {				
+				if ($aa eq ".") {
+					$seqArr->[$i]->[$j] = $seqArr->[0]->[$j];
+				}else {
+					$seqArr->[$i]->[$j] = $aa;
+				}
+			}
+		}
+	}
+	my @consAas;
+	for (my $i = 0; $i < $nchar; $i++) {
+		my %aaCount;
+		my $blankCount = 0;
+		for (my $j = 0; $j < $element; $j++) {
+			my $aa = $seqArr->[$j]->[$i];
+			unless ($aa eq "?") {
+				if ($aa eq " ") {	# leading or ending gaps
+					$blankCount++;
+				}else {
+					if (!$aaCount{$aa}) {
+						$aaCount{$aa} = 0;
+					}
+					$aaCount{$aa}++;
+				}			
+			}
+		}
+		
+		my $consAa;
+		if ($blankCount == $element) {
+			$consAa = "-";
+		}else {
+			my $flag = 0;		
+			foreach my $aa (keys %aaCount) {			
+				if (!$flag) {
+					$consAa = $aa;
+					$flag = 1;
+				}else {
+					if ($aaCount{$aa} > $aaCount{$consAa}) {
+						$consAa = $aa;
+					}
+				}
+			}
+		}		
+		push @consAas, $consAa;
+	}
+	my $cons = join("", @consAas);
+	return $cons;
+}
 
-
-
-
-
-
-runInSitesOnline( @ARGV );
+runInSitesOffline( @ARGV );
 
 1;
 
