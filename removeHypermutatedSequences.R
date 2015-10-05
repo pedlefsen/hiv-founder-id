@@ -8,13 +8,14 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 ## Returns the number of hypermutated (and therefore removed) sequences.
 removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1 ) {
 
-  fasta.file.path <-
-      gsub( "^(.*?)\\/[^\\/]+$", "\\1", fasta.file );
-  if( fasta.file.path == fasta.file ) {
-      fasta.file.path <- ".";
-  }
-  fasta.file.short <-
-      gsub( "^.*?\\/([^\\/]+)$", "\\1", fasta.file );
+    if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
+        fasta.file.path <- ".";
+    } else {
+        fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", fasta.file );
+    }
+    fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file, perl = TRUE );
 
   if( is.null( output.dir ) ) {
       output.dir = fasta.file.path;

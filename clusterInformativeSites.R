@@ -9,31 +9,39 @@ library( "dynamicTreeCut" ) # for "cutreeDynamic"
 # If force.one.cluster is TRUE, won't actually cluster - will just put all seqs in "cluster 0".
 clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, output.dir = NULL, force.one.cluster = FALSE ) {
 
-  insites.fasta.file.path <-
-      gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
-  if( insites.fasta.file.path == insites.fasta.file ) {
-      insites.fasta.file.path <- ".";
-  }
-  insites.fasta.file.short <-
-      gsub( "^.*?\\/([^\\/]+)$", "\\1", insites.fasta.file );
+    if( length( grep( "^(.*?)\\/[^\\/]+$", insites.fasta.file ) ) == 0 ) {
+        insites.fasta.file.path <- ".";
+    } else {
+        insites.fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
+    }
+    insites.fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", insites.fasta.file, perl = TRUE );
 
   if( is.null( output.dir ) ) {
-      insites.output.dir = insites.fasta.file.path;
+      insites.output.dir <- insites.fasta.file.path;
   } else {
-      insites.output.dir = output.dir;
+    ## Remove "/" from end of output.dir
+      output.dir <-
+          gsub( "^(.*?)\\/+$", "\\1", output.dir );
+      insites.output.dir <- output.dir;
   }
   
   in.fasta <- read.dna( insites.fasta.file, format = "fasta" );
   if( !is.null( full.fasta.file ) ) {
-      full.fasta.file.path <-
-          gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
-      full.fasta.file.short <-
-          gsub( "^.*?\\/([^\\/]+)$", "\\1", full.fasta.file );
+    if( length( grep( "^(.*?)\\/[^\\/]+$", full.fasta.file ) ) == 0 ) {
+        full.fasta.file.path <- ".";
+    } else {
+        full.fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
+    }
+    full.fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", full.fasta.file, perl = TRUE );
     
       if( is.null( output.dir ) ) {
-          full.output.dir = full.fasta.file.path;
+          full.output.dir <- full.fasta.file.path;
       } else {
-          full.output.dir = output.dir;
+          full.output.dir <- output.dir;
       }
       full.fasta <- read.dna( full.fasta.file, format = "fasta" );
   } else {

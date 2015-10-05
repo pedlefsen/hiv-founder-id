@@ -207,6 +207,20 @@ sub identify_founders {
     my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     # Print out the number of clusters
     print "Number of founders: $num_clusters\n\n";
+
+    ## Now try it the more profillic way.
+    if( !$force_one_cluster ) {
+      my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
+      print "Running Profillic..\n";
+      my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
+      `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file $alignment_profiles_output_files_list_file`;
+      
+      print "Clustering..\n";
+      my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+      # Print out the number of clusters
+      print "Number of profillic clusters: $num_profillic_clusters\n";
+    }
+      
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {

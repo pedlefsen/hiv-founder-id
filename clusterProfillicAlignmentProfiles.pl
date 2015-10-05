@@ -7,8 +7,7 @@
 ##  Description:
 ##      Script for using Profile HMMs to cluster sequences.
 ##      By default it writes the output to
-##      stdout; use -o to write to a file.  Note that this calls profillic's
-##      profileToAlignmentProfile_DNA program (which must be in your path)
+##      stdout; use -o to write to a file.  Note that this calls runProfillic.pl
 ##      to create a file of alignment profiles.  This file is then broken into
 ##      input-sequence-specfiic alignment profile files. And then this
 ##      calls out to the R script clusterProfillicAlignmentProfiles.R.
@@ -23,11 +22,12 @@ use strict;
 use vars qw( $opt_D $opt_V $opt_f );
 use vars qw( $VERBOSE $DEBUG );
 
+
 sub clusterProfillicAlignmentProfiles {
   @ARGV = @_;
 
   sub clusterProfillicAlignmentProfiles_usage {
-    print "\tclusterProfillicAlignmentProfiles [-DVf] <input_fasta_filename> <profillic_DNA.prof> [<output dir>]\n";
+    print "\tclusterProfillicAlignmentProfiles [-DVf] <input_fasta_filename> <profillic_alignment_profile_files_list_file> [<output dir>]\n";
     exit;
   }
 
@@ -53,151 +53,54 @@ sub clusterProfillicAlignmentProfiles {
     $| = 1; # Autoflush.
   }
 
-  my $original_fasta_filename = shift @ARGV || clusterProfillicAlignmentProfiles_usage();
-
-  my $informative_sites_file = shift @ARGV || clusterProfillicAlignmentProfiles_usage();
-  my ( $informative_sites_file_path, $informative_sites_file_short ) =
-    ( $informative_sites_file =~ /^(.*?)\/([^\/]+)$/ );
-  unless( $informative_sites_file_short ) {
-    $informative_sites_file_short = $informative_sites_file;
-    $informative_sites_file_path = ".";
+  my $input_fasta_file = shift @ARGV || clusterProfillicAlignmentProfiles_usage();
+  my ( $input_fasta_file_path, $input_fasta_file_short ) =
+    ( $input_fasta_file =~ /^(.*?)\/([^\/]+)$/ );
+  unless( $input_fasta_file_short ) {
+    $input_fasta_file_short = $input_fasta_file;
+    $input_fasta_file_path = ".";
   }
 
-  my $output_dir = shift @ARGV || $informative_sites_file_path;
+  my $alignment_profile_files_list_file = shift @ARGV || clusterProfillicAlignmentProfiles_usage();
+  
+  my $output_dir = shift @ARGV || $input_fasta_file_path;
   # Remove the trailing "/" if any
   if( defined( $output_dir ) ) {
     ( $output_dir ) = ( $output_dir =~ /^(.*[^\/])\/*$/ );
   }
 
   if( $VERBOSE ) { print "Output will be written in directory \"$output_dir\".."; }
-
-  if( $VERBOSE ) { print "Opening file \"$informative_sites_file\".."; }
-  
-  unless( open( INFORMATIVE_SITES_FILE_FH, $informative_sites_file ) ) {
-    warn "Unable to open informative_sites_file file \"$informative_sites_file\": $!";
-    return 1;
+  if( !-e $output_dir ) {
+    `mkdir $output_dir`;
   }
-  
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Reading informative sites file.."; }
-  my ( $line );
-  my %seqs;
-  my @fields;
-  my @seqorder;
-  my @seq_as_list;
-  my $seq;
-  while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
-  
-    #( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
-    chomp( $line ); # Actually we don't want to remove trailing tabs...
-    
-    if( $DEBUG ) {
-      print "LINE: $line\n";
-    }
-  
-    next unless $line;
-    next if $line =~ /^\s/;
-    last if $line =~ /^Alignment/;
-  
-    if( $VERBOSE ) { print "."; }
-  
-    @fields = split( "\t", $line, -1 ); # The -1 means no limit, which forces inclusion of flanking empty fields.
-
-    ## NOTE that there is a bug (as of September, 2015) in the inSites
-    ## code online, in which flanking gaps are not printed in the
-    ## output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
-    @fields = map { if( $_ =~ /^\s*$/ ) { '-' } else { $_ } } @fields;
-    
-    if( $DEBUG ) {
-      print $fields[ 0 ], ": ";
-      print join( "\t", @fields[ 4..$#fields ] ), "\n";
-    }
-    push @seqorder, $fields[ 0 ];
-    $seqs{ $fields[ 0 ] } = [ @fields[ 4..$#fields ] ];
-  }
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Closing file \"$informative_sites_file\".."; }
-  close INFORMATIVE_SITES_FILE_FH;
-  if( $VERBOSE ) { print ".done.\n"; }
-
-  # Maybe there are no informative sites.  We are just done, then.
-  my $insites_fasta_file = "";
-  if( !scalar( @seqorder ) ) {
-    $force_one_cluster = 1;
-    $insites_fasta_file = $original_fasta_filename;
-  } else {
-    # Ok, great.  Now, for all entries, replace '.' with the consensus value.
-    unless( $seqorder[ 0 ] eq 'Consensus' ) {
-      die( "First sequence is not 'Consensus' it is instead '$seqorder[ 0 ]'" );
-    }
-  
-    shift @seqorder; # Remove `Consensus`
-    
-    if( $DEBUG ) {
-      print "Sequences: ", join( ", ", @seqorder ), "\n";
-    }
-  
-    my @consensus_as_list = @{ $seqs{ "Consensus" } };
-    my $alignment_length = scalar( @consensus_as_list );
-    delete $seqs{ "Consensus" };
-  
-    $insites_fasta_file =
-      "${output_dir}/${informative_sites_file_short}.fasta";
-    if( $VERBOSE ) { print "Opening file \"$insites_fasta_file\" for writing.."; }
-    unless( open INSITES_FASTA_FH, ">$insites_fasta_file" ) {
-      warn "Unable to open insites_fasta file \"$insites_fasta_file\": $!";
-      return 1;
-    }
-    if( $VERBOSE ) { print ".done.\n"; }
-  
-    if( $VERBOSE ) {
-      print "Printing alignment of informative sites..";
-    }
-    my $seq_wrapped;
-    foreach my $seq_name ( @seqorder ) {
-      if( $DEBUG ) {
-        print $seq_name, "\n";
-      }
-      @seq_as_list = @{ $seqs{ $seq_name } };
-  
-      unless( scalar( @seq_as_list ) == $alignment_length ) {
-        print( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
-        print( ">Consensus\n", join( "", @consensus_as_list ), "\n" );
-        print( ">$seq_name\n", join( "", @seq_as_list ), "\n" );
-        die( "Alignment length error in inSites file $insites_fasta_file: got " . scalar( @seq_as_list ) . ", expected $alignment_length" );
-      }
-      for( my $i = 0; $i < scalar( @seq_as_list ); $i++ ) {
-        if( $seq_as_list[ $i ] eq '.' ) {
-          $seq_as_list[ $i ] = $consensus_as_list[ $i ];
-        }
-      }
-      $seq = join "", @seq_as_list;
-      
-      # add newlines / wraparound to $seq
-      $seq_wrapped = wrap( '', '',  $seq );
-      print INSITES_FASTA_FH "> $seq_name\n$seq_wrapped\n";
-    } # End foreac $seq_name
-    
-    if( $VERBOSE ) { print ".done.\n"; }
-    
-    if( $VERBOSE ) { print "Closing file \"$insites_fasta_file\".."; }
-    close INSITES_FASTA_FH;
-    if( $VERBOSE ) { print ".done.\n"; }
-  } # End if there are no informative sites .. else ..
 
   if( $VERBOSE ) {
-    print "Calling R to cluster informative sites..";
+    print "Calling R to cluster the alignment profiles..";
     if( $force_one_cluster ) {
       print( "Forcing one cluster..\n" );
     } else {
       print( "Clustering..\n" );
     }
   }
-  my $R_output = `export clusterProfillicAlignmentProfiles_forceOneCluster="$force_one_cluster"; export clusterProfillicAlignmentProfiles_inputFilename="$insites_fasta_file"; export clusterProfillicAlignmentProfiles_originalFastaFilename="$original_fasta_filename"; export clusterProfillicAlignmentProfiles_outputDir="$output_dir"; R -f clusterProfillicAlignmentProfiles.R --vanilla --slave`;
-  print( $R_output );
-
+  my $R_output = `export clusterProfillicAlignmentProfiles_forceOneCluster="$force_one_cluster"; export clusterProfillicAlignmentProfiles_alignmentProfileFilesListFilename="$alignment_profile_files_list_file"; export clusterProfillicAlignmentProfiles_fastaFilename="$input_fasta_file"; export clusterProfillicAlignmentProfiles_outputDir="$output_dir"; R -f clusterProfillicAlignmentProfiles.R --vanilla --slave`;
+  # The output has the file name of the consensus file.
+  if( $DEBUG ) {
+    print( "GOT: $R_output\n" );
+  }
+  if( $VERBOSE ) {
+    print ".done.\n";
+  }
+  # Parse it to get the consensus sequence filename.
+  my ( $consensus_fasta_file ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  if( $DEBUG ) {
+    print "consensus file: $consensus_fasta_file\n";
+  }
+    
+  if( $VERBOSE ) {
+    select STDOUT;
+    $| = $old_autoflush;
+  }
+  
   if( $VERBOSE ) {
     print ".done.\n";
   }

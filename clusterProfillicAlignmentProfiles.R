@@ -1,8 +1,12 @@
+library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
+library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
+library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 library( "dynamicTreeCut" ) # for "cutreeDynamic"
 
 # This extracts the matrix of data from the alignment profile file; note that whenn we convert the strings to R floats we lose the infinite precision floats that profillic has (so we lose precision near 0)
 getProfillicAlignmentProfile <- function ( alignment.profile.file ) {
 
+  alignment.profile.file <- gsub( "^\\s*?(.+)\\s*?$", "\\1", alignment.profile.file, perl = TRUE ); # Remove extraneous whitespace
   alignment.profile.file.path <-
       gsub( "^(.*?)\\/[^\\/]+$", "\\1", alignment.profile.file );
   if( alignment.profile.file.path == alignment.profile.file ) {
@@ -45,34 +49,42 @@ getProfillicAlignmentProfile <- function ( alignment.profile.file ) {
 # OK; Now do a slew.  All calcaulated using the same profile, so all having the same dimensions.
 # span.range.threshold controls the fraction of sites that will be used, based that fraction of the the range of the spans.
 # default hclust.method is "average" for UPGMA. see help( "hclust" )
-clusterProfillicAlignmentProfiles <- function ( alignment.profile.filenames, full.fasta.file = NULL, output.dir = NULL, force.one.cluster = FALSE, span.range.threshold = 0.01, dist.method = "euclidean", hclust.method = "average" ) {
+clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, input.fasta.file = NULL, output.dir = NULL, force.one.cluster = FALSE, span.range.threshold = 0.01, dist.method = "euclidean", hclust.method = "average" ) {
     
-  if( !is.null( full.fasta.file ) ) {
-      full.fasta.file.path <-
-          gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
-      full.fasta.file.short <-
-          gsub( "^.*?\\/([^\\/]+)$", "\\1", full.fasta.file );
+  if( !is.null( input.fasta.file ) ) {
+    if( length( grep( "^(.*?)\\/[^\\/]+$", input.fasta.file ) ) == 0 ) {
+        input.fasta.file.path <- ".";
+    } else {
+        input.fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", input.fasta.file );
+    }
+    input.fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", input.fasta.file, perl = TRUE );
     
       if( is.null( output.dir ) ) {
-          full.output.dir = full.fasta.file.path;
+          input.output.dir = input.fasta.file.path;
       } else {
-          full.output.dir = output.dir;
+          input.output.dir = output.dir;
       }
-      full.fasta <- read.dna( full.fasta.file, format = "fasta" );
+    input.fasta <- read.dna( input.fasta.file, format = "fasta" );
   } else {
-      full.fasta <- NULL;
+      input.fasta <- NULL;
+      input.output.dir <- output.dir;
   }
+  ## Remove "/" from end of output.dir
+  input.output.dir <-
+    gsub( "^(.*?)\\/+$", "\\1", input.output.dir );
       
   if( force.one.cluster ) {
     # All in "cluster 0"
-    clusters <- rep( 0, length( alignment.profile.filenames ) );
-    names( clusters ) <- names( alignment.profile.filenames );
-  } else if( !is.null( in.fasta ) ) {
+    clusters <- rep( 0, length( alignment.profiles.filenames ) );
+    names( clusters ) <- names( alignment.profiles.filenames );
+  } else {
     # Cluster, using the given distance and clustering methods, and with dynamic tree cutting.
-    all.the.alignment.profiles <- lapply( alignment.profile.filenames, getProfillicAlignmentProfile );
-    names( all.the.alignment.profiles ) <- names( alignment.profile.filenames );
+    all.the.alignment.profiles <- lapply( alignment.profiles.filenames, getProfillicAlignmentProfile );
+    names( all.the.alignment.profiles ) <- names( alignment.profiles.filenames );
     if( is.null( names( all.the.alignment.profiles ) ) ) {
-        names( all.the.alignment.profiles ) <- alignment.profile.filenames;
+        names( all.the.alignment.profiles ) <- alignment.profiles.filenames;
     }
 
     # Dumb, for now, try just unlisting them and treating all params the same, for eg euclidean distance
@@ -82,7 +94,7 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profile.filenames, ful
     span.range.threshold.absolute <- ( diff( range( .span ) ) * span.range.threshold ) + base::min( .span );
     .excluded.count <- sum( .span <= span.range.threshold.absolute );
     .excluded.fraction <- mean( .span <= span.range.threshold.absolute );
-    print( paste( "Excluding ", .excluded.count, " (", round( ( .excluded.fraction * 100 ), digits = 2 ), "%) of the sequences because their total spans are below the threshold of ", round( ( span.range.threshold * 100 ), digits = 2 ), "% of the range of spans -- they just don't vary enough to bother with." ) );
+    print( paste( "Excluding ", .excluded.count, " (", round( ( .excluded.fraction * 100 ), digits = 2 ), "%) of the parameters because their total spans are below the threshold of ", round( ( span.range.threshold * 100 ), digits = 2 ), "% of the range of spans -- they just don't vary enough to bother with." ) );
 
     subset.of.the.vectors <- all.the.vectors[ .span > span.range.threshold.absolute, , drop = FALSE ];
     
@@ -103,44 +115,58 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profile.filenames, ful
             method = "hybrid", distM = as.matrix( subset.dist )
         ) );
     names( clusters ) <- dendro$labels;
-  } else {
-    die( "There are no sequences to work with; if there are no informative sites then you must supply the full alignment fasta file, and set force.one.cluster to TRUE." );
   }
     
   # Write out one fasta file for each cluster, and a separate one containing just its consensus sequence.
   if( max( clusters ) - min( clusters ) != 0 ) {
       # Ensure that if there is more than one cluster, they are numbered from 1 (for some reason sometimes they are from 0)
-      cout << "Multiple clusters." << endl;
+      print( "Multiple clusters." );
       stopifnot( min( clusters ) < 2 ); # I'm assuming it's either 0 or 1:
       clusters <- clusters + min( clusters );
   } else {
       stopifnot( all( clusters == 0 ) );
   }
   for( cluster.i in min( clusters ):max( clusters ) ) {
-      cluster.full.fasta <- full.fasta[ names( clusters[ clusters == cluster.i ] ), ];
+      cluster.input.fasta <- input.fasta[ names( clusters[ clusters == cluster.i ] ), ];
   
       # Write the cluster alignment as a fasta file
       ## TODO: REMOVE
-      #print( paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
-       write.dna( cluster.full.fasta, paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+      #print( paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
+       write.dna( cluster.input.fasta, paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
         
         # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
-        .full.consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.full.fasta ) ), nrow = 1 ) );
-        rownames( .full.consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
-        write.dna( .full.consensus, paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+        .input.consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.input.fasta ) ), nrow = 1 ) );
+        rownames( .input.consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
+        write.dna( .input.consensus, paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
   } # End foreach cluster.i
 
   # Return the number of clusters (equivalently the index of the largest cluster)
   return( length( unique( clusters ) ) );
 } # clusterProfillicAlignmentProfiles (..)
 
+readFilenamesFromFile <- function ( input.file ) {
+    return( readLines( input.file, warn = FALSE ) );
+}
+
 ## Here is where the action is.
-alignment.profile.file <- Sys.getenv( "getProfillicAlignmentProfile_inputFilename" ); # output of `profileToAlignmentProfile --individual`
+alignment.profile.files.list.file <- Sys.getenv( "clusterProfillicAlignmentProfiles_alignmentProfileFilesListFilename" ); # list of files containing outputs of `profileToAlignmentProfile --individual`
+fasta.file <- Sys.getenv( "clusterProfillicAlignmentProfiles_fastaFilename" ); # output of `profileToAlignmentProfile --individual`
+output.dir <- Sys.getenv( "clusterProfillicAlignmentProfiles_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
+if( output.dir == "" ) {
+    output.dir <- NULL;
+}
+force.one.cluster <- Sys.getenv( "clusterProfillicAlignmentProfiles_forceOneCluster" ); # don't actually cluster?
+if( force.one.cluster == "" ) {
+    force.one.cluster <- FALSE;
+} else {
+    force.one.cluster <- TRUE;
+}
 
 ## TODO: REMOVE
-warning( paste( "alignment profile input file:", alignment.profile.file ) );
-if( file.exists( alignment.profile.file ) ) {
-    print( getProfillicAlignmentProfile( alignment.profile.file ) );
+warning( paste( "alignment profile files list input file:", alignment.profile.files.list.file ) );
+if( file.exists( alignment.profile.files.list.file ) ) {
+    alignment.profiles.files.list <- readFilenamesFromFile( alignment.profile.files.list.file );
+    print( clusterProfillicAlignmentProfiles( alignment.profiles.files.list, fasta.file, output.dir, force.one.cluster ) );
 } else {
-    stop( paste( "File does not exist:", alignment.profile.file ) );
+    stop( paste( "File does not exist:", alignment.profiles.files.list.file ) );
 }
