@@ -52,24 +52,7 @@ sub getInSitesStat {
 
   ## Sometimes this file is missing, because there are no informative sites.  We take "-" to indicate this condition.
   my $informative_sites_file = shift @ARGV || getInSitesStat_usage();
-  my ( $informative_sites_file_path, $informative_sites_file_short ) =
-    ( $informative_sites_file =~ /^(.*?)\/([^\/]+)$/ );
-  unless( $informative_sites_file_short ) {
-    $informative_sites_file_short = $informative_sites_file;
-    $informative_sites_file_path = ".";
-  }
-  my ( $informative_sites_file_short_nosuffix, $informative_sites_file_suffix ) =
-    ( $informative_sites_file_short =~ /^([^\.]+)(\..+)?$/ );
-
   my $private_sites_file = shift @ARGV || getInSitesStat_usage();
-  my ( $private_sites_file_path, $private_sites_file_short ) =
-    ( $private_sites_file =~ /^(.*?)\/([^\/]+)$/ );
-  unless( $private_sites_file_short ) {
-    $private_sites_file_short = $private_sites_file;
-    $private_sites_file_path = ".";
-  }
-  my ( $private_sites_file_short_nosuffix, $private_sites_file_suffix ) =
-    ( $private_sites_file_short =~ /^([^\.]+)(\..+)?$/ );
 
   my $informative_no_gaps = 0; # default for when informative sites file is empty
   if( $informative_sites_file eq '-' ) {

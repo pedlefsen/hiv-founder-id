@@ -1,4 +1,7 @@
 I found this on https://groups.google.com/forum/#!topic/phyml-forum/yeIwFkwsI8c posted 4/16/2014:
+[And then I modified it so that the phyml program exits after printing
+the matrix and therefore doesn't even create a tree; makes it faster,
+and all we need for hiv-founder-id is the matrix.]
 
 In the function Dist_And_BioNJ (in utilities.c) replace the following block of
 instructions:
@@ -16,6 +19,10 @@ with
   tree      = mat->tree;
   tree->mat = mat;
   Print_Mat(mat);
+  // Paul added this to skip making the tree, just output the distance
+  // matrix and exit.  When compiling with this, phyml should be
+  // renamed eg to phyml_matrixonly 
+  Warn_And_Exit("");
 
   return tree;
 <<
@@ -25,3 +32,10 @@ and recompile. That should do the trick.
 Regards,
 
 -Stephane Guindon-
+
+### Paul adds, to remove the 4000 sequence limit from phyml_matrixonly:
+In file utilities.h, raise the limit from 4K to eg 100K:
+149c149
+< #define  N_MAX_OTU         100000
+---
+> #define  N_MAX_OTU           4000

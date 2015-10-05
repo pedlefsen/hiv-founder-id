@@ -13,8 +13,10 @@
 ##      Note that this creates output files in subdirectories named
 ##      after the input fasta file name (unless you specify an output dir).
 ##
-##      Try: perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
-##      
+##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
+##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
+##      Or: mkdir Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > Abrahams-2009aa-hiv-founder-id_resultDir/identify-founders.out 
+##      Whynot: mkdir new-Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O new-Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > new-Abrahams-2009aa-hiv-founder-id_resultDir/new-identify-founders.out 
 ###******************************************************************************
 
 use Getopt::Std; # for getopts
@@ -93,6 +95,9 @@ sub identify_founders {
   if( $VERBOSE ) {
     $extra_flags .= "-V ";
   }
+
+  # First remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
+  
   # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
@@ -115,7 +120,83 @@ sub identify_founders {
       $output_path_dir_for_input_fasta_file =
         $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
     }
+    # remove trailing "/"
+    ( $output_path_dir_for_input_fasta_file ) = ( $output_path_dir_for_input_fasta_file =~ /^(.*[^\/])\/*$/ );
 
+    ## HACK: make sure there are no bangs in the input file (since there are, right now).
+    if( 1 ) {
+      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+      if( $input_fasta_file_contents =~ /\!/ ) {
+        if( $VERBOSE ) {
+          print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps\n" );
+          ## TODOL REMOVE
+          print( $output_path_dir_for_input_fasta_file );
+        }
+        $input_fasta_file_contents =~ s/\!/-/g;
+        # Now write it out to a temporary location in the output dir.
+        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        if( $VERBOSE ) {
+          print( "Writing out fixed input file \"$input_fasta_file\".." );
+        }
+        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
+        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
+            warn "Unable to open output file \"$input_fasta_file\": $!\n";
+            return 1;
+          }
+        print input_fasta_fileFH $input_fasta_file_contents;
+        close( input_fasta_fileFH );
+      }
+    }
+
+    if( $VERBOSE ) {
+      print "Calling R to remove hypermutated sequences..";
+    }
+    my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
+    my $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+#    if( $VERBOSE ) {
+      print( "The number of hypermutated sequences removed is: $R_output" );
+#    }
+    # Now use the output from that..
+    $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+    $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+    ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+      ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+    $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    
+    if( $VERBOSE ) {
+      print ".done.\n";
+    }
+
+    ## ERE I AM. I must run RAP on LANL, which gives individual
+    ## sequences that are recombinants of other individual sequences,
+    ## allowing those to be flagged for removal just like hypermutated
+    ## ones.
+    my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
+    if( $VERBOSE ) {
+      print "Running RAP at LANL to compute recombined sequences..";
+    }
+    my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    if( $VERBOSE ) {
+      print "\tdone. Got $RAP_result_stdout\n";
+    }
+    if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
+      my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
+      if( $VERBOSE ) {
+        print "Calling R to remove recombined sequences..";
+      }
+      my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+      if( $VERBOSE ) {
+        print( "\tdone. The number of recombined sequences removed is: $R_output" );
+      }
+      # Now use the output from that..
+      $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
+      ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+        ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+      $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    } # End if any recombinants were identified.
+   
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
@@ -136,16 +217,20 @@ sub identify_founders {
 
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $mean_diversity_threshold = 0.001;
-    my $in_sites_ratio_threshold = 0.20;
+    my $in_sites_ratio_threshold = 0.85;
     my $force_one_cluster = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
-      print( "DIVERSITY THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 0;
+      if( $in_sites_stat > $in_sites_ratio_threshold ) {
+        print( "DIVERSITY THRESHOLD EXCEEDED\n" );
+        print( "RATIO THRESHOLD EXCEEDED TOO\n" );
+        $force_one_cluster = 0;
+      } else {
+        print( "diversity threshold exceeded\n" );
+      }
+    } elsif( $in_sites_stat > $in_sites_ratio_threshold ) {
+        print( "ratio threshold exceeded\n" );
     }
-    if( $in_sites_stat > $in_sites_ratio_threshold ) {
-      print( "RATIO THRESHOLD EXCEEDED\n" );
-      $force_one_cluster = 0;
-    }
+
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
@@ -153,6 +238,20 @@ sub identify_founders {
     my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     # Print out the number of clusters
     print "Number of founders: $num_clusters\n\n";
+
+    ## Now try it the more profillic way.
+    if( !$force_one_cluster ) {
+      my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
+      print "Running Profillic..\n";
+      my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
+      `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+      
+      print "Clustering..\n";
+      my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+      # Print out the number of clusters
+      print "Number of profillic clusters: $num_profillic_clusters\n";
+    }
+      
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {

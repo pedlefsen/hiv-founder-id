@@ -1,5 +1,6 @@
-library("ape") # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
-library( "seqinr" ) # for "as.alignment", "consensus"
+library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
+library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
+library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 library( "dynamicTreeCut" ) # for "cutreeDynamic"
 
 # Cluster the input sequences using Hamming distance and UPGMA, cutting the tree using "dynamic tree cutting" and use this to create cluster-specific subalignment fasta files and cluster subalignment consensus fasta files.
@@ -8,35 +9,46 @@ library( "dynamicTreeCut" ) # for "cutreeDynamic"
 # If force.one.cluster is TRUE, won't actually cluster - will just put all seqs in "cluster 0".
 clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, output.dir = NULL, force.one.cluster = FALSE ) {
 
-  insites.fasta.file.path <-
-      gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
-  insites.fasta.file.short <-
-      gsub( "^.*?\\/([^\\/]+)$", "\\1", insites.fasta.file );
+    if( length( grep( "^(.*?)\\/[^\\/]+$", insites.fasta.file ) ) == 0 ) {
+        insites.fasta.file.path <- ".";
+    } else {
+        insites.fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", insites.fasta.file );
+    }
+    insites.fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", insites.fasta.file, perl = TRUE );
 
   if( is.null( output.dir ) ) {
-      insites.output.dir = insites.fasta.file.path;
+      insites.output.dir <- insites.fasta.file.path;
   } else {
-      insites.output.dir = output.dir;
+    ## Remove "/" from end of output.dir
+      output.dir <-
+          gsub( "^(.*?)\\/+$", "\\1", output.dir );
+      insites.output.dir <- output.dir;
   }
   
   in.fasta <- read.dna( insites.fasta.file, format = "fasta" );
   if( !is.null( full.fasta.file ) ) {
-      full.fasta.file.path <-
-          gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
-      full.fasta.file.short <-
-          gsub( "^.*?\\/([^\\/]+)$", "\\1", full.fasta.file );
+    if( length( grep( "^(.*?)\\/[^\\/]+$", full.fasta.file ) ) == 0 ) {
+        full.fasta.file.path <- ".";
+    } else {
+        full.fasta.file.path <-
+            gsub( "^(.*?)\\/[^\\/]+$", "\\1", full.fasta.file );
+    }
+    full.fasta.file.short <-
+        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", full.fasta.file, perl = TRUE );
     
       if( is.null( output.dir ) ) {
-          full.output.dir = full.fasta.file.path;
+          full.output.dir <- full.fasta.file.path;
       } else {
-          full.output.dir = output.dir;
+          full.output.dir <- output.dir;
       }
       full.fasta <- read.dna( full.fasta.file, format = "fasta" );
   } else {
       full.fasta <- NULL;
   }
 
-  if( is.null( dim( in.fasta ) ) ) {
+  if( length( in.fasta ) == 0 ) {
     # No informative sites.  That's ok. But it means effectively we force one cluster.
     force.one.cluster <- 1;
     if( !is.null( full.fasta ) ) {
@@ -46,7 +58,12 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     }
   } else if( !is.null( full.fasta ) ) {
     ## Fix labels.  Assuming input orders are the same.
-    rownames( in.fasta ) <- rownames( full.fasta );
+    if( is.null( dim( full.fasta ) ) ) {
+      # Note that apparently InSites only uses the first 1000, so the insites alignment can be shorter than the full one.
+      rownames( in.fasta ) <- names( full.fasta )[ 1:nrow( in.fasta ) ];
+    } else {
+      rownames( in.fasta ) <- rownames( full.fasta )[ 1:nrow( in.fasta ) ];
+    }
   }
 
   if( force.one.cluster ) {
@@ -70,6 +87,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       print( "UH OH got illegal distance value" );
       print( in.dist );
     }
+      ## TODO: REMOVE
+      #print( dim( in.dist ) );
     dendro <- hclust( in.dist, method = "average" ); # UPGMA
     clusters <- suppressWarnings(
         cutreeDynamic(

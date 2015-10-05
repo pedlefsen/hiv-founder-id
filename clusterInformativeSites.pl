@@ -65,7 +65,7 @@ sub clusterInformativeSites {
   my $output_dir = shift @ARGV || $informative_sites_file_path;
   # Remove the trailing "/" if any
   if( defined( $output_dir ) ) {
-    ( $output_dir ) = ( $output_dir =~ /^(.+)\/*$/ );
+    ( $output_dir ) = ( $output_dir =~ /^(.*[^\/])\/*$/ );
   }
 
   if( $VERBOSE ) { print "Output will be written in directory \"$output_dir\".."; }
