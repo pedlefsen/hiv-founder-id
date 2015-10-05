@@ -173,7 +173,13 @@ sub identify_founders {
     ## allowing those to be flagged for removal just like hypermutated
     ## ones.
     my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
+    if( $VERBOSE ) {
+      print "Running RAP at LANL to compute recombined sequences..";
+    }
     my $RAP_result_stdout = `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    if( $VERBOSE ) {
+      print "\tdone. Got $RAP_result_stdout\n";
+    }
     if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
       my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \(([^\)]+)\)/ );
       if( $VERBOSE ) {
@@ -181,7 +187,7 @@ sub identify_founders {
       }
       my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
   #    if( $VERBOSE ) {
-        print( "The number of recombined sequences removed is: $R_output" );
+        print( "\tdone. The number of recombined sequences removed is: $R_output" );
   #    }
       # Now use the output from that..
       $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
