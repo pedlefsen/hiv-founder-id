@@ -165,7 +165,7 @@ if( force.one.cluster == "" ) {
 }
 
 ## TODO: REMOVE
-warning( paste( "alignment profile files list input file:", alignment.profile.files.list.file ) );
+# warning( paste( "alignment profile files list input file:", alignment.profile.files.list.file ) );
 if( file.exists( alignment.profile.files.list.file ) ) {
     alignment.profiles.files.list <- readFilenamesFromFile( alignment.profile.files.list.file );
     print( clusterProfillicAlignmentProfiles( alignment.profiles.files.list, fasta.file, output.dir, force.one.cluster ) );

@@ -78,13 +78,13 @@ if( nchar( output.dir ) == 0 ) {
 }
 
 ## TODO: REMOVE
-warning( paste( "aligned fasta input file:", input.fasta.file ) );
-if( !is.null( output.dir ) ) {
-    warning( paste( "consensus fasta output dir:", output.dir ) );
-}
-if( !is.null( output.fasta.file ) ) {
-    warning( paste( "consensus fasta output file:", output.fasta.file ) );
-}
+# warning( paste( "aligned fasta input file:", input.fasta.file ) );
+# if( !is.null( output.dir ) ) {
+#     warning( paste( "consensus fasta output dir:", output.dir ) );
+# }
+# if( !is.null( output.fasta.file ) ) {
+#     warning( paste( "consensus fasta output file:", output.fasta.file ) );
+# }
 if( file.exists( input.fasta.file ) ) {
     print( computeConsensusSequenceFromAlignedFasta( input.fasta.file, output.dir = output.dir, output.file = output.fasta.file ) );
 } else {

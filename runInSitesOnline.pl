@@ -11,7 +11,7 @@
 ##      getInSitesStat.  Note that this creates output files in
 ##      subdirectories named after the input fasta file name.
 ##      
-##      NOTE that there is a bug (as of September, 2015) in the
+##      NOTE that there is a feature (as of September, 2015) in the
 ##      inSites code online, in which flanking gaps are not printed in
 ##      the output (informative sites) table.  THIS MUST BE FIXED WHEN
 ##      READING/USING THE FILE.
@@ -86,7 +86,7 @@ sub runInSitesOnline {
   # Have to submit it again, ie my $result2 = $result->submit();
   my $content = $mech->content();
   if( $DEBUG ) {
-    print "OK1, \$content is $content\n";
+    print "OK1\n"#, \$content is $content\n";
   }
   $mech->select('seqName',{n=>[1..1000]});
   my $result2 = $mech->submit_form(
@@ -101,10 +101,10 @@ sub runInSitesOnline {
 #                [ local => 'DIVEIN', seqFile => $input_fasta_file_contents, seqRadio => 'fasta', datatype => 'DNA' ];
 #  my $content = $ua->request( $req )->as_string;
 
-  #if( $DEBUG ) {
-    print "OK2\n \$content is $content\n";
-  #}
-  ## ERE I AM!!
+  if( $DEBUG ) {
+    print "OK2\n";# \$content is $content\n";
+  }
+
   my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
   my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
 
@@ -148,7 +148,7 @@ sub runInSitesOnline {
   } else {
     $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
     $informativeSitesContent = $mech->content();
-    print( "got $informativeSitesContent" );
+    #print( "got $informativeSitesContent" );
     while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
       print( "trying again to get the informative sites file." );
       sleep( 1 );
@@ -163,7 +163,7 @@ sub runInSitesOnline {
       warn "Unable to open output file \"$informativeSitesFile\": $!\n";
       return 1;
     }
-  ## NOTE that there is a bug (as of September, 2015) in the inSites code online, in which flanking gaps are not printed in the output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
+  ## NOTE that there is a feature in the inSites code online, in which flanking gaps are not printed in the output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
   print informativeSitesFileFH $informativeSitesContent;
   close( informativeSitesFileFH );
   if( $VERBOSE ) { print ".done\n"; }

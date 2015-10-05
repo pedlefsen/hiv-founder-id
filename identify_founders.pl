@@ -176,22 +176,22 @@ sub identify_founders {
     if( $VERBOSE ) {
       print "Running RAP at LANL to compute recombined sequences..";
     }
-    my $RAP_result_stdout = `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     if( $VERBOSE ) {
       print "\tdone. Got $RAP_result_stdout\n";
     }
     if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
-      my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \(([^\)]+)\)/ );
+      my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
       if( $VERBOSE ) {
         print "Calling R to remove recombined sequences..";
       }
-      my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
-  #    if( $VERBOSE ) {
+      my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+      if( $VERBOSE ) {
         print( "\tdone. The number of recombined sequences removed is: $R_output" );
-  #    }
+      }
       # Now use the output from that..
       $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences_removeRecombinantSequences${input_fasta_file_suffix}";
+      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
       ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
         ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
       $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";

@@ -30,19 +30,26 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
   
   in.fasta <- read.dna( fasta.file, format = "fasta" );
 
-  RAP.summaryTable <- readLines( RAP.summaryTable.file );
+    RAP.summaryTable <- readLines( RAP.summaryTable.file );
+    if( length( RAP.summaryTable ) < 3 ) {
+        stop( paste( "Unexpected: Got RAP.summaryTable:", RAP.summaryTable, sep = "\n" ) );
+    }
+    
   # The first two are header lines.
   exclude.sequence <- rep( FALSE, nrow( in.fasta ) );
   names( exclude.sequence ) <- rownames( in.fasta );
-  for( line.i in 3:length( RAP.summaryTable ) ) {
+    for( line.i in 3:length( RAP.summaryTable ) ) {
+        #warning( line.i );
+        #warning( RAP.summaryTable[ line.i ] );
     p.value <- gsub( "^Set \\d+ \\S+ \\S+ ([0-9.]+) .+$", "\\1", RAP.summaryTable[ line.i ] );
-    if( p.value < p.value.threshold ) {
+    if( !is.na( p.value ) && ( p.value < p.value.threshold ) ) {
         seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
-        print( paste( "Excluding ", seq.name, " because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
+        ## TODO: REMOVE
+        warning( paste( "Excluding ", seq.name, " because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
         exclude.sequence[ seq.name ] <- TRUE;
     }
-  } # End foreach seq.i
+  } # End foreach line.i
 
   out.fasta <- in.fasta[ !exclude.sequence, ];
 
@@ -50,13 +57,14 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
   out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeRecombinedSequences", fasta.file.short.suffix, sep = "" );
 
   write.dna( out.fasta, out.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
-    
+
   return( sum( exclude.sequence ) );
 } # removeRecombinedSequences (..)
 
 ## Here is where the action is.
-fasta.file <- Sys.getenv( "removeRecombinedSequences_inputFilename" ); # alignment of just informative sites
-output.dir <- Sys.getenv( "removeRecombinedSequences_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
+fasta.file <- Sys.getenv( "removeRecombinedSequences_inputFilename" );
+RAP.summaryTable.file <- Sys.getenv( "removeRecombinedSequences_RAPOutputFile" );
+output.dir <- Sys.getenv( "removeRecombinedSequences_outputDir" );
 if( output.dir == "" ) {
     output.dir <- NULL;
 }
@@ -69,7 +77,7 @@ if( p.value.threshold == "" ) {
 #warning( paste( "alignment input file:", fasta.file ) );
 #warning( paste( "output dir:", output.dir ) );
 if( file.exists( fasta.file ) ) {
-    print( removeRecombinedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold ) );
+    print( removeRecombinedSequences( fasta.file, RAP.summaryTable.file, output.dir, p.value.threshold = p.value.threshold ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }

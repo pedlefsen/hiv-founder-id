@@ -16,6 +16,7 @@ use Path::Tiny;
 
 # For screenscraping
 use WWW::Mechanize;
+use LWP::Simple;
 #use HTTP::Request::Common qw(POST);
 #use LWP::UserAgent;
 
@@ -77,7 +78,7 @@ sub runRAPOnline {
   
   my $content = $mech->content();
   if( $DEBUG ) {
-    print "OK, \$content is $content\n";
+    print "OK\n";#, \$content is $content\n";
   }
   my ( $no_recombinants ) = ( $content =~ /No recombinants found/ );
 
@@ -94,8 +95,18 @@ sub runRAPOnline {
   
   my ( $RAP_id ) = ( $content =~ /\/(\d+)\/summaryTable/ );
   my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
-  `curl -O http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable`;
-  `mv summaryTable $RAP_output_file`;
+  my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
+        if( $VERBOSE ) {
+          print( "Writing out RAP output file \"$RAP_output_file\".." );
+        }
+        if( $VERBOSE ) { print "Opening file \"$RAP_output_file\" for writing..\n"; }
+        unless( open RAP_output_fileFH, ">$RAP_output_file" ) {
+            warn "Unable to open output file \"$RAP_output_file\": $!\n";
+            return 1;
+          }
+        print RAP_output_fileFH $RAP_output_file_contents;
+        close( RAP_output_fileFH );
+  
 
   if( $VERBOSE ) {
     print "Recombinants identified ($RAP_output_file)\n";
