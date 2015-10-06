@@ -94,6 +94,9 @@ sub runRAPOnline {
   # TODO: Save the highlighter plots?
   
   my ( $RAP_id ) = ( $content =~ /\/(\d+)\/summaryTable/ );
+  unless( defined( $RAP_id ) ) {
+    warn "No RAP_id in:\n$content\n";
+  }
   my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
   my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
         if( $VERBOSE ) {
