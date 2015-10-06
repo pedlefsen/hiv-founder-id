@@ -35,6 +35,8 @@ dir <- paste(dirname(infile), '/', sep='')
 outfile <- paste(dir, "LOG_LIKELIHOOD.results.txt", sep="")
 outfile2 <- paste(dir, "CONVOLUTION.results.txt", sep="")
 
+cat( "PFitter.." );
+
 ### FUNCTIONS ###
 iseven <- function(c) {
 	c1 <- c/2-as.integer(c/2)
@@ -288,13 +290,15 @@ if (lambda!=0) {
 		}
 	}
     
+        print( "about to run La.svd" );
 	sdec <- La.svd(sigmaij)
+        print( "ran La.svd" );
 	diag <- ifelse(sdec$d>1e-4,sdec$d,0)
 	diagmat <- matrix(rep(0,sigma.dim^2), ncol=sigma.dim)
 	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
 	sigmainv <- sdec$u%*%diagmat%*%sdec$vt
 	
-	h <- hist(dvec1, breaks=seq(-1,max(dvec1),1), plot=FALSE)
+	h <- hist(dvec1[ dvec1 <= sigma.dim ], breaks=seq(-1,(sigma.dim-1),1), plot=FALSE)
 	xvec <- h$breaks
 	yvec <- h$counts
 	nl1 <- length(yvec)
@@ -317,14 +321,8 @@ if (lambda!=0) {
 	pval <- 0
 }
        
-write(paste(sample, format(lambda, digits=4), format(newvarhd, digits=4), nseq, nbases, format(meanhd, digits=2), maxhd, formatteddays, format(as.numeric(chisq), digits=4), nl0-1, format(as.numeric(pval), digits=4), sep="\t"), file=outfile, append=TRUE)
+write(paste(sample, format(lambda, digits=4), format(newvarhd, digits=4), nseq, nbases, format(meanhd, digits=2), maxhd, formatteddays, format(as.numeric(chisq), digits=4), nl0-1, format(as.numeric(pval), digits=4), sep="\t"), file=outfile, append=TRUE);
 
-	
+cat( ".done.", fill = TRUE );
 
-
-
-
-
-
-
-
+1;

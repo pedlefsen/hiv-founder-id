@@ -84,7 +84,7 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL ) {
     dist.matrix.file <- paste( output.dir, "/", fasta.file.short.nosuffix, "_pairwiseHammingDistances.txt", sep = "" );
     write.table( dist.matrix.flat, file = dist.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
 
-    R.cmd <- paste( "R CMD BATCH '--vanilla --args", dist.matrix.file, "2.16e-05", ncol( in.fasta ), "' PFitter.R" );
+    R.cmd <- paste( "R CMD BATCH '--vanilla --args", dist.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
     return( system( R.cmd ) );
 } # runPoissonFitter ( fasta.file, output.dir )
 
