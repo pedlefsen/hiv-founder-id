@@ -25,8 +25,10 @@
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
 use Path::Tiny;
+use Sort::Fields;
 
 use strict;
+use warnings;
 use vars qw( $opt_D $opt_V );
 use vars qw( $VERBOSE $DEBUG );
 
@@ -139,11 +141,11 @@ sub runInSitesOffline {
   $seqNum = 0;
   my @grpNames = my @grpSeqs = my %seqGrp = ();
 
-  my @seqs = $seqNamesRef;
+  my @seqs = @$stdNamesRef;
   push @grpSeqs, \@seqs;
   $seqNum = scalar @seqs;
   foreach my $seqName (@seqs) {
-     push @grpSeqs, \@seqs;
+     #push @grpSeqs, \@seqs;
      $seqNum = scalar @seqs;
      foreach my $seqName (@seqs) {
         $seqGrp{$seqName} = "default";
@@ -164,8 +166,280 @@ sub runInSitesOffline {
    my $refNameNseq = $refName."\t".$refSeq;
    unshift @seqNameNseqs, $refNameNseq;
    unshift @seqNameNseqs, $seqNum."\t".$seqLen;
+   #
+   # write new sequence file "..._seq4insites.phy"
+   #
    WriteFile ($seqFile, \@seqNameNseqs);
 
+   ### This section creates the inSites output files
+   ### We are primarily interested in ..._privateSites.txt and
+   ### ..._informativeSites.txt. 
+   ### TAH 10/15
+
+   my $alnDisplayFile = $uploadseqFile.".aln";	# alignment display 
+   my $alnCondenseDisplayFile = $uploadseqFile."_uniq.aln"; # alignment display - condense unique sequence
+   my $alnStatFile = $uploadseqFile."_aln.txt";	# tab delimited alignment summary output file
+   my $varSitesAlnFile = $uploadseqFile."_var.aln";	# aligned variable sites file
+   my $varSitesTabFile = $uploadseqFile."_var.txt";	# tab delimited variable sites file
+   my $alnFile = $uploadseqFile."_info.aln";	# aligned informative output file
+   my $privateAlnFile = $uploadseqFile."_priv.aln";	# aligned private output file
+   my $tabFile = $uploadseqFile.".txt";	# tab delimited informative output file
+   my $privateTabFile = $uploadseqFile."_priv.txt";	# tab delimited private output file
+   my $seqArr = my $displaySeqArr = ();
+   my $element = my $count = my $maxLen = 0;
+   my (@informativeSites, @seqNames, @lines, @alnLines, @privateLines, @privateAlnLines, @infoMutant, %infoMutStatus, @privateMutant, %privateMutStatus);
+   my (%ambiguityHash, @ambiguousPos);
+
+   foreach my $line (@seqNameNseqs){
+      next if $line =~ /^\d+\s+\d+$/;
+      my ($seqName, $aaSeq) = split /\t/, $line;
+      $aaSeq = uc $aaSeq;
+      my $nameLen = length $seqName;
+      if ($nameLen > $maxLen) {
+         $maxLen = $nameLen;
+      }
+      $seqNames[$element] = $seqName;	
+      my $beginFlag = my $terminalFlag = 0;
+      for (my $i = 0; $i < $seqLen; $i++) {
+         my $aa = substr($aaSeq, $i, 1);
+	 if ($element == 0) {	# this is reference or consensus sequence
+	    $seqArr->[$element]->[$i] = $aa;
+	 } else {	
+            # find ambiguous positions for nucleotide sequence
+	    if (!$ambiguityHash{$i}) {
+	       if ($datatype eq 'nt' && $aa !~ /[ACGT\-\.\?]/i) {
+	          $ambiguityHash{$i} = 1;
+		  push @ambiguousPos, $i;
+	       }				
+	    }
+	
+	    # deal with leading gaps
+	    if ($i == 0 && $aa eq "-") {
+	       $beginFlag = 1;
+	       $aa = " ";
+	    } elsif ($beginFlag == 1 && $aa eq "-") {
+	       $aa = " ";
+	    } elsif ($aa ne "-") {
+	      $beginFlag = 0;
+	    }
+	    # deal with termianl gaps
+	    if (substr ($aaSeq, $i) =~ /^\-+$/) {
+	       $terminalFlag = 1;
+	    }
+	    if ($terminalFlag == 1) {
+	       $aa = " ";
+	    }
+			
+	    if ($aa eq $seqArr->[0]->[$i]) {
+	       $seqArr->[$element]->[$i] = ".";
+	    } else {
+	       $seqArr->[$element]->[$i] = $aa;
+	    }
+	 } # end for non-consensus lines
+      } # end for each nucleotide 
+      $element++;	# sequence index
+   } # end of for each sequence   
+
+   if (@ambiguousPos) {
+      my $ambiguousFile = $uploadseqFile."_ambi.txt";	# tab delimited ambiguous output file
+      open AMBI, ">$ambiguousFile" or die "couldn't open $ambiguousFile: $!\n";
+      foreach my $pos (sort {$a <=> $b} @ambiguousPos) {
+         my $site = $pos + 1;
+         print AMBI "\t", $site;
+      }
+      print AMBI "\n";
+      for (my $i = 0; $i < $element; $i++) {
+         print AMBI $seqNames[$i];
+	 foreach my $pos (sort {$a <=> $b} @ambiguousPos) {
+	    print AMBI "\t",$seqArr->[$i]->[$pos];
+	 }
+	 print AMBI "\n";
+      }
+      close AMBI;
+   } # end of if there are ambiguous positions
+
+   my (@consAAs, %infoSiteHash, %privateSiteHash, @privateSites, @uniqNas, %uniqNasStatus, %posTotalCount, $posNaCount, @varSites, %varSiteStatus);
+   my $infoMutHash = my $privateMutHash = my $grpAaHash = ();
+   my $gapOnlyInsiteCount = my $resultFlag = my $gapOnlyPriSiteCount = 0;
+
+   for (my $i = 0; $i < $seqLen; $i++) {
+      my $gapOnlyFlag = 1;
+      if (!$posTotalCount{$i}) {
+         $posTotalCount{$i} = 0;
+      }
+      for (my $j = 0; $j < $element; $j++) {
+         my $aa = $seqArr->[$j]->[$i];
+	 if ($j == 0) {
+	    $consAAs[$i] = $aa;
+	 } else {
+	    my $seqName = $seqNames[$j];
+	    my $grp = "";
+	    if (defined $seqGrp{$seqName}) {	# there is a group file
+	       $grp = $seqGrp{$seqName};
+	    } else {
+	       print "No defined group for sequence $seqName";
+	       return 0;
+	    }
+	    unless ($aa eq " " || $aa eq "?") {	# count
+	       my $trueAa = $aa;
+	       if ($aa eq ".") {
+	          $trueAa = $consAAs[$i];
+	       }
+	       if (!$uniqNasStatus{$trueAa}) {
+	          $uniqNasStatus{$trueAa} = 1;
+		  push @uniqNas, $trueAa;					
+	       }	
+	       $posTotalCount{$i}++;
+	       if (!$posNaCount->{$i}->{$trueAa}) {
+	          $posNaCount->{$i}->{$trueAa} = 0;
+	       }
+	       $posNaCount->{$i}->{$trueAa}++;
+	    } # end unless $aa (nuc) is a blank or a ?
+			
+	    unless ($aa eq "." || $aa eq " " || $aa eq "?") {
+	       $resultFlag = 1;
+	       if (!$grpAaHash->{$i}->{$aa}->{$grp}) {
+	          $grpAaHash->{$i}->{$aa}->{$grp} = 0;
+	       }
+	       $grpAaHash->{$i}->{$aa}->{$grp}++;
+	       if (!$varSiteStatus{$i}) {
+	          $varSiteStatus{$i} = 1;
+	          push @varSites, $i;
+	       }
+	    } #end unless aa (nuc) is a gap, blank or ?
+	 } #end of else
+      } #end of for each element (nuc) 
+	
+      foreach my $aa (keys %{$grpAaHash->{$i}}) {
+         foreach my $grp (keys %{$grpAaHash->{$i}->{$aa}}) {
+	    if ($grpAaHash->{$i}->{$aa}->{$grp} == 1) {
+	       unless ($privateMutHash->{$i}->{$aa}->{$grp}) {
+	          $privateMutHash->{$i}->{$aa}->{$grp} = 1;	# label the mutation of the private site
+	       }	
+				
+	       if (!$privateSiteHash{$i}) {
+	          $privateSiteHash{$i} = 1;
+		  push @privateSites, $i;	# array of private sites
+	       }
+	    } elsif ($grpAaHash->{$i}->{$aa}->{$grp} > 1) {
+	       unless ($infoMutHash->{$i}->{$aa}->{$grp}) {
+	          $infoMutHash->{$i}->{$aa}->{$grp} = 1;	# label the mutation of the informative site
+	       }					
+	
+	       if (!$infoSiteHash{$i}) {
+	          $infoSiteHash{$i} = 1;
+	       push @informativeSites, $i;	# array of informative sites
+	       }
+	    } else {
+	       die "Something wrong here!\n";
+	    }
+	 } #end of for each group hash
+      } #end of for each aa (nuc) in a group
+
+      if ($infoSiteHash{$i}) {	# informative site
+         if (keys %{$infoMutHash->{$i}} == 1) { # only one mutation other than consensus
+            my ($mut) = keys %{$infoMutHash->{$i}};
+	    if ($consAAs[$i] eq "-") {
+	       $gapOnlyInsiteCount++;
+	    } elsif ($mut eq "-") {
+	       $gapOnlyInsiteCount++;
+	    }
+	 }
+      }	
+	
+      if ($privateSiteHash{$i}) {	# private site
+         if (keys %{$privateMutHash->{$i}} == 1) { # only one mutation other than consensus
+	    my ($mut) = keys %{$privateMutHash->{$i}};
+	    if ($consAAs[$i] eq "-") {
+	       $gapOnlyPriSiteCount++;
+	    } elsif ($mut eq "-") {
+	       $gapOnlyPriSiteCount++;
+	    }
+	 }
+      }	
+   } #end of for each aa (nuc) in alignment
+
+   ### Output file section
+
+   if (!$resultFlag) {
+      print "There are no informative nor private sites in the sequence alignment.\n";
+   } else {
+      # write to alignment display file
+      WriteAlnDisplay ($alnDisplayFile, \@seqNames, $seqArr, $element, $seqLen, $maxLen, $alnCondenseDisplayFile);
+      $maxLen += 6;
+      if (@varSites) {		
+         WriteAlnVarSites ($varSitesAlnFile, $maxLen, \@varSites, \@seqNames, $seqArr, $element,  $seqLen, \%seqGrp);
+         WriteTabVarSites ($varSitesTabFile, \@varSites, \@seqNames, $seqArr, $element, \%seqGrp);
+      }
+	
+      if (@informativeSites) {
+         my $param = Insites::GetParams ($maxLen, $element, \@seqNames, \@informativeSites, $seqArr, \%infoMutStatus, \@infoMutant, $infoMutHash, \%seqGrp, $datatype);
+	 WriteAlnInsites ($alnFile, $maxLen, \@informativeSites, $param, $sortRadio, $seqLen);
+	 my $TAB;
+	 open ($TAB, ">$tabFile") or die "Couldn't open $tabFile: $!\n";
+	 print $TAB "\tTotal_informative\tInformative(noGaps)\tAmbiguities";
+         WriteTabInsites ($TAB, \@informativeSites, $gapOnlyInsiteCount, $param, $sortRadio, $seqArr, $element, $datatype, \@nas, \@infoMutant, \%infoMutStatus, $infoMutHash);
+	 close $TAB;		
+      }
+	
+      if (@privateSites) {
+         my $param =
+            GetParams ($maxLen, $element, \@seqNames, \@privateSites, $seqArr, \%privateMutStatus, \@privateMutant, $privateMutHash, \%seqGrp, $datatype);
+	 WriteAlnInsites ($privateAlnFile, $maxLen, \@privateSites, $param, $sortRadio, $seqLen);
+	 my $TAB;
+	 open ($TAB, ">$privateTabFile") or die "Couldn't open $privateTabFile: $!\n";
+	 print $TAB "\tTotal_private\tPrivate(noGaps)\tAmbiguities";
+	 WriteTabInsites ($TAB, \@privateSites, $gapOnlyPriSiteCount, $param, $sortRadio, $seqArr, $element, $datatype, \@nas, \@privateMutant, \%privateMutStatus, $privateMutHash);
+	 close $TAB;		
+      }
+      
+      # write to alignment summary file	
+      open STAT, ">$alnStatFile" or die "couldn't open $alnStatFile: $!\n";
+      print STAT "Position";
+      foreach my $na (sort @uniqNas) {
+         print STAT "\t$na";
+      }
+      print STAT "\tTotal";
+      foreach my $na (sort @uniqNas) {
+         print STAT "\t$na";
+      }
+      print STAT "\t1st Freq.\tFreq.\t2nd Freq.\tFreq.\t3rd Freq.\tFreq.\t4th Freq.\tFreq.\n";
+      for (my $i = 0; $i < $seqLen; $i++) {
+         my $pos = $i + 1;
+	 print STAT $pos;
+	 foreach my $na (sort @uniqNas) {
+            if ($posNaCount->{$i}->{$na}) {
+	       print STAT "\t", $posNaCount->{$i}->{$na};
+	    } else {
+	       print STAT "\t0";
+	    }
+	 }
+	 if ($posTotalCount{$i}) {
+	    print STAT "\t", $posTotalCount{$i};
+	 } else {
+	    print STAT "\t0";
+	 }
+	 foreach my $na (sort @uniqNas) {
+	    if ($posNaCount->{$i}->{$na}) {
+	       my $freq = int ($posNaCount->{$i}->{$na} / $posTotalCount{$i} * 10000 + 0.5) / 10000;
+	       print STAT "\t", $freq;
+	    } else {
+	       print STAT "\t0.0000";
+	    }
+	 }
+	 my $idx = 0;
+	 foreach my $na (sort {$posNaCount->{$i}->{$b} <=> $posNaCount->{$i}->{$a}} keys %{$posNaCount->{$i}}) {
+	    $idx++;
+	    last if ($idx > 4);
+	    print STAT "\t$na";
+	    my $freq = int ($posNaCount->{$i}->{$na} / $posTotalCount{$i} * 10000 + 0.5) / 10000;
+	    print STAT "\t", $freq;
+	 }
+	 print STAT "\n";
+      } # end of for-each-position statistics file
+      print STAT "\n";
+      close STAT;
+   }  ### end of IF there is information to print
 
    return 1;
 #/  my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
@@ -559,6 +833,441 @@ sub GetConsensus {
 	return $cons;
 }
 
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub WriteAlnDisplay {
+	my ($alignDisplayFile, $seqNames, $seqArr, $element, $seqLen, $maxLen, $uniqAlignDisplayFile) = @_;
+	my %seqCount = my %seqStatus = ();
+	$maxLen += 10;
+	open ALNDISPLAY, ">$alignDisplayFile" or die "couldn't open $alignDisplayFile: $!\n";
+	for (my $i = 0; $i < $element; $i++) {
+		my $seq = join ("", @{$seqArr->[$i]});
+		$seq =~ s/ /\-/g;		
+		printf ALNDISPLAY "%-".$maxLen."s", $seqNames->[$i];
+		print ALNDISPLAY "$seq\n";
+	}
+	close ALNDISPLAY;
+	
+	open UNIQDISPLAY, ">$uniqAlignDisplayFile" or die "couldn't open $uniqAlignDisplayFile: $!\n";	
+	for (my $i = 0; $i < $element; $i++) {
+		my $seq = join ("", @{$seqArr->[$i]});
+		$seq =~ s/ /\-/g;
+		if ($i == 0) {
+			printf UNIQDISPLAY "%-".$maxLen."s", $seqNames->[$i];
+			print UNIQDISPLAY "$seq\n";
+		}else {
+			if (!$seqStatus{$seq}) {
+				$seqStatus{$seq} = $seqNames->[$i];
+			}
+			$seqCount{$seq}++;
+		}
+	}
+	my $idx = 0;
+	foreach my $seq (sort {$seqCount{$b} <=> $seqCount{$a}} keys %seqCount) {
+		$idx++;
+		my $name = $seqStatus{$seq}."_".$seqCount{$seq};
+		printf UNIQDISPLAY "%-".$maxLen."s", $name;
+		print UNIQDISPLAY "$seq\n";
+	}
+	close UNIQDISPLAY;
+}
+
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub WriteAlnVarSites {
+	my ($varSitesAlnFile, $maxLen, $varSitesRef, $seqNamesRef, $seqArr, $element,  $seqLen, $seqGrp) = @_;
+	
+	my $digits = 1;
+	while (1) {
+		if ($seqLen =~ /^\d{$digits}$/) {
+			last;
+		}
+		$digits++
+	}
+	
+	open (ALN, ">$varSitesAlnFile") or die "Couldn't open $varSitesAlnFile: $!\n";
+	
+	printf ALN "%".$maxLen."s", "";
+	
+	for (my $i = $digits; $i > 0; $i--) {
+		foreach my $position (@$varSitesRef) {
+			my $aaIndex = $position + 1;
+			my $pattern = "(\\d)";
+			for (my $j = 1; $j < $i; $j++) {
+				$pattern .= "\\d";		
+			}
+			if ($aaIndex =~ /$pattern$/) {				
+				print ALN $1;
+			}else {
+				print ALN " ";
+			}
+		}
+		print ALN "\n";
+		if ($i == 1) {
+			print ALN "\n";
+		}else {
+			printf ALN "%".$maxLen."s", "";
+		}	
+	}
+	my $grp = "";
+	for (my $i = 0; $i < $element; $i++) {
+		if ($i == 0) {
+			printf ALN "%-".$maxLen."s", $seqNamesRef->[$i];
+			foreach my $varSite (@{$varSitesRef}) {
+				print ALN $seqArr->[$i]->[$varSite];
+			}
+			print ALN "\n";
+		}else {
+			if (!$grp || $grp && ($seqGrp->{$seqNamesRef->[$i]} ne $grp)) {
+				$grp = $seqGrp->{$seqNamesRef->[$i]};
+				print ALN "\n";
+			}
+			printf ALN "%-".$maxLen."s", $seqNamesRef->[$i];
+			foreach my $varSite (@{$varSitesRef}) {
+				print ALN $seqArr->[$i]->[$varSite];
+			}
+			print ALN "\n";
+		}		
+	}
+	close ALN;
+}
+
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub WriteTabVarSites {
+	my ($varSitesTabFile, $varSitesRef, $seqNamesRef, $seqArr, $element, $seqGrp) = @_;
+	open TAB, ">$varSitesTabFile" or die "couldn't open $varSitesTabFile: $!\n";
+	foreach my $site (@$varSitesRef) {
+		my $pos = $site + 1;
+		print TAB "\t$pos";
+	}
+	print TAB "\n";
+	my $grp = "";
+	for (my $i = 0; $i < $element; $i++) {
+		if ($i == 0) {
+			print TAB $seqNamesRef->[$i];
+			foreach my $varSite (@{$varSitesRef}) {
+				print TAB "\t$seqArr->[$i]->[$varSite]";
+			}
+			print TAB "\n";
+		}else {
+			if (!$grp || $grp && ($seqGrp->{$seqNamesRef->[$i]} ne $grp)) {
+				$grp = $seqGrp->{$seqNamesRef->[$i]};
+				print TAB "\n";
+			}
+			print TAB $seqNamesRef->[$i];
+			foreach my $varSite (@{$varSitesRef}) {
+				print TAB "\t$seqArr->[$i]->[$varSite]";
+			}
+			print TAB "\n";
+		}		
+		
+	}
+	close TAB;
+}
+
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub GetParams {
+	my ($maxLen, $element, $seqnamesRef, $sitesRef, $seqArr, $mutStatusRef, $mutantRef, $aaHash, $seqGrp, $datatype) = @_;
+	my (@alnLines, @lines, $param);
+	my $grp = "";
+	for (my $i = 0; $i < $element; $i++) {
+		my $line = "";
+		my $alnLine = my $seqName = $seqnamesRef->[$i];
+		my $len = length $seqnamesRef->[$i];
+				
+		for (my $j = $len; $j < $maxLen; $j++) {
+			$alnLine .= " ";
+		}
+		my $infoCount = my $gapInfoCount = my $ambiCount = 0;
+		foreach my $position (@$sitesRef) {
+			my $aa = $seqArr->[$i]->[$position];
+			if ($i == 0) {
+				if (!$mutStatusRef->{$aa}) {
+					$mutStatusRef->{$aa} = 1;
+					push @$mutantRef, $aa;
+				}
+			}else {
+				if (!$grp || ($grp && $seqGrp->{$seqName} ne $grp)) {
+					$grp = $seqGrp->{$seqName};
+					push @alnLines, "";
+					push @lines, "";
+				}
+				unless ($aa eq "." || $aa eq " " || $aa eq "?") {
+					if (!$mutStatusRef->{$aa}) {
+						$mutStatusRef->{$aa} = 1;
+						push @$mutantRef, $aa;
+					}
+					if (!$aaHash->{$position}->{$aa}->{$grp}) {	# private site, change aa to consensus for display
+						#$aa = ".";
+					}else {					
+						$infoCount++;
+						if ($aa eq "-") {
+							$gapInfoCount++;
+						}else {
+							if ($datatype eq 'nt' && $aa !~ /[ACGTacgt\-]/) {
+								$ambiCount++;
+							}elsif ($datatype eq 'aa' && $aa eq 'X') {
+								$ambiCount++;
+							}
+						}
+					}
+				}
+			}
+			$alnLine .= $aa;
+			$line .= "\t".$aa;
+		}
+		
+		push @alnLines, $alnLine;
+		my $noGapInfoCount = $infoCount - $gapInfoCount;
+		my $tabLine;
+		if ($line) {
+			$tabLine = $seqnamesRef->[$i]."\t".$infoCount."\t".$noGapInfoCount."\t".$ambiCount.$line;
+		}
+		push @lines, $tabLine;
+	}
+	$param->{lines} = \@lines;
+	$param->{alnLines} = \@alnLines;
+	return $param;
+}
+
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub WriteAlnInsites {
+	my ($alnFile, $maxLen, $informativeSitesRef, $param, $sortRadio, $nchar) = @_;
+	my $firstAlnLine = shift @{$param->{alnLines}};
+	my @alnOutputs = @{$param->{alnLines}};
+	
+	my $digits = 1;
+	while (1) {
+		if ($nchar =~ /^\d{$digits}$/) {
+			last;
+		}
+		$digits++
+	}
+	
+	open (ALN, ">$alnFile") or die "Couldn't open $alnFile: $!\n";
+	
+	printf ALN "%".$maxLen."s", "";
+	
+	for (my $i = $digits; $i > 0; $i--) {
+		foreach my $position (@$informativeSitesRef) {
+			my $aaIndex = $position + 1;
+			my $pattern = "(\\d)";
+			for (my $j = 1; $j < $i; $j++) {
+				$pattern .= "\\d";		
+			}
+			if ($aaIndex =~ /$pattern$/) {				
+				print ALN $1;
+			}else {
+				print ALN " ";
+			}
+		}
+		print ALN "\n";
+		if ($i == 1) {
+			print ALN "\n";
+		}else {
+			printf ALN "%".$maxLen."s", "";
+		}	
+	}
+	
+	print ALN $firstAlnLine,"\n";
+	
+	if ($sortRadio eq "y") {
+		my $alnSortFields;
+		
+		for (my $i = $maxLen+1; $i <= @$informativeSitesRef+$maxLen; $i++) {
+			push @$alnSortFields, $i;
+		}
+		my @alnSorted = fieldsort '', $alnSortFields, @{$param->{alnLines}};
+		@alnOutputs = reverse @alnSorted;
+	}
+	
+	foreach my $line (@alnOutputs) {
+		$line =~ s/\t//g;
+		print ALN $line,"\n";
+	}
+	close ALN;
+}
+
+## Ripped off verbatim from Insites.pm
+## To Do:  remove unused portions, e.g. protein stuff.
+## maybe normalize spacing.
+## TAH 10/15
+sub WriteTabInsites {
+	my ($TAB, $informativeSitesRef, $gapOnlySiteCount, $param, $sortRadio, $seqArr, $element, $datatype, $nasRef, $infoMutantRef, $infoMutStatusRef, $posMutHash) = @_;
+	my $informativeCount = scalar @$informativeSitesRef;
+	my $notGapOnlyInSitesCount = $informativeCount - $gapOnlySiteCount;
+	my $alignAmbiCount = 0;
+	foreach my $site (@$informativeSitesRef) {
+		my $position = $site + 1;
+		print $TAB "\t", $position;
+		foreach my $na (keys %{$posMutHash->{$site}}) {
+			if ($datatype eq 'nt' && $na !~ /[ACGTacgt\-]/) {
+				$alignAmbiCount++;
+				last;
+			}elsif ($datatype eq 'aa' && $na eq 'X') {
+				$alignAmbiCount++;
+				last;
+			}
+		}
+	}
+	print $TAB "\n";
+		
+	my $firstLine = shift @{$param->{lines}};
+	print $TAB $firstLine,"\n";
+	my @tabOutputs = @{$param->{lines}}; 
+	
+	if ($sortRadio eq "y") {
+		my $tabSortFields;
+		
+		for (my $i = 5; $i <= $informativeCount+4; $i++) {
+			push @$tabSortFields, $i;
+		}	
+		my @tabSorted = fieldsort '\t', $tabSortFields, @{$param->{lines}};
+		@tabOutputs = reverse @tabSorted;
+	}
+	
+	foreach my $line (@tabOutputs) {
+		print $TAB $line,"\n";
+	}
+	
+	print $TAB "\nAlignment\t$informativeCount\t$notGapOnlyInSitesCount\t$alignAmbiCount\n";
+	
+	# calculate the total na/aa at each informative site
+	my (%totalNAcount, $naCount, $infoSiteMutation, $totalMutation, %mutationStatus, @mutations);
+	foreach my $position (@$informativeSitesRef) {
+		my $count = 0;
+		my $consAa = $seqArr->[0]->[$position];
+		for (my $i = 1; $i < $element; $i++) {	# exclude CON
+			my $aa = $seqArr->[$i]->[$position];
+	
+			unless ($aa eq " ") {
+				unless ($aa eq "?") {
+					if ($aa eq ".") {
+						$aa = $consAa;
+					}
+					if (!$naCount->{$position}->{$aa}) {
+						$naCount->{$position}->{$aa} = 0;
+					}
+					$naCount->{$position}->{$aa}++;
+				}			
+				$count++;
+			}
+		}
+		$totalNAcount{$position} = $count;
+		
+		# calculate mutation information (will exclude gap to na and na to gap)
+		unless ($consAa eq "-") {
+			foreach my $na (sort keys %{$posMutHash->{$position}}) {
+				unless ($na eq $consAa || $na eq "-") {
+					my $mutation = $consAa."-".$na;
+					$infoSiteMutation->{$position}->{$mutation} = 1;
+					if (!$totalMutation->{$mutation}) {
+						$totalMutation->{$mutation} = 0;
+					}
+					$totalMutation->{$mutation}++;
+					if (!$mutationStatus{$mutation}) {
+						$mutationStatus{$mutation} = 1;
+						push @mutations, $mutation;
+					}
+				}
+			}
+		}
+	}
+	
+	foreach my $na (sort @$infoMutantRef) {
+		print $TAB "\t\t\t$na";
+		foreach my $position (@$informativeSitesRef) {
+			my $count = 0;
+			if ($naCount->{$position}->{$na}) {
+				$count = $naCount->{$position}->{$na};
+			}				
+			print $TAB "\t",$count;
+		}
+		print $TAB "\n";
+	}
+	
+	foreach my $an (@$nasRef) {
+		unless ($infoMutStatusRef->{$an}) {
+			print $TAB "\t\t\t$an";
+			foreach my $position (@$informativeSitesRef) {
+				print $TAB "\t0";
+			}
+			print $TAB "\n";
+		}
+	}
+	
+	print $TAB "\t\t\tTotal";
+	foreach my $position (@$informativeSitesRef) {
+		print $TAB "\t",$totalNAcount{$position};
+	}
+	print $TAB "\n\n";
+	
+	# write mutation information
+	print $TAB "\t\t\tTypes of Mutation";
+	foreach (@$informativeSitesRef) {
+		print $TAB "\t";
+	}
+	print $TAB "\tTotal\n";
+#	# only for existing mutation types
+#	foreach my $mutation (sort @mutations) {
+#		print $TAB "\t\t\t$mutation";
+#		foreach my $position (@$informativeSitesRef) {
+#			my $count = 0;
+#			if ($infoSiteMutation->{$position}->{$mutation}) {
+#				$count = $infoSiteMutation->{$position}->{$mutation};
+#			}
+#			print $TAB "\t",$count;
+#		}
+#		print $TAB "\t", $totalMutation->{$mutation}, "\n";
+#	}	
+	# for all possible mutaion types including ambiguities
+	my (@mutation_types, @all_nas);
+	if ($datatype eq "nt") {		
+		my @ambi_nas = qw (R Y K M S W B D H V N);
+		push @all_nas, @$nasRef, @ambi_nas;
+	}else {
+		push @all_nas, @$nasRef, "X";
+	}
+	for (my $i = 0; $i < @all_nas; $i++) {
+		for (my $j = 0; $j < @all_nas; $j++) {
+			unless ($i == $j) {
+				my $mut_type = $all_nas[$i]."-".$all_nas[$j];
+				push @mutation_types, $mut_type;
+			}
+		}
+	}
+	foreach my $mutation (@mutation_types) {
+		print $TAB "\t\t\t$mutation";
+		foreach my $position (@$informativeSitesRef) {
+			my $count = 0;
+			if ($infoSiteMutation->{$position}->{$mutation}) {
+				$count = $infoSiteMutation->{$position}->{$mutation};
+			}
+			print $TAB "\t",$count;
+		}
+		if ($totalMutation->{$mutation}) {
+			print $TAB "\t", $totalMutation->{$mutation}, "\n";
+		}else {
+			print $TAB "\t0\n";
+		}		
+	}	
+}
+
+
+### main routine
 runInSitesOffline( @ARGV );
 
 1;
