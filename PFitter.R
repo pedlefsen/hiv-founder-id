@@ -60,7 +60,7 @@ nseq <- sum(mult0)
 yvec0 <- rep(0, (1+max(d0[,3])))
 for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
 
-nl0 <- length(yvec0)
+nl0 <- length(yvec0);
 clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
 
 ### calc intersequence HD
@@ -194,10 +194,10 @@ if (lambda!=0) {
 		delta <- rep(0,m)
 		delta[1+m/2] <- 1
 		for(hj in 1:m){			
-			yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
-			if(m<2*nl) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
+                        yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
+			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
 		}
-		if(m<2*nl) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
 	}
 	
 	dvec2 <- rep(0, yvec1[1])
@@ -248,20 +248,23 @@ if (lambda!=0) {
 		
 
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
-pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
+#pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
+pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda^x))-lfactorial(x) ) )
 mui <- function(x) nseq*dpois(x, lambda=clambda)
-eyvec <- 0.5*pk(0:(2*nl0-1))
+SIGMA.DIM.MAX <- 170; # Beyond this value, factorial stops working in R.
+sigma.dim <- min( SIGMA.DIM.MAX, (2*nl0) );
+eyvec <- 0.5*pk(0:(sigma.dim-1))
+eyvec[ !is.finite( eyvec ) ] <- 0; # Paul added this to avoid errors.  factorial(x) sometimes refuses to work (if x is too large).
 
 if (lambda!=0) {
-	
-	sigmaij <- matrix(nrow=(2*nl0), ncol=(2*nl0))
+	sigmaij <- matrix(nrow=sigma.dim, ncol=sigma.dim)
 	coeff <- (nseq^3)*exp(-3*clambda)
 	
 	#### RICORDATI!!!! EYVEC[K] == E(Y_{K-1}) !!!!!!
 	
-	for(k in 0:(2*nl0-1)){  
+	for(k in 0:(sigma.dim-1)){  
   
-		for(l in 0:(2*nl0-1)){   
+		for(l in 0:(sigma.dim-1)){   
 			
 			if(k>=l){ 
 				c1 <- ((clambda^k)/factorial(k))*sum(choose(k,l:0)*((clambda^(0:l))/factorial(0:l)))
@@ -271,18 +274,24 @@ if (lambda!=0) {
 				c1 <- ((clambda^l)/factorial(l))*sum(choose(l,k:0)*((clambda^(0:k))/factorial(0:k)))
 				c2 <- ((clambda^k)/factorial(k))*sum(choose(k,k:0)*((clambda^((l-k):l))/factorial((l-k):l))) 
 			}
-						
+                    if( is.na( c1 ) ) {
+                        c1 <- 0;
+                    }
+                    if( is.na( c2 ) ) {
+                        c2 <- 0;
+                    }
 			sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2)
+
 			
 			if(k==l){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) }
 			if((k==l)&(iseven(k))){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2) }
 		}
 	}
-									
+    
 	sdec <- La.svd(sigmaij)
 	diag <- ifelse(sdec$d>1e-4,sdec$d,0)
-	diagmat <- matrix(rep(0,(2*nl0)^2), ncol=2*nl0)
-	for(ii in 1:(2*nl0)){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
+	diagmat <- matrix(rep(0,sigma.dim^2), ncol=sigma.dim)
+	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
 	sigmainv <- sdec$u%*%diagmat%*%sdec$vt
 	
 	h <- hist(dvec1, breaks=seq(-1,max(dvec1),1), plot=FALSE)
@@ -293,8 +302,8 @@ if (lambda!=0) {
 			
 	pesce <- 0.5*nseq*(nseq-1)*dpois(0:(nl1-1), lambda=aplambda)
 
-	if (length(yvec)<2*nl0) { 
-		ccvv <- 2*nl0 - length(yvec) 
+	if (length(yvec)<sigma.dim) { 
+		ccvv <- sigma.dim - length(yvec) 
 		yvec <- c(yvec, rep(0,ccvv)) 
 	}
 	

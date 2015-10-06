@@ -168,7 +168,7 @@ sub identify_founders {
       print ".done.\n";
     }
 
-    ## ERE I AM. I must run RAP on LANL, which gives individual
+    ## Run RAP on LANL, which gives individual
     ## sequences that are recombinants of other individual sequences,
     ## allowing those to be flagged for removal just like hypermutated
     ## ones.
@@ -251,7 +251,29 @@ sub identify_founders {
       # Print out the number of clusters
       print "Number of profillic clusters: $num_profillic_clusters\n";
     }
-      
+
+    ## Now run PoissonFitter.
+    if( $VERBOSE ) {
+      print "Calling R to run PoissonFitter..";
+    }
+    my $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
+    if( $VERBOSE ) {
+      print( "\tdone.\n" );
+    }
+    my $poisson_fitter_stats_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+    my $starlike_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+    my ( $starlike_text ) = ( $starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+    my $is_starlike = ( $starlike_text eq "FOLLOWS" );
+    print "PoissonFitter Determination: ";
+    if( $is_starlike ) {
+      print "Star-Like Phylogeny";
+    } else {
+      print "Non-Star-Like Phylogeny";
+    }
+    print "\n$poisson_fitter_stats_raw\n";
+
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {

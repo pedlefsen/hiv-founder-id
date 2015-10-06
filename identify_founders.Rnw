@@ -35,7 +35,11 @@ old.continue.option <- options( continue = " " )
      \end{itemize}
   \item Try recursion after a single cut, as an alternative to the full cutting using dynamicTreeCut.
   \item Add BEAST.
-  \item Add comparison to distribution of clade-similar seqs in curated LANL alignment (see Morgane and Josh\'s method)
+  \item Add comparison to distribution of clade-similar seqs in curated LANL alignment (see Morgane and Josh\'s method).
+    \begin{itemize}
+      \item could do this with a profile, same way.
+    \end{itemize}
+  \item Add longitudinal analysis: try running separately by time, then merging the times (?).
 \end{itemize}
 
 \section{Background on methods}
