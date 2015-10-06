@@ -65,27 +65,27 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
       print( fasta.with.consensus.dist );
     }
 
-    dist.matrix <- as.matrix( fasta.with.consensus.dist );
+    pairwise.distances.as.matrix <- as.matrix( fasta.with.consensus.dist );
 
-    dist.matrix.flat <- matrix( "", nrow = ( ( nrow( dist.matrix ) * ( ncol( dist.matrix ) - 1 ) ) / 2 ), ncol = 3 );
+    pairwise.distances.as.matrix.flat <- matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
     line.i <- 1;
-    for( row.i in 1:( nrow( dist.matrix ) - 1 ) ) {
-        for( col.i in ( row.i + 1 ):ncol( dist.matrix ) ) {
+    for( row.i in 1:( nrow( pairwise.distances.as.matrix ) - 1 ) ) {
+        for( col.i in ( row.i + 1 ):ncol( pairwise.distances.as.matrix ) ) {
             if( row.i == 1 ) { # consensus, no _1 (multiplicity of the observed sequence)
-                dist.matrix.flat[ line.i, ] <-
-                    c( rownames( dist.matrix )[ row.i ], paste( colnames( dist.matrix )[ col.i ], "_1", sep = "" ), dist.matrix[ row.i, col.i ] );
+                pairwise.distances.as.matrix.flat[ line.i, ] <-
+                    c( rownames( pairwise.distances.as.matrix )[ row.i ], paste( colnames( pairwise.distances.as.matrix )[ col.i ], "_1", sep = "" ), pairwise.distances.as.matrix[ row.i, col.i ] );
             } else {
-                dist.matrix.flat[ line.i, ] <-
-                    c( paste( rownames( dist.matrix )[ row.i ], "_1", sep = "" ), paste( colnames( dist.matrix )[ col.i ], "_1", sep = "" ), dist.matrix[ row.i, col.i ] );
+                pairwise.distances.as.matrix.flat[ line.i, ] <-
+                    c( paste( rownames( pairwise.distances.as.matrix )[ row.i ], "_1", sep = "" ), paste( colnames( pairwise.distances.as.matrix )[ col.i ], "_1", sep = "" ), pairwise.distances.as.matrix[ row.i, col.i ] );
             }
             line.i <- line.i + 1;
         }
     }
     
-    dist.matrix.file <- paste( output.dir, "/", fasta.file.short.nosuffix, "_pairwiseHammingDistances.txt", sep = "" );
-    write.table( dist.matrix.flat, file = dist.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
+    pairwise.distances.as.matrix.file <- paste( output.dir, "/", fasta.file.short.nosuffix, "_pairwiseHammingDistances.txt", sep = "" );
+    write.table( pairwise.distances.as.matrix.flat, file = pairwise.distances.as.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
 
-    R.cmd <- paste( "R CMD BATCH '--vanilla --args", dist.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
+    R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
     return( system( R.cmd ) );
 } # runPoissonFitter ( fasta.file, output.dir )
 

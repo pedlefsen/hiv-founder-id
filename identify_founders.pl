@@ -235,13 +235,81 @@ sub identify_founders {
         print( "ratio threshold exceeded\n" );
     }
 
+    ## Now run PoissonFitter.
+    if( $VERBOSE ) {
+      print "Calling R to run PoissonFitter..";
+    }
+    $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
+    if( $VERBOSE ) {
+      print( "\tdone.\n" );
+    }
+    my $poisson_fitter_stats_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+    my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+    my $is_poisson = ( $poisson_fit_stat <= 0.05 );
+    my $starlike_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+    my ( $starlike_text ) = ( $starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+    my $is_starlike = ( $starlike_text eq "FOLLOWS" );
+    print "PoissonFitter Determination: ";
+    if( $is_starlike ) {
+      print "Star-Like Phylogeny";
+    } else {
+      print "Non-Star-Like Phylogeny";
+    }
+    print "\nPoisson Fit: ";
+    if( $is_poisson ) {
+      print "OK";
+    } else {
+      print "BAD";
+    }
+    print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
+    #print "\n$poisson_fitter_stats_raw\n";
+
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
     }
     my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    # There might be extra text in there.  Look for the telltale "[1]" output
+    #warn "GOT $num_clusters\n";
+    ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
+    
     # Print out the number of clusters
     print "Number of founders: $num_clusters\n\n";
+
+    if( $num_clusters > 1 ) {
+      ## Now run PoissonFitter on the clusters.
+      if( $VERBOSE ) {
+        print "Calling R to run MultiFounderPoissonFitter..";
+      }
+      $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="$input_fasta_file"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+      if( $VERBOSE ) {
+        print( "\tdone.\n" );
+      }
+      my $multi_founder_poisson_fitter_stats_raw =
+        `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+      my ( $multi_founder_poisson_fit_stat, $multi_founder_poisson_time_est_and_ci ) = ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+      my $multi_founder_is_poisson = ( $multi_founder_poisson_fit_stat <= 0.05 );
+      my $multi_founder_starlike_raw =
+        `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+      my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+      my $multi_founder_is_starlike = ( $multi_founder_starlike_text eq "FOLLOWS" );
+      print "Multi-Founder PoissonFitter Determination: ";
+      if( $multi_founder_is_starlike ) {
+        print "Star-Like Phylogenies within clusters";
+      } else {
+        print "Non-Star-Like Phylogenies within clusters";
+      }
+      print "\nMulti-Founder Poisson Fit: ";
+      if( $multi_founder_is_poisson ) {
+        print "OK";
+      } else {
+        print "BAD";
+      }
+      print "\nMulti-Founder Poisson time estimate (95\% CI): " . $multi_founder_poisson_time_est_and_ci;
+      #print "\n$multi_founder_poisson_fitter_stats_raw\n";
+    } # End if $num_clusters > 1
 
     ## Now try it the more profillic way.
     if( $run_profillic ) {
@@ -257,28 +325,6 @@ sub identify_founders {
         print "Number of profillic clusters: $num_profillic_clusters\n";
       }
     } # End if $run_profillic
-
-    ## Now run PoissonFitter.
-    if( $VERBOSE ) {
-      print "Calling R to run PoissonFitter..";
-    }
-    $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
-    if( $VERBOSE ) {
-      print( "\tdone.\n" );
-    }
-    my $poisson_fitter_stats_raw =
-      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-    my $starlike_raw =
-      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
-    my ( $starlike_text ) = ( $starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-    my $is_starlike = ( $starlike_text eq "FOLLOWS" );
-    print "PoissonFitter Determination: ";
-    if( $is_starlike ) {
-      print "Star-Like Phylogeny";
-    } else {
-      print "Non-Star-Like Phylogeny";
-    }
-    print "\n$poisson_fitter_stats_raw\n";
 
   } # End foreach $input_fasta_file
 

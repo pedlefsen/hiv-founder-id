@@ -68,9 +68,12 @@ clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FI
 ### calc intersequence HD
 d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	
 yvec <- rep(0, (1+max(d1[,3])))
-seqnames <- unique(d1[,1])
+seqnames <- unique(c( d1[,1], d1[,2] ))
 for(i in 1:length(seqnames)){
-	tmp <- d1[which(d1[,1]==seqnames[i]),]
+    tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
+    if( nrow( tmp ) == 0 ) {
+        next;
+    }
 	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
 	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
 	for(j in 1:dim(tmp)[1]){
@@ -97,25 +100,28 @@ print(paste("Estimated Lambda", format(lambda, digits=4), sep=" "))
 ### construct a matrix of Dij's
 ### number of unique sequences
 nuni <- dim(d0)[1]
-TX <- matrix(rep(0,nuni^2), ncol=nuni)
-
+TX <- matrix(rep(NA,nuni^2), ncol=nuni)
+rownames( TX ) <- seqnames;
+colnames( TX ) <- seqnames;
 for(i in 1:(dim(d0)[1]-1)){
 	useq <- d0[i,2]
-	TX[((i+1):dim(TX)[1]),i] <- d1[which(d1[,1]==useq),3]
+	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
 }
 
 sigma1 <- 0
 sigma2 <- 0
 muhat <- 0
-denmu <- (nseq*(nseq-1)/2)^(-1)
+denmu <- (sum( is.na( TX ) ))^(-1)
+## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
 den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
-den2 <- den1/4   
-
+den2 <- den1/4
 
 for(n in 1:(nuni-1)){
-	for(m in (n+1):nuni){
-		muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
+    for(m in (n+1):nuni){
+        if( !is.na( TX[ m, n ] ) ) {
+            muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
 	}
+    }
 }
 
 for(n in 1:nuni){
@@ -124,7 +130,8 @@ for(n in 1:nuni){
 	sigma2 <- sigma2 + choose(mult0[n],2)*den2*(dnn-muhat)^2
 	if(n != nuni){
 		for(m in (n+1):nuni){
-			dnm <- TX[m,n]
+                    dnm <- TX[m,n]
+                    if( !is.na( dnm ) ) {
 			dmm <- 0
 			sigma2 <- sigma2 + mult0[n]*mult0[m]*(dnm - muhat)^2
 			sigma1 <- sigma1 + (2/3)*choose(mult0[n],2)*mult0[m]*(dnm-muhat)*(dnm+2*dnn-3*muhat)
@@ -133,10 +140,14 @@ for(n in 1:nuni){
 				for(l in (m+1):nuni){
 					dnl <- TX[l,n]
 					dlm <- TX[l,m]
-					sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat)) 
+                                        if( !is.na( dnl ) && !is.na( dlm ) ) {
+                                            sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
+                                            sigma1.count <- sigma1.count + 1;
+                                        }
 				}
 			}
-		}
+		    } # End if !is.na( dnm )
+                } # End for( m )
  	}
 }
 
@@ -290,9 +301,9 @@ if (lambda!=0) {
 		}
 	}
     
-        print( "about to run La.svd" );
+        #print( "about to run La.svd" );
 	sdec <- La.svd(sigmaij)
-        print( "ran La.svd" );
+        #print( "ran La.svd" );
 	diag <- ifelse(sdec$d>1e-4,sdec$d,0)
 	diagmat <- matrix(rep(0,sigma.dim^2), ncol=sigma.dim)
 	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
