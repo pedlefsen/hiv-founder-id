@@ -35,6 +35,8 @@ dir <- paste(dirname(infile), '/', sep='')
 outfile <- paste(dir, "LOG_LIKELIHOOD.results.txt", sep="")
 outfile2 <- paste(dir, "CONVOLUTION.results.txt", sep="")
 
+cat( "PFitter.." );
+
 ### FUNCTIONS ###
 iseven <- function(c) {
 	c1 <- c/2-as.integer(c/2)
@@ -60,15 +62,18 @@ nseq <- sum(mult0)
 yvec0 <- rep(0, (1+max(d0[,3])))
 for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
 
-nl0 <- length(yvec0)
+nl0 <- length(yvec0);
 clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
 
 ### calc intersequence HD
 d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	
 yvec <- rep(0, (1+max(d1[,3])))
-seqnames <- unique(d1[,1])
+seqnames <- unique(c( d1[,1], d1[,2] ))
 for(i in 1:length(seqnames)){
-	tmp <- d1[which(d1[,1]==seqnames[i]),]
+    tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
+    if( nrow( tmp ) == 0 ) {
+        next;
+    }
 	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
 	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
 	for(j in 1:dim(tmp)[1]){
@@ -95,25 +100,28 @@ print(paste("Estimated Lambda", format(lambda, digits=4), sep=" "))
 ### construct a matrix of Dij's
 ### number of unique sequences
 nuni <- dim(d0)[1]
-TX <- matrix(rep(0,nuni^2), ncol=nuni)
-
+TX <- matrix(rep(NA,nuni^2), ncol=nuni)
+rownames( TX ) <- seqnames;
+colnames( TX ) <- seqnames;
 for(i in 1:(dim(d0)[1]-1)){
 	useq <- d0[i,2]
-	TX[((i+1):dim(TX)[1]),i] <- d1[which(d1[,1]==useq),3]
+	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
 }
 
 sigma1 <- 0
 sigma2 <- 0
 muhat <- 0
-denmu <- (nseq*(nseq-1)/2)^(-1)
+denmu <- (sum( !is.na( TX )))^(-1)
+## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
 den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
-den2 <- den1/4   
-
+den2 <- den1/4
 
 for(n in 1:(nuni-1)){
-	for(m in (n+1):nuni){
-		muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
+    for(m in (n+1):nuni){
+        if( !is.na( TX[ m, n ] ) ) {
+            muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
 	}
+    }
 }
 
 for(n in 1:nuni){
@@ -122,7 +130,8 @@ for(n in 1:nuni){
 	sigma2 <- sigma2 + choose(mult0[n],2)*den2*(dnn-muhat)^2
 	if(n != nuni){
 		for(m in (n+1):nuni){
-			dnm <- TX[m,n]
+                    dnm <- TX[m,n]
+                    if( !is.na( dnm ) ) {
 			dmm <- 0
 			sigma2 <- sigma2 + mult0[n]*mult0[m]*(dnm - muhat)^2
 			sigma1 <- sigma1 + (2/3)*choose(mult0[n],2)*mult0[m]*(dnm-muhat)*(dnm+2*dnn-3*muhat)
@@ -131,10 +140,13 @@ for(n in 1:nuni){
 				for(l in (m+1):nuni){
 					dnl <- TX[l,n]
 					dlm <- TX[l,m]
-					sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat)) 
+                                        if( !is.na( dnl ) && !is.na( dlm ) ) {
+                                            sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
+                                        }
 				}
 			}
-		}
+		    } # End if !is.na( dnm )
+                } # End for( m )
  	}
 }
 
@@ -194,10 +206,10 @@ if (lambda!=0) {
 		delta <- rep(0,m)
 		delta[1+m/2] <- 1
 		for(hj in 1:m){			
-			yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
-			if(m<2*nl) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
+                        yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
+			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
 		}
-		if(m<2*nl) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
 	}
 	
 	dvec2 <- rep(0, yvec1[1])
@@ -248,20 +260,23 @@ if (lambda!=0) {
 		
 
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
-pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
+#pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
+pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda^x))-lfactorial(x) ) )
 mui <- function(x) nseq*dpois(x, lambda=clambda)
-eyvec <- 0.5*pk(0:(2*nl0-1))
+SIGMA.DIM.MAX <- 170; # Beyond this value, factorial stops working in R.
+sigma.dim <- min( SIGMA.DIM.MAX, (2*nl0) );
+eyvec <- 0.5*pk(0:(sigma.dim-1))
+eyvec[ !is.finite( eyvec ) ] <- 0; # Paul added this to avoid errors.  factorial(x) sometimes refuses to work (if x is too large).
 
 if (lambda!=0) {
-	
-	sigmaij <- matrix(nrow=(2*nl0), ncol=(2*nl0))
+	sigmaij <- matrix(nrow=sigma.dim, ncol=sigma.dim)
 	coeff <- (nseq^3)*exp(-3*clambda)
 	
 	#### RICORDATI!!!! EYVEC[K] == E(Y_{K-1}) !!!!!!
 	
-	for(k in 0:(2*nl0-1)){  
+	for(k in 0:(sigma.dim-1)){  
   
-		for(l in 0:(2*nl0-1)){   
+		for(l in 0:(sigma.dim-1)){   
 			
 			if(k>=l){ 
 				c1 <- ((clambda^k)/factorial(k))*sum(choose(k,l:0)*((clambda^(0:l))/factorial(0:l)))
@@ -271,21 +286,29 @@ if (lambda!=0) {
 				c1 <- ((clambda^l)/factorial(l))*sum(choose(l,k:0)*((clambda^(0:k))/factorial(0:k)))
 				c2 <- ((clambda^k)/factorial(k))*sum(choose(k,k:0)*((clambda^((l-k):l))/factorial((l-k):l))) 
 			}
-						
+                    if( is.na( c1 ) ) {
+                        c1 <- 0;
+                    }
+                    if( is.na( c2 ) ) {
+                        c2 <- 0;
+                    }
 			sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2)
+
 			
 			if(k==l){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) }
 			if((k==l)&(iseven(k))){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2) }
 		}
 	}
-									
+    
+        #print( "about to run La.svd" );
 	sdec <- La.svd(sigmaij)
+        #print( "ran La.svd" );
 	diag <- ifelse(sdec$d>1e-4,sdec$d,0)
-	diagmat <- matrix(rep(0,(2*nl0)^2), ncol=2*nl0)
-	for(ii in 1:(2*nl0)){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
+	diagmat <- matrix(rep(0,sigma.dim^2), ncol=sigma.dim)
+	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
 	sigmainv <- sdec$u%*%diagmat%*%sdec$vt
 	
-	h <- hist(dvec1, breaks=seq(-1,max(dvec1),1), plot=FALSE)
+	h <- hist(dvec1[ dvec1 <= sigma.dim ], breaks=seq(-1,(sigma.dim-1),1), plot=FALSE)
 	xvec <- h$breaks
 	yvec <- h$counts
 	nl1 <- length(yvec)
@@ -293,13 +316,13 @@ if (lambda!=0) {
 			
 	pesce <- 0.5*nseq*(nseq-1)*dpois(0:(nl1-1), lambda=aplambda)
 
-	if (length(yvec)<2*nl0) { 
-		ccvv <- 2*nl0 - length(yvec) 
+	if (length(yvec)<sigma.dim) { 
+		ccvv <- sigma.dim - length(yvec) 
 		yvec <- c(yvec, rep(0,ccvv)) 
 	}
 	
 	chisq <- t(abs(yvec-eyvec))%*%sigmainv%*%(abs(yvec-eyvec))
-	pval <- ifelse(chisq<0,2e-16,1-pchisq(chisq,df=nl0-1))		
+        pval <- ifelse(chisq<0,2e-16,1-pchisq(chisq,df=nl0-1))
 	if(pval==0){ pval <- 2e-16 }
 	if(chisq<0){ chisq <- NA }
 } else { 
@@ -308,14 +331,8 @@ if (lambda!=0) {
 	pval <- 0
 }
        
-write(paste(sample, format(lambda, digits=4), format(newvarhd, digits=4), nseq, nbases, format(meanhd, digits=2), maxhd, formatteddays, format(as.numeric(chisq), digits=4), nl0-1, format(as.numeric(pval), digits=4), sep="\t"), file=outfile, append=TRUE)
+write(paste(sample, format(lambda, digits=4), format(newvarhd, digits=4), nseq, nbases, format(meanhd, digits=2), maxhd, formatteddays, format(as.numeric(chisq), digits=4), nl0-1, format(as.numeric(pval), digits=4), sep="\t"), file=outfile, append=TRUE);
 
-	
+cat( ".done.", fill = TRUE );
 
-
-
-
-
-
-
-
+1;

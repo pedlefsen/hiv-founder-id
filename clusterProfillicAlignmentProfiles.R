@@ -113,7 +113,7 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
     dendro <- hclust( subset.dist, method = hclust.method ); # "average" for UPGMA
     clusters <- suppressWarnings(
         cutreeDynamic(
-            dendro, cutHeight = NULL, minClusterSize = 2,
+            dendro, cutHeight = NULL, minClusterSize = 1, #2,
             method = "hybrid", distM = as.matrix( subset.dist )
         ) );
     names( clusters ) <- dendro$labels;

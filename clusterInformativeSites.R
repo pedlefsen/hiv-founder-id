@@ -78,7 +78,7 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     # in the first call's "raw" count. Adding them back in, we are
     # effectively treating those as differences.
 
-    in.dist <- dist.dna( in.fasta, model = "raw", pairwise.deletion = TRUE );
+    in.dist <- dist.dna( in.fasta, model = "N", pairwise.deletion = TRUE );
     in.dist[ is.nan( in.dist ) ] <- 0;
     in.dist <- in.dist + dist.dna( in.fasta, model = "indel", pairwise.deletion = TRUE ); 
     if( any( is.null( in.dist ) ) || any( is.na( in.dist ) ) || any( !is.finite( in.dist ) ) ) {
@@ -92,7 +92,7 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     dendro <- hclust( in.dist, method = "average" ); # UPGMA
     clusters <- suppressWarnings(
         cutreeDynamic(
-            dendro, cutHeight = NULL, minClusterSize = 2,
+            dendro, cutHeight = NULL, minClusterSize = 1, #2,
             method = "hybrid", distM = as.matrix( in.dist )
         ) );
     names( clusters ) <- dendro$labels;

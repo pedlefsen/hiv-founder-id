@@ -24,14 +24,14 @@ use File::Path qw( make_path );
 use Path::Tiny;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P );
 use vars qw( $VERBOSE $DEBUG );
 
 sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-P] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -40,15 +40,18 @@ sub identify_founders {
   # opt_o is an optional directory to put the output; default depends on input filename.
   # opt_O is just like opt_o.  Same thing.
   # opt_V means be verbose.
+  # opt_P means skip (do not run) profillic
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O ) = ();
-  if( not getopts('DVo:O:') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P ) = ();
+  if( not getopts('DVo:O:P') ) {
     identify_founders_usage();
   }
   
   $DEBUG ||= $opt_D;
   $VERBOSE ||= $opt_V;
 
+  my $run_profillic = !$opt_P;
+  
   my $old_autoflush;
   if( $VERBOSE ) {
     select STDOUT;
@@ -101,6 +104,7 @@ sub identify_founders {
   # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
+  my $R_output;
   foreach my $input_fasta_file ( @input_fasta_files ) {
     if( $VERBOSE ) {
       print $input_fasta_file, "\n";
@@ -153,7 +157,7 @@ sub identify_founders {
       print "Calling R to remove hypermutated sequences..";
     }
     my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
-    my $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+    $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
 #    if( $VERBOSE ) {
       print( "The number of hypermutated sequences removed is: $R_output" );
 #    }
@@ -168,7 +172,7 @@ sub identify_founders {
       print ".done.\n";
     }
 
-    ## ERE I AM. I must run RAP on LANL, which gives individual
+    ## Run RAP on LANL, which gives individual
     ## sequences that are recombinants of other individual sequences,
     ## allowing those to be flagged for removal just like hypermutated
     ## ones.
@@ -185,7 +189,7 @@ sub identify_founders {
       if( $VERBOSE ) {
         print "Calling R to remove recombined sequences..";
       }
-      my $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+      $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
       if( $VERBOSE ) {
         print( "\tdone. The number of recombined sequences removed is: $R_output" );
       }
@@ -231,27 +235,98 @@ sub identify_founders {
         print( "ratio threshold exceeded\n" );
     }
 
+    ## Now run PoissonFitter.
+    if( $VERBOSE ) {
+      print "\nCalling R to run PoissonFitter..";
+    }
+    $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
+    if( $VERBOSE ) {
+      print( "\tdone.\n" );
+    }
+    my $poisson_fitter_stats_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+    my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+    my $is_poisson = defined( $poisson_fit_stat ) && ( $poisson_fit_stat > 0.05 );
+    my $starlike_raw =
+      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+    my ( $starlike_text ) = ( $starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+    my $is_starlike = ( $starlike_text eq "FOLLOWS" );
+    print "PoissonFitter Determination: ";
+    if( $is_starlike ) {
+      print "Star-Like Phylogeny";
+    } else {
+      print "Non-Star-Like Phylogeny";
+    }
+    print "\nPoisson Fit: ";
+    if( $is_poisson ) {
+      print "OK";
+    } else {
+      print "BAD (p = $poisson_fit_stat)";
+    }
+    print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
+    #print "\n$poisson_fitter_stats_raw\n";
+
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
     }
     my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    # There might be extra text in there.  Look for the telltale "[1]" output
+    #warn "GOT $num_clusters\n";
+    ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
+    
     # Print out the number of clusters
-    print "Number of founders: $num_clusters\n\n";
+    print "\nNumber of founders estimated by clustering informative sites: $num_clusters\n\n";
+
+    if( $num_clusters > 1 ) {
+      ## Now run PoissonFitter on the clusters.
+      if( $VERBOSE ) {
+        print "Calling R to run MultiFounderPoissonFitter..";
+      }
+      $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="$input_fasta_file"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+      if( $VERBOSE ) {
+        print( "\tdone.\n" );
+      }
+      my $multi_founder_poisson_fitter_stats_raw =
+        `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+      my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_stat ) =
+        ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+      my $multi_founder_is_poisson = defined( $multi_founder_poisson_fit_stat ) && ( $multi_founder_poisson_fit_stat > 0.05 );
+      my $multi_founder_starlike_raw =
+        `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+      my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+      my $multi_founder_is_starlike = ( $multi_founder_starlike_text eq "FOLLOWS" );
+      print "Multi-Founder PoissonFitter Determination: ";
+      if( $multi_founder_is_starlike ) {
+        print "Star-Like Phylogenies within clusters";
+      } else {
+        print "Non-Star-Like Phylogenies within clusters";
+      }
+      print "\nMulti-Founder Poisson Fit: ";
+      if( $multi_founder_is_poisson ) {
+        print "OK";
+      } else {
+        print "BAD (p = $multi_founder_poisson_fit_stat)";
+      }
+      print "\nMulti-Founder Poisson time estimate (95\% CI): $multi_founder_poisson_time_est_and_ci\n";
+      #print "\n$multi_founder_poisson_fitter_stats_raw\n";
+    } # End if $num_clusters > 1
 
     ## Now try it the more profillic way.
-    if( !$force_one_cluster ) {
-      my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
-      print "Running Profillic..\n";
-      my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-      `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
-      
-      print "Clustering..\n";
-      my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
-      # Print out the number of clusters
-      print "Number of profillic clusters: $num_profillic_clusters\n";
-    }
-      
+    if( $run_profillic ) {
+      if( !$force_one_cluster ) {
+        my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
+        print "Running Profillic..\n";
+        my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
+        `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        
+        print "Clustering..\n";
+        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        # Print out the number of clusters
+        print "Number of founders estimated using Profillic: $num_profillic_clusters\n";
+      }
+    } # End if $run_profillic
+
   } # End foreach $input_fasta_file
 
   if( $VERBOSE ) {

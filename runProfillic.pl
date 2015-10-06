@@ -210,12 +210,13 @@ sub runProfillic {
   if( $VERBOSE ) {
     print( "Done running profileToAlignmentProfile." );
   }
+  # This STDERR output is just verbose feedback; write it out to STDOUT.
   if( $VERBOSE && ( -s $profiletoalignmentprofileErrFile ) ) {
     open ERR, $profiletoalignmentprofileErrFile;
     my @lines = <ERR>;
     my $errMsg = join('', @lines);
     close ERR;
-    die( "STDERR while running profileToAlignmentProfile:\n$errMsg" );
+    print( "profileToAlignmentProfile output:\n$errMsg" );
   }
 
   if( $VERBOSE ) {
