@@ -29,6 +29,7 @@ use Sort::Fields;
 
 use strict;
 use warnings;
+
 use vars qw( $opt_D $opt_V );
 use vars qw( $VERBOSE $DEBUG );
 
@@ -183,8 +184,8 @@ sub runInSitesOffline {
    my $varSitesTabFile = $uploadseqFile."_var.txt";	# tab delimited variable sites file
    my $alnFile = $uploadseqFile."_info.aln";	# aligned informative output file
    my $privateAlnFile = $uploadseqFile."_priv.aln";	# aligned private output file
-   my $tabFile = $uploadseqFile.".txt";	# tab delimited informative output file
-   my $privateTabFile = $uploadseqFile."_priv.txt";	# tab delimited private output file
+   my $tabFile = $uploadseqFile."_informativeSites.txt";	# tab delimited informative output file
+   my $privateTabFile = $uploadseqFile."_privateSites.txt";	# tab delimited private output file
    my $seqArr = my $displaySeqArr = ();
    my $element = my $count = my $maxLen = 0;
    my (@informativeSites, @seqNames, @lines, @alnLines, @privateLines, @privateAlnLines, @infoMutant, %infoMutStatus, @privateMutant, %privateMutStatus);
@@ -373,7 +374,7 @@ sub runInSitesOffline {
       }
 	
       if (@informativeSites) {
-         my $param = Insites::GetParams ($maxLen, $element, \@seqNames, \@informativeSites, $seqArr, \%infoMutStatus, \@infoMutant, $infoMutHash, \%seqGrp, $datatype);
+         my $param = GetParams ($maxLen, $element, \@seqNames, \@informativeSites, $seqArr, \%infoMutStatus, \@infoMutant, $infoMutHash, \%seqGrp, $datatype);
 	 WriteAlnInsites ($alnFile, $maxLen, \@informativeSites, $param, $sortRadio, $seqLen);
 	 my $TAB;
 	 open ($TAB, ">$tabFile") or die "Couldn't open $tabFile: $!\n";
@@ -441,64 +442,19 @@ sub runInSitesOffline {
       close STAT;
    }  ### end of IF there is information to print
 
-   return 1;
-#/  my ( $no_informative_sites ) = ( $content =~ /Aligned informative sites:<\/td><td>None/ );
-#/  my ( $job_id ) = ( $content =~ /Your job id is (\d+)\./ );
-#/
-#/  if( $VERBOSE ) {
-#/    print "JOB ID IS $job_id\n";
-#/    if( $no_informative_sites ) {
-#/      print "NO INFORMATIVE SITES\n";
-#/    }
-#/  }
-#/
-#/
-#/  my $privContent = undef;
-#/  $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
-#/  $privContent = $mech->content();
-#/
-#/  while( !defined( $privContent ) || $content =~ /No such file/ ) {
-#/    sleep( 1 );
-#/    print( "trying again to get the private sites file" );
-#/    $mech->get( "http://indra\.mullins\.microbiol\.washington.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=_priv\.txt&&local=DIVEIN");
-#/    $privContent = $mech->content();
-#/  }
+   ### Paul's code, sans CGI stuff
 
-#/  my $privFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_privateSites.txt";
-#/  if( $VERBOSE ) { print "Opening file \"$privFile\" for writing.."; }
-#/  unless( open privFileFH, ">$privFile" ) {
-#/      warn "Unable to open output file \"$privFile\": $!\n";
-#/      return 1;
-#/    }
-#/  print privFileFH $privContent;
-#/  close( privFileFH );
-#/  if( $VERBOSE ) { print ".done\n"; }
-#/
-#/  my $informativeSitesContent = "";
-#/  if( $no_informative_sites ) {
-#/    $informativeSitesContent = "";
-#/  } else {
-#/    $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-#/    $informativeSitesContent = $mech->content();
-#/    print( "got $informativeSitesContent" );
-#/    while( !defined( $informativeSitesContent ) || ( $informativeSitesContent =~ /No such file/ ) ) {
-#/      print( "trying again to get the informative sites file." );
-#/      sleep( 1 );
-#/      $mech->get("http://indra\.mullins\.microbiol\.washington\.edu/cgi-bin/DIVEIN/insites/download\.cgi?id=$job_id&ext=.txt&local=DIVEIN");
-#/      $informativeSitesContent = $mech->content();
-#/    }
-#/  }
+   my ( $no_informative_sites ) = (!@informativeSites);
+   my ( $job_id ) = ( $id );
 
-#/  my $informativeSitesFile =  $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_informativeSites.txt";
-#/  if( $VERBOSE ) { print "Opening file \"$informativeSitesFile\" for writing.."; }
-#/  unless( open informativeSitesFileFH, ">$informativeSitesFile" ) {
-#/      warn "Unable to open output file \"$informativeSitesFile\": $!\n";
-#/      return 1;
-#/    }
-  ## NOTE that there is a bug (as of September, 2015) in the inSites code online, in which flanking gaps are not printed in the output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
-#/  print informativeSitesFileFH $informativeSitesContent;
-#/  close( informativeSitesFileFH );
-#/  if( $VERBOSE ) { print ".done\n"; }
+   if( $VERBOSE ) {
+      print "JOB ID IS $job_id\n";
+      if( $no_informative_sites ) {
+         print "NO INFORMATIVE SITES\n";
+      }
+   }
+
+  if( $VERBOSE ) { print ".done\n"; }
 
   if( $VERBOSE ) {
     select STDOUT;
