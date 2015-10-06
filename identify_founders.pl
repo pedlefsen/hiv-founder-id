@@ -246,7 +246,7 @@ sub identify_founders {
     my $poisson_fitter_stats_raw =
       `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
     my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-    my $is_poisson = ( $poisson_fit_stat <= 0.05 );
+    my $is_poisson = defined( $poisson_fit_stat ) && ( $poisson_fit_stat <= 0.05 );
     my $starlike_raw =
       `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
     my ( $starlike_text ) = ( $starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
@@ -289,8 +289,9 @@ sub identify_founders {
       }
       my $multi_founder_poisson_fitter_stats_raw =
         `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-      my ( $multi_founder_poisson_fit_stat, $multi_founder_poisson_time_est_and_ci ) = ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-      my $multi_founder_is_poisson = ( $multi_founder_poisson_fit_stat <= 0.05 );
+      my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_stat ) =
+        ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+      my $multi_founder_is_poisson = defined( $multi_founder_poisson_fit_stat ) && ( $multi_founder_poisson_fit_stat <= 0.05 );
       my $multi_founder_starlike_raw =
         `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
       my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ /(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );

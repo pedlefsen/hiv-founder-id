@@ -111,7 +111,7 @@ for(i in 1:(dim(d0)[1]-1)){
 sigma1 <- 0
 sigma2 <- 0
 muhat <- 0
-denmu <- (sum( is.na( TX ) ))^(-1)
+denmu <- (sum( !is.na( TX )))^(-1)
 ## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
 den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
 den2 <- den1/4
@@ -142,7 +142,6 @@ for(n in 1:nuni){
 					dlm <- TX[l,m]
                                         if( !is.na( dnl ) && !is.na( dlm ) ) {
                                             sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
-                                            sigma1.count <- sigma1.count + 1;
                                         }
 				}
 			}
