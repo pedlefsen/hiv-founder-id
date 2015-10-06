@@ -3,7 +3,7 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runPoissonFitter <- function ( fasta.file, output.dir = NULL ) {
+runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
@@ -48,14 +48,15 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL ) {
     fasta.with.consensus <- fasta.with.consensus[ , .consensus.mat[ 1, ] != "-" ];
     
     # The pairwise.deletion = TRUE argument is necessary so that columns with any gaps are not removed.
-    # The second call adds in the count of sites with gap differences
+    # The optional second call adds in the count of sites with gap differences
     # (gap in one sequence but not the other), which are not included
     # in the first call's "raw" count. Adding them back in, we are
     # effectively treating those as differences.
-
     fasta.with.consensus.dist <- dist.dna( fasta.with.consensus, model = "N", pairwise.deletion = TRUE );
     fasta.with.consensus.dist[ is.nan( fasta.with.consensus.dist ) ] <- 0;
-    fasta.with.consensus.dist <- fasta.with.consensus.dist + dist.dna( fasta.with.consensus, model = "indel", pairwise.deletion = TRUE );
+    if( include.gaps.in.Hamming ) {
+        fasta.with.consensus.dist <- fasta.with.consensus.dist + dist.dna( fasta.with.consensus, model = "indel", pairwise.deletion = TRUE );
+    }
     
     if( any( is.null( fasta.with.consensus.dist ) ) || any( is.na( fasta.with.consensus.dist ) ) || any( !is.finite( fasta.with.consensus.dist ) ) ) {
       ## TODO: REMOVE

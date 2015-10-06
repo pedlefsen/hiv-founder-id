@@ -312,7 +312,7 @@ if (lambda!=0) {
 	}
 	
 	chisq <- t(abs(yvec-eyvec))%*%sigmainv%*%(abs(yvec-eyvec))
-	pval <- ifelse(chisq<0,2e-16,1-pchisq(chisq,df=nl0-1))		
+        pval <- ifelse(chisq<0,2e-16,1-pchisq(chisq,df=nl0-1))
 	if(pval==0){ pval <- 2e-16 }
 	if(chisq<0){ chisq <- NA }
 } else { 
