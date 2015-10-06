@@ -308,7 +308,7 @@ sub identify_founders {
       } else {
         print "BAD";
       }
-      print "\nMulti-Founder Poisson time estimate (95\% CI): " . $multi_founder_poisson_time_est_and_ci;
+      print "\nMulti-Founder Poisson time estimate (95\% CI): $multi_founder_poisson_time_est_and_ci\n";
       #print "\n$multi_founder_poisson_fitter_stats_raw\n";
     } # End if $num_clusters > 1
 
