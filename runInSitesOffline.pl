@@ -174,21 +174,23 @@ sub runInSitesOffline {
 
    ### This section creates the inSites output files
    ### We are primarily interested in ..._privateSites.txt and
-   ### ..._informativeSites.txt. 
+   ### ..._informativeSites.txt -- which have been renamed to Paul's
+   ### preferred names.
    ### TAH 10/15
 
-   my $alnDisplayFile = $uploadseqFile.".aln";	# alignment display 
+   my $alnDisplayFile = $uploadseqFile.".aln";	            # alignment display 
    my $alnCondenseDisplayFile = $uploadseqFile."_uniq.aln"; # alignment display - condense unique sequence
-   my $alnStatFile = $uploadseqFile."_aln.txt";	# tab delimited alignment summary output file
-   my $varSitesAlnFile = $uploadseqFile."_var.aln";	# aligned variable sites file
-   my $varSitesTabFile = $uploadseqFile."_var.txt";	# tab delimited variable sites file
-   my $alnFile = $uploadseqFile."_info.aln";	# aligned informative output file
-   my $privateAlnFile = $uploadseqFile."_priv.aln";	# aligned private output file
-   my $tabFile = $uploadseqFile."_informativeSites.txt";	# tab delimited informative output file
-   my $privateTabFile = $uploadseqFile."_privateSites.txt";	# tab delimited private output file
+   my $alnStatFile = $uploadseqFile."_aln.txt";	            # tab delimited alignment summary output file
+   my $varSitesAlnFile = $uploadseqFile."_var.aln";	    # aligned variable sites file
+   my $varSitesTabFile = $uploadseqFile."_var.txt";	    # tab delimited variable sites file
+   my $alnFile = $uploadseqFile."_info.aln";	            # aligned informative output file
+   my $privateAlnFile = $uploadseqFile."_priv.aln";	    # aligned private output file
+   my $tabFile = $uploadseqFile."_informativeSites.txt";    # tab delimited informative output file
+   my $privateTabFile = $uploadseqFile."_privateSites.txt"; # tab delimited private output file
    my $seqArr = my $displaySeqArr = ();
    my $element = my $count = my $maxLen = 0;
-   my (@informativeSites, @seqNames, @lines, @alnLines, @privateLines, @privateAlnLines, @infoMutant, %infoMutStatus, @privateMutant, %privateMutStatus);
+   my (@informativeSites, @seqNames, @lines, @alnLines, @privateLines, @privateAlnLines,
+       @infoMutant, %infoMutStatus, @privateMutant, %privateMutStatus);
    my (%ambiguityHash, @ambiguousPos);
 
    foreach my $line (@seqNameNseqs){
@@ -1177,18 +1179,7 @@ sub WriteTabInsites {
 		print $TAB "\t";
 	}
 	print $TAB "\tTotal\n";
-#	# only for existing mutation types
-#	foreach my $mutation (sort @mutations) {
-#		print $TAB "\t\t\t$mutation";
-#		foreach my $position (@$informativeSitesRef) {
-#			my $count = 0;
-#			if ($infoSiteMutation->{$position}->{$mutation}) {
-#				$count = $infoSiteMutation->{$position}->{$mutation};
-#			}
-#			print $TAB "\t",$count;
-#		}
-#		print $TAB "\t", $totalMutation->{$mutation}, "\n";
-#	}	
+
 	# for all possible mutaion types including ambiguities
 	my (@mutation_types, @all_nas);
 	if ($datatype eq "nt") {		
