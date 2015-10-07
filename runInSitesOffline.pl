@@ -261,7 +261,8 @@ sub runInSitesOffline {
       close AMBI;
    } # end of if there are ambiguous positions
 
-   my (@consAAs, %infoSiteHash, %privateSiteHash, @privateSites, @uniqNas, %uniqNasStatus, %posTotalCount, $posNaCount, @varSites, %varSiteStatus);
+   my (@consAAs, %infoSiteHash, %privateSiteHash, @privateSites, @uniqNas,
+       %uniqNasStatus, %posTotalCount, $posNaCount, @varSites, %varSiteStatus);
    my $infoMutHash = my $privateMutHash = my $grpAaHash = ();
    my $gapOnlyInsiteCount = my $resultFlag = my $gapOnlyPriSiteCount = 0;
 
@@ -376,23 +377,28 @@ sub runInSitesOffline {
       }
 	
       if (@informativeSites) {
-         my $param = GetParams ($maxLen, $element, \@seqNames, \@informativeSites, $seqArr, \%infoMutStatus, \@infoMutant, $infoMutHash, \%seqGrp, $datatype);
+         my $param =
+            GetParams ($maxLen, $element, \@seqNames, \@informativeSites, $seqArr,
+                       \%infoMutStatus, \@infoMutant, $infoMutHash, \%seqGrp, $datatype);
 	 WriteAlnInsites ($alnFile, $maxLen, \@informativeSites, $param, $sortRadio, $seqLen);
 	 my $TAB;
 	 open ($TAB, ">$tabFile") or die "Couldn't open $tabFile: $!\n";
 	 print $TAB "\tTotal_informative\tInformative(noGaps)\tAmbiguities";
-         WriteTabInsites ($TAB, \@informativeSites, $gapOnlyInsiteCount, $param, $sortRadio, $seqArr, $element, $datatype, \@nas, \@infoMutant, \%infoMutStatus, $infoMutHash);
+         WriteTabInsites ($TAB, \@informativeSites, $gapOnlyInsiteCount, $param, $sortRadio,
+                          $seqArr, $element, $datatype, \@nas, \@infoMutant, \%infoMutStatus, $infoMutHash);
 	 close $TAB;		
       }
 	
       if (@privateSites) {
          my $param =
-            GetParams ($maxLen, $element, \@seqNames, \@privateSites, $seqArr, \%privateMutStatus, \@privateMutant, $privateMutHash, \%seqGrp, $datatype);
+            GetParams ($maxLen, $element, \@seqNames, \@privateSites, $seqArr,
+                       \%privateMutStatus, \@privateMutant, $privateMutHash, \%seqGrp, $datatype);
 	 WriteAlnInsites ($privateAlnFile, $maxLen, \@privateSites, $param, $sortRadio, $seqLen);
 	 my $TAB;
 	 open ($TAB, ">$privateTabFile") or die "Couldn't open $privateTabFile: $!\n";
 	 print $TAB "\tTotal_private\tPrivate(noGaps)\tAmbiguities";
-	 WriteTabInsites ($TAB, \@privateSites, $gapOnlyPriSiteCount, $param, $sortRadio, $seqArr, $element, $datatype, \@nas, \@privateMutant, \%privateMutStatus, $privateMutHash);
+	 WriteTabInsites ($TAB, \@privateSites, $gapOnlyPriSiteCount, $param, $sortRadio, $seqArr,
+                          $element, $datatype, \@nas, \@privateMutant, \%privateMutStatus, $privateMutHash);
 	 close $TAB;		
       }
       
