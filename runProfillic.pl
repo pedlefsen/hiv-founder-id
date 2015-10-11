@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ##---------------------------------------------------------------------------##
 ##  File:
-##      @(#) runPhyML
+##      @(#) runProfillic
 ##  Author:
 ##      Paul Thatcher Edlefsen   pedlefse@fredhutch.org
 ##  Description:

@@ -68,12 +68,70 @@ sub runRAPOnline {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
   }
 
+  my $R_output;
+
+  # RAP seems to not be able to handle duplicate sequences.
+  ## STEP 1: remove duplicate sequences.
+  if( $VERBOSE ) {
+    print "Calling R to create a version of the fasta file in which duplicate sequences are removed..";
+  }
+  $R_output = `export removeDuplicateSequencesFromAlignedFasta_inputFilename="$input_fasta_file"; export removeDuplicateSequencesFromAlignedFasta_outputDir="$output_path_dir"; R -f removeDuplicateSequencesFromAlignedFasta.R --vanilla --slave`;
+  # The output has the file name of the consensus file.
+  if( $DEBUG ) {
+    print( "GOT: $R_output\n" );
+  }
+  if( $VERBOSE ) {
+    print ".done.\n";
+  }
+  # Parse it to get the output fasta filename.
+  my ( $fasta_file_no_duplicates ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  my ( $table_file_no_duplicates ) =
+    ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ ) . ".tbl";
+  if( $DEBUG ) {
+    print "Fasta file with duplicates removed: $fasta_file_no_duplicates\n";
+    print "Table of duplicates removed: $table_file_no_duplicates\n";
+  }
+
+  # RAP seems to require a consensus as the first sequence.
+  # RAP has a problem with certain characters in fasta headers. 
+  ## STEP 2: Make a consensus sequence.  While at it, rename the seqs to just their numbers.
+  if( $VERBOSE ) {
+    print "Calling R to create a version of the fasta file that includes the consensus, and in which seqs are numbered instead of named..";
+  }
+  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputDir="$output_path_dir"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
+  # The output has the file name of the consensus file.
+  if( $DEBUG ) {
+    print( "GOT: $R_output\n" );
+  }
+  if( $VERBOSE ) {
+    print ".done.\n";
+  }
+  # Parse it to get the consensus sequence filename.
+  my ( $fasta_file_with_consensus ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  if( $DEBUG ) {
+    print "Fasta file with consensus: $fasta_file_with_consensus\n";
+  }
+
+  ## Set up the table mapping sequence names to numbers.
+      if( $VERBOSE ) {
+        print "Reading sequence names from file \"", $fasta_file_no_duplicates, "\"..";
+      }
+      my $fasta_file_no_duplicates_contents =
+           path( $fasta_file_no_duplicates )->slurp();
+      if( $VERBOSE ) {
+        print ".done\n";
+      }
+      if( $DEBUG ) {
+        print $fasta_file_no_duplicates_contents;
+      }
+      my ( @seq_names ) =  ( $fasta_file_no_duplicates_contents =~ /\n?>[ \t]*(.+) *\n/g );
+
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/RAP/RAP.html" );
 
   my $result = $mech->submit_form(
                                   form_name => 'input',
-                                  fields    => { alignmentFile => $input_fasta_file }
+                                  fields    => { alignmentFile => $fasta_file_with_consensus }
                        );
   
   my $content = $mech->content();
@@ -81,10 +139,15 @@ sub runRAPOnline {
     print "OK\n";#, \$content is $content\n";
   }
   my ( $no_recombinants ) = ( $content =~ /No recombinants found/ );
-
-  if( $no_recombinants ) {
+  my ( $format_error ) = ( $content =~ /'Format Conversion' probably did not recognize the format of your input alignment/ );
+  if( $no_recombinants || $format_error ) {
     if( $VERBOSE ) {
-      print "No recombinants identified.\n";
+      if( $format_error ) {
+        print "ERROR: File format of $fasta_file_with_consensus not recognized by RAP!\n";
+      }
+      if( $no_recombinants ) {
+        print "No recombinants identified.\n";
+      }
       select STDOUT;
       $| = $old_autoflush;
     }
@@ -99,6 +162,23 @@ sub runRAPOnline {
   }
   my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
   my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
+
+    ## Need to map the numbers back to names.
+  my @RAP_output_file_lines = split( "\n", $RAP_output_file_contents );
+  my ( $firstpart, $recombinant, $parents_before_split, $rest ) = undef;
+  my @parents;
+  for( my $line_i = 2; $line_i < scalar( @RAP_output_file_lines ); $line_i++ ) {
+    ( $firstpart, $recombinant, $parents_before_split, $rest ) =
+      ( $RAP_output_file_lines[ $line_i ] =~ /^(Set \d+) (\d+) ([,\d]+) (.+)\s*$/ );
+    @parents = split( ",", $parents_before_split );
+    if( $DEBUG ) {
+      print "PARENTS before split: $parents_before_split\n";
+      print "PARENTS: ", join( ", ", @parents ), "\n";
+    }
+    $RAP_output_file_lines[ $line_i ] = $firstpart . ' ' . $seq_names[ $recombinant - 1 ] . ' ' . join( ",", @seq_names[ map { $_ - 1 } @parents ] ) . ' ' . $rest;
+  }
+  $RAP_output_file_contents = join( "\n", @RAP_output_file_lines );
+
         if( $VERBOSE ) {
           print( "Writing out RAP output file \"$RAP_output_file\".." );
         }
@@ -109,14 +189,13 @@ sub runRAPOnline {
           }
         print RAP_output_fileFH $RAP_output_file_contents;
         close( RAP_output_fileFH );
-  
 
   if( $VERBOSE ) {
     print "Recombinants identified ($RAP_output_file)\n";
     select STDOUT;
     $| = $old_autoflush;
   }
-  
+
   return 0;
 } # runRAPOnline(..)
 

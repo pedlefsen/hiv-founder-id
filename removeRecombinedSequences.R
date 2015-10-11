@@ -51,7 +51,7 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
     }
   } # End foreach line.i
 
-  out.fasta <- in.fasta[ !exclude.sequence, ];
+  out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
 
   # Write the subalignment as a fasta file
   out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeRecombinedSequences", fasta.file.short.suffix, sep = "" );

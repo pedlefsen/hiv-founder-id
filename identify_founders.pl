@@ -25,26 +25,27 @@ use File::Path qw( make_path );
 use Path::Tiny;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_f );
 use vars qw( $VERBOSE $DEBUG );
 
 sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-P] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-Pf] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
-  # This means -D, -o, -O, -V are ok, but nothin' else.
+  # This means -D, -o, -O, -V, -P, -R are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_o is an optional directory to put the output; default depends on input filename.
   # opt_O is just like opt_o.  Same thing.
   # opt_V means be verbose.
   # opt_P means skip (do not run) profillic
+  # opt_f means fix hypermutated sequences, instead of removing them.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P ) = ();
-  if( not getopts('DVo:O:P') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_f ) = ();
+  if( not getopts('DVo:O:Pf') ) {
     identify_founders_usage();
   }
   
@@ -52,6 +53,7 @@ sub identify_founders {
   $VERBOSE ||= $opt_V;
 
   my $run_profillic = !$opt_P;
+  my $fix_hypermutated_sequences = $opt_f || 0;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -100,9 +102,7 @@ sub identify_founders {
     $extra_flags .= "-V ";
   }
 
-  # First remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
-  
-  # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
+  # After removing/fixing hypermutated sequences and removing recombined sequences, run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
   my $R_output;
@@ -154,13 +154,24 @@ sub identify_founders {
       }
     }
 
+    # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $VERBOSE ) {
-      print "Calling R to remove hypermutated sequences..";
+        if( $fix_hypermutated_sequences ) {
+          print "Calling R to fix hypermutated sequences..";
+        } else {
+          print "Calling R to remove hypermutated sequences..";
+        }
     }
     my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
-    $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+    $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+    ## extract the number fixed/removed from the output
+    $R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
 #    if( $VERBOSE ) {
-      print( "The number of hypermutated sequences removed is: $R_output" );
+        if( $fix_hypermutated_sequences ) {
+          print( "The number of hypermutated sequences fixed is: $R_output" );
+        } else {
+          print( "The number of hypermutated sequences removed is: $R_output" );
+        }
 #    }
     # Now use the output from that..
     $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
@@ -191,6 +202,8 @@ sub identify_founders {
         print "Calling R to remove recombined sequences..";
       }
       $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+    ## extract the number fixed/removed from the output
+    $R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
       if( $VERBOSE ) {
         print( "\tdone. The number of recombined sequences removed is: $R_output" );
       }
