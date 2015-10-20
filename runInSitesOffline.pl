@@ -15,7 +15,7 @@
 ##      that drive the Mullins divein web-page directly.  There is no 
 ##      CGI or Mechanize in this version.
 ##      
-##      NOTE that there is a bug (as of September, 2015) in the
+##      NOTE that there is a feature (as of September, 2015) in the
 ##      inSites code online, in which flanking gaps are not printed in
 ##      the output (informative sites) table.  THIS MUST BE FIXED WHEN
 ##      READING/USING THE FILE.
@@ -86,10 +86,6 @@ sub runInSitesOffline {
 
   make_path( $output_path_dir );
 
-    ## HACK: make sure there are no bangs in the input file (since there are, right now).
-    ## removed:  TAH 9/15
-    ## The function of this hack is moved to divein's CleanString function
-    
   open(my $seqFile_handle, "<",$input_fasta_file) or die "Couldn't open $input_fasta_file for reading\n";
 
   ##TAH this section emulates the <SUBMIT> action from the insites.cgi script which is

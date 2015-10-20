@@ -647,6 +647,9 @@ From \cite{Mansky:1995aa}, we get an estimate of the HIV-1 mutation rate of $3.4
 Although it is widely believed that HIV-1 replication is exceptionally error-prone, we show here that the in vivo forward mutation rate of HIV-1, measured by the inactivation of lacZα, is approximately $1.4 \times 10^{−5}$ mutations/bp/cycle. This rate is approximately 20-fold lower than the in vitro error rate for RT measured using a DNA template (9, 10, 29, 30, 62, 68) and 17-fold lower than the rate measured using an RNA template (29, 30). Our reported mutation rate for HIV-1 in HOS cells is also about 3-fold lower than earlier reported rates in HeLa and CEM cells (42, 46) and is similar to the average rate reported for other retroviruses (1.5 × 10−5 mutations/bp/cycle) (69). ... This suggests that our measured mutation rate may be 2- to 3-fold lower than the actual overall mutation rate. The mutation rate of HIV-1 was previously determined, using different constraints, to be $3.4 \times 10^{−5}$ mutations/bp/cycle (46). When the rate was recalculated using the 174-nt target, the mutation rate was $2.4 \times 10^{−5}$ mutations/bp/cycle, which is similar to our result (for details, see Text S3 and Table S3 in the supplemental material).
 \end{quote}
 
+\section{Estimates of multiplicity}
+\cite{Gounder:2015aa, Sterrett:2014aa, Li:2010aa, Gottlieb:2008aa, Abrahams:2009aa, Keele:2008aa} 
+
 \section{Ancestral Sequence Reconstruction}
 There is something called ASR at datamonkey. see http://www.datamonkey.org/help/asr.php
 
