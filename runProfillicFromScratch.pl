@@ -30,7 +30,7 @@ use vars qw( $VERBOSE $DEBUG );
 
 # For now I'm not actually running the trainer, just using the given alignment to make a profile (hmmer-style).
 use constant PROFILLIC_EXECUTABLE => "profillic/dist/profillic_DNA_CQA";
-use constant ALIGNEDFASTATOPROFILE_EXECUTABLE => "profuse/dist/alignedFastaToProfile_DNA";
+use constant PROFILECROSSENTROPY_EXECUTABLE => "profuse/dist/profileCrossEntropy_DNA";
 use constant PROFILETOALIGNMENTPROFILE_EXECUTABLE => "profuse/dist/profileToAlignmentProfile_DNA";
 
 Readonly my %PROFILLIC_OPTIONS => (
@@ -136,19 +136,17 @@ sub runProfillicFromScratch {
     die( "Error running Profillic: $errMsg" );
   }
 
-  ## STEP 2: Create a starting profile.
-  my $starting_profile_file = "${output_path_dir}/${input_fasta_file_short_nosuffix}_AlignedFastaToProfile.prof";
-  my $alignedfastatoprofileOutFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_AlignedFastaToProfile.out";
-  my $alignedfastatoprofileErrFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_AlignedFastaToProfile.err";
-  my @alignedfastatoprofile_cmd = (
-             ALIGNEDFASTATOPROFILE_EXECUTABLE,
-             $input_fasta_file,
-             $consensus_fasta_file,
-             $starting_profile_file
-  );
-  
-  # Step 3: (maybe) calculate profile self-entropy
+  # Step 2: (maybe) calculate profile self-entropy
   if( $compute_self_entropy ) {
+    my $profile_file = "${output_path_dir}/${input_fasta_file_short_nosuffix}_Profillic.prof";
+    my $profileCrossEntropyOutFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ProfileCrossEntropy.out";
+    my $profileCrossEntropyErrFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ProfileCrossEntropy.err";
+    my @profilecrossentropy_cmd = (
+               PROFILECROSSENTROPY_EXECUTABLE,
+               $trained_profile_file
+    );
+  
+
     my $profilecrossentropyOutFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ProfileCrossEntropy.out";
     my $profilecrossentropyErrFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ProfileCrossEntropy.err";
     if( $VERBOSE ) {
@@ -177,7 +175,7 @@ sub runProfillicFromScratch {
     }
   } # End if $compute_self_entropy
 
-  ## STEP 4: Create Alignment Profiles
+  ## STEP 3: Create Alignment Profiles
   my $alignment_profiles_output_file_prefix = "${output_path_dir}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile";
   my $profiletoalignmentprofileOutFile = $output_alignment_profile_files_list_file; #"${output_path_dir}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.out";
   my $profiletoalignmentprofileErrFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.err";

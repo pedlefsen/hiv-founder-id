@@ -203,7 +203,7 @@ sub identify_founders {
       }
       $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
     ## extract the number fixed/removed from the output
-    $R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
+    ( $R_output ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
       if( $VERBOSE ) {
         print( "\tdone. The number of recombined sequences removed is: $R_output" );
       }
@@ -332,10 +332,10 @@ sub identify_founders {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         print "Running Profillic..\n";
         my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-        `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        `perl runProfillic.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         
         print "Clustering..\n";
-        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         # Print out the number of clusters
         print "Number of founders estimated using Profillic: $num_profillic_clusters\n";
       }
