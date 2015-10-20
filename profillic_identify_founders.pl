@@ -195,12 +195,14 @@ sub profillic_identify_founders {
     }
     my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
     my $runProfillic_output =
-      `perl runProfillicFromScratch.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
-
-    my ( $self_entropy ) = ( $runProfillic_output =~ /Self Entropy: (\S+)/ );
+      `perl runProfillicFromScratch.pl $extra_flags -e $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+print "GOT: $runProfillic_output\n";
+    #kmy ( $self_entropy ) = ( $runProfillic_output =~ /Self Entropy: (\S+)/ );
+    my ( $self_entropy ) = ( $runProfillic_output =~ /Cross Entropy: (\S+)/ );
     if( $VERBOSE ) {
-      print( "\tdone. The self entropy of the profile is: $self_entropy" );
+      print( "\tdone." );
     }
+    print( "The self entropy of the profile is: $self_entropy.\n" );
 
     #print "Self Entropy: $self_entropy\n";
     #my $self_entropy_threshold = 

@@ -114,8 +114,10 @@ sub runProfillicFromScratch {
                PROFILLIC_EXECUTABLE,
                $trained_profile_file,
                $ungapped_fasta_file,
+               '--config=profillic.cfg',
                '--even_starting_profile_multiple', $PROFILLIC_OPTIONS{ "even_starting_profile_multiple" },
-               '--random_seed', $PROFILLIC_OPTIONS{ "random_seed" }
+               '--random_seed', $PROFILLIC_OPTIONS{ "random_seed" }#,
+                       #@'--initial_profile_length', 10 # TODO: REMOVE!  TESTING.
       );
     
   # Run Profillic
@@ -143,6 +145,7 @@ sub runProfillicFromScratch {
     my $profileCrossEntropyErrFile = "${output_path_dir}/${input_fasta_file_short_nosuffix}_ProfileCrossEntropy.err";
     my @profilecrossentropy_cmd = (
                PROFILECROSSENTROPY_EXECUTABLE,
+               $trained_profile_file,
                $trained_profile_file
     );
   
@@ -166,12 +169,12 @@ sub runProfillicFromScratch {
       die( "Error running ProfileCrossEntropy: $errMsg" );
     }
     if( -s $profilecrossentropyOutFile ) {
-      open PROFILE_CROSS_ENTROPY, $profilecrossentropyErrFile;
+      open PROFILE_CROSS_ENTROPY, $profilecrossentropyOutFile;
       my @lines = <PROFILE_CROSS_ENTROPY>;
-      my $crossEntropy = join( '', @lines );
+      my $crossEntropyOutput = join( '', @lines );
       close PROFILE_CROSS_ENTROPY;
 
-      print $crossEntropy, "\n";
+      print "$crossEntropyOutput\n";
     }
   } # End if $compute_self_entropy
 
@@ -184,6 +187,7 @@ sub runProfillicFromScratch {
     $trained_profile_file,
     $ungapped_fasta_file,
     $alignment_profiles_output_file_prefix,
+    '--config=profuse.cfg',                                   
     "--individual" # means create individual alignment profiles, one per entry in the given fasta file.
   );
   
