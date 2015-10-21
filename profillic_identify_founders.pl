@@ -89,6 +89,8 @@ sub profillic_identify_founders {
   }
   if( defined $output_path_dir ) {
     make_path( $output_path_dir );
+  } else {
+    $output_path_dir = ".";
   }
 
   my $extra_flags = "";
@@ -176,7 +178,7 @@ sub profillic_identify_founders {
         }
         $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
         ## extract the number fixed/removed from the output
-        ( $R_output ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
+        #( $R_output ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
         if( $VERBOSE ) {
           print( "\tdone. The number of recombined sequences removed is: $R_output" );
         }
