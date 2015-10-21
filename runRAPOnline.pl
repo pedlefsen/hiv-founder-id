@@ -163,7 +163,7 @@ sub runRAPOnline {
   my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
 
   ## TODO: REMOVE
-  print "RAP ID: $RAP_id\n";
+  #print "RAP ID: $RAP_id\n";
 
     ## Need to map the numbers back to names.
   my @RAP_output_file_lines = split( "\n", $RAP_output_file_contents );
@@ -171,7 +171,7 @@ sub runRAPOnline {
   my @parents;
   for( my $line_i = 2; $line_i < scalar( @RAP_output_file_lines ); $line_i++ ) {
 ## TODO: REMOVE!
-    print "LINE $line_i: $RAP_output_file_lines[ $line_i ]\n";
+##    print "LINE $line_i: $RAP_output_file_lines[ $line_i ]\n";
     ( $firstpart, $recombinant, $parents_before_split, $rest ) =
       ( $RAP_output_file_lines[ $line_i ] =~ /^(Set \d+) (\d+) ([,\d]+) (.+)\s*$/ );
     @parents = split( ",", $parents_before_split );
@@ -181,7 +181,7 @@ sub runRAPOnline {
     }
     $RAP_output_file_lines[ $line_i ] = $firstpart . ' ' . $seq_names[ $recombinant - 1 ] . ' ' . join( ",", @seq_names[ map { $_ - 1 } @parents ] ) . ' ' . $rest;
   }
-  $RAP_output_file_contents = join( "\n", @RAP_output_file_lines );
+  $RAP_output_file_contents = join( "\n", @RAP_output_file_lines ) . "\n";
 
         if( $VERBOSE ) {
           print( "Writing out RAP output file \"$RAP_output_file\".." );
