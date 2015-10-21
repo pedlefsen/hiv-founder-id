@@ -41,10 +41,10 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
     for( line.i in 3:length( RAP.summaryTable ) ) {
         #warning( line.i );
         #warning( RAP.summaryTable[ line.i ] );
-    p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\S\+) .+$", "\\1", RAP.summaryTable[ line.i ] );
+    p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\\S+) .+$", "\\1", RAP.summaryTable[ line.i ] );
     if( !is.na( p.value ) && ( p.value < p.value.threshold ) ) {
-        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
-        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         ## TODO: REMOVE
         warning( paste( "Excluding ", seq.name, " because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
         exclude.sequence[ seq.name ] <- TRUE;
