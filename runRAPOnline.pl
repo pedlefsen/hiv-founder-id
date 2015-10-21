@@ -92,13 +92,12 @@ sub runRAPOnline {
     print "Table of duplicates removed: $table_file_no_duplicates\n";
   }
 
-  # RAP seems to require a consensus as the first sequence.
   # RAP has a problem with certain characters in fasta headers. 
-  ## STEP 2: Make a consensus sequence.  While at it, rename the seqs to just their numbers.
+  ## STEP 2: Rename the seqs to just their numbers.
   if( $VERBOSE ) {
-    print "Calling R to create a version of the fasta file that includes the consensus, and in which seqs are numbered instead of named..";
+    print "Calling R to create a version of the fasta file in which seqs are numbered instead of named..";
   }
-  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputDir="$output_path_dir"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
+  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputDir="$output_path_dir"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
   # The output has the file name of the consensus file.
   if( $DEBUG ) {
     print( "GOT: $R_output\n" );
@@ -106,10 +105,10 @@ sub runRAPOnline {
   if( $VERBOSE ) {
     print ".done.\n";
   }
-  # Parse it to get the consensus sequence filename.
-  my ( $fasta_file_with_consensus ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  # Parse it to get the filename.
+  my ( $fasta_file_readyForRAP ) = ( $R_output =~ /\"([^\"]+)\"/ );
   if( $DEBUG ) {
-    print "Fasta file with consensus: $fasta_file_with_consensus\n";
+    print "Fasta file with consensus: $fasta_file_readyForRAP\n";
   }
 
   ## Set up the table mapping sequence names to numbers.
@@ -122,7 +121,7 @@ sub runRAPOnline {
         print ".done\n";
       }
       if( $DEBUG ) {
-        print $fasta_file_no_duplicates_contents;
+        #print $fasta_file_no_duplicates_contents;
       }
       my ( @seq_names ) =  ( $fasta_file_no_duplicates_contents =~ /\n?>[ \t]*(.+) *\n/g );
 
@@ -131,7 +130,7 @@ sub runRAPOnline {
 
   my $result = $mech->submit_form(
                                   form_name => 'input',
-                                  fields    => { alignmentFile => $fasta_file_with_consensus }
+                                  fields    => { alignmentFile => $fasta_file_readyForRAP }
                        );
   
   my $content = $mech->content();
@@ -143,7 +142,7 @@ sub runRAPOnline {
   if( $no_recombinants || $format_error ) {
     if( $VERBOSE ) {
       if( $format_error ) {
-        print "ERROR: File format of $fasta_file_with_consensus not recognized by RAP!\n";
+        print "ERROR: File format of $fasta_file_readyForRAP not recognized by RAP!\n";
       }
       if( $no_recombinants ) {
         print "No recombinants identified.\n";
@@ -163,11 +162,16 @@ sub runRAPOnline {
   my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
   my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
 
+  ## TODO: REMOVE
+  print "RAP ID: $RAP_id\n";
+
     ## Need to map the numbers back to names.
   my @RAP_output_file_lines = split( "\n", $RAP_output_file_contents );
   my ( $firstpart, $recombinant, $parents_before_split, $rest ) = undef;
   my @parents;
   for( my $line_i = 2; $line_i < scalar( @RAP_output_file_lines ); $line_i++ ) {
+## TODO: REMOVE!
+    print "LINE $line_i: $RAP_output_file_lines[ $line_i ]\n";
     ( $firstpart, $recombinant, $parents_before_split, $rest ) =
       ( $RAP_output_file_lines[ $line_i ] =~ /^(Set \d+) (\d+) ([,\d]+) (.+)\s*$/ );
     @parents = split( ",", $parents_before_split );

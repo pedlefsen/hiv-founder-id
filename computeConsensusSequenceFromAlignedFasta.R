@@ -6,7 +6,7 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 # consensus.sequence.name = NA means use the name of the input fasta file (not the full path, just the filename, excluding suffix eg ".fasta"), postpended with "_Consensus".
 # include.full.alignment == TRUE means that the output file will contain both the consensus and the input alignment (consensus first).
 # if use.sequence.numbers.as.names == TRUE, rename non-consensus output sequences using just their order of appearance (eg 1, 2, 3, etc).  This only applies if include.full.alignment is also TRUE.
-computeConsensusSequenceFromAlignedFasta <- function ( input.fasta.file, output.dir = NULL, output.file = NULL, consensus.sequence.name = NA, output.fasta.width = 72, include.full.alignment = FALSE, use.sequence.numbers.as.names = FALSE ) {
+computeConsensusSequenceFromAlignedFasta <- function ( input.fasta.file, output.dir = NULL, output.file = NULL, consensus.sequence.name = NA, output.fasta.width = 72, include.full.alignment = FALSE, include.consensus = TRUE, use.sequence.numbers.as.names = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", input.fasta.file ) ) == 0 ) {
         input.fasta.file.path <- ".";
@@ -65,15 +65,20 @@ computeConsensusSequenceFromAlignedFasta <- function ( input.fasta.file, output.
 
     input.fasta <- read.dna( input.fasta.file, format = "fasta" );
 
-    consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( input.fasta ) ), nrow = 1 ) );
-    rownames( consensus ) <- consensus.sequence.name;
-    if( include.full.alignment ) {
-        if( use.sequence.numbers.as.names ) {
-            rownames( input.fasta ) <- 1:nrow( input.fasta );
-        }
+          if( use.sequence.numbers.as.names ) {
+              rownames( input.fasta ) <- 1:nrow( input.fasta );
+          }
+
+    if( include.consensus ) {
+      consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( input.fasta ) ), nrow = 1 ) );
+      rownames( consensus ) <- consensus.sequence.name;
+      if( include.full.alignment ) {
         consensus <- rbind( consensus, input.fasta );
+      }
+    } else {
+      consensus <- input.fasta;
     }
-    
+
     output.fasta.path <-
         paste( output.dir, "/", output.file, sep = "" );
     write.dna( consensus, output.fasta.path, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = output.fasta.width );
@@ -93,6 +98,7 @@ if( nchar( output.dir ) == 0 ) {
     output.dir <- NULL;
 }
 include.full.alignment <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_includeFullAlignment" );
+include.consensus <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_includeConsensus" );
 if( ( nchar( include.full.alignment ) == 0 ) || ( include.full.alignment == "0" ) || ( toupper( include.full.alignment ) == "F" ) || ( toupper( include.full.alignment ) == "FALSE" ) ) {
     include.full.alignment <- FALSE;
 } else {
@@ -114,7 +120,7 @@ if( ( nchar( use.sequence.numbers.as.names ) == 0 ) || ( use.sequence.numbers.as
 #     warning( paste( "consensus fasta output file:", output.fasta.file ) );
 # }
 if( file.exists( input.fasta.file ) ) {
-    print( computeConsensusSequenceFromAlignedFasta( input.fasta.file, output.dir = output.dir, output.file = output.fasta.file, include.full.alignment = include.full.alignment, use.sequence.numbers.as.names = use.sequence.numbers.as.names ) );
+    print( computeConsensusSequenceFromAlignedFasta( input.fasta.file, output.dir = output.dir, output.file = output.fasta.file, include.full.alignment = include.full.alignment, include.consensus = include.consensus,  use.sequence.numbers.as.names = use.sequence.numbers.as.names ) );
 } else {
     stop( paste( "File does not exist:", input.fasta.file ) );
 }
