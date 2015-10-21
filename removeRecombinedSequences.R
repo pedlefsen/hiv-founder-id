@@ -42,6 +42,8 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
         #warning( line.i );
         #warning( RAP.summaryTable[ line.i ] );
     p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\\S+) .+$", "\\1", RAP.summaryTable[ line.i ] );
+print( p.value );
+    # Note that the p-value could be in scientific notation, in which case it's really small.
     if( !is.na( p.value ) && ( p.value < p.value.threshold ) ) {
         seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
