@@ -92,6 +92,8 @@ sub identify_founders {
   }
   if( defined $output_path_dir ) {
     make_path( $output_path_dir );
+  } else {
+    $output_path_dir = ".";
   }
 
   my $extra_flags = "";
@@ -165,7 +167,7 @@ sub identify_founders {
     my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
     $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
     ## extract the number fixed/removed from the output
-    $R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
+    #$R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
 #    if( $VERBOSE ) {
         if( $fix_hypermutated_sequences ) {
           print( "The number of hypermutated sequences fixed is: $R_output" );
