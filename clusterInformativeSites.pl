@@ -70,56 +70,58 @@ sub clusterInformativeSites {
 
   if( $VERBOSE ) { print "Output will be written in directory \"$output_dir\".."; }
 
-  if( $VERBOSE ) { print "Opening file \"$informative_sites_file\".."; }
-  
-  unless( open( INFORMATIVE_SITES_FILE_FH, $informative_sites_file ) ) {
-    warn "Unable to open informative_sites_file file \"$informative_sites_file\": $!";
-    return 1;
-  }
-  
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Reading informative sites file.."; }
   my ( $line );
   my %seqs;
   my @fields;
   my @seqorder;
   my @seq_as_list;
   my $seq;
-  while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
-  
-    #( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
-    chomp( $line ); # Actually we don't want to remove trailing tabs...
+  if( -e $informative_sites_file ) {
+    if( $VERBOSE ) { print "Opening file \"$informative_sites_file\".."; }
     
-    if( $DEBUG ) {
-      print "LINE: $line\n";
+    unless( open( INFORMATIVE_SITES_FILE_FH, $informative_sites_file ) ) {
+      warn "Unable to open informative_sites_file file \"$informative_sites_file\": $!";
+      return 1;
     }
-  
-    next unless $line;
-    next if $line =~ /^\s/;
-    last if $line =~ /^Alignment/;
-  
-    if( $VERBOSE ) { print "."; }
-  
-    @fields = split( "\t", $line, -1 ); # The -1 means no limit, which forces inclusion of flanking empty fields.
-
-    ## NOTE that there is a bug (as of September, 2015) in the inSites
-    ## code online, in which flanking gaps are not printed in the
-    ## output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
-    @fields = map { if( $_ =~ /^\s*$/ ) { '-' } else { $_ } } @fields;
     
-    if( $DEBUG ) {
-      print $fields[ 0 ], ": ";
-      print join( "\t", @fields[ 4..$#fields ] ), "\n";
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Reading informative sites file.."; }
+    while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
+    
+      #( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+      chomp( $line ); # Actually we don't want to remove trailing tabs...
+      
+      if( $DEBUG ) {
+        print "LINE: $line\n";
+      }
+    
+      next unless $line;
+      next if $line =~ /^\s/;
+      last if $line =~ /^Alignment/;
+    
+      if( $VERBOSE ) { print "."; }
+    
+      @fields = split( "\t", $line, -1 ); # The -1 means no limit, which forces inclusion of flanking empty fields.
+    
+      ## NOTE that there is a bug (as of September, 2015) in the inSites
+      ## code online, in which flanking gaps are not printed in the
+      ## output table.  THIS MUST BE FIXED WHEN READING/USING THE FILE.
+      @fields = map { if( $_ =~ /^\s*$/ ) { '-' } else { $_ } } @fields;
+      
+      if( $DEBUG ) {
+        print $fields[ 0 ], ": ";
+        print join( "\t", @fields[ 4..$#fields ] ), "\n";
+      }
+      push @seqorder, $fields[ 0 ];
+      $seqs{ $fields[ 0 ] } = [ @fields[ 4..$#fields ] ];
     }
-    push @seqorder, $fields[ 0 ];
-    $seqs{ $fields[ 0 ] } = [ @fields[ 4..$#fields ] ];
-  }
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Closing file \"$informative_sites_file\".."; }
-  close INFORMATIVE_SITES_FILE_FH;
-  if( $VERBOSE ) { print ".done.\n"; }
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Closing file \"$informative_sites_file\".."; }
+    close INFORMATIVE_SITES_FILE_FH;
+    if( $VERBOSE ) { print ".done.\n"; }
+  } # End if there is a file to read.
 
   # Maybe there are no informative sites.  We are just done, then.
   my $insites_fasta_file = "";
