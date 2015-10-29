@@ -98,11 +98,18 @@ if( nchar( output.dir ) == 0 ) {
     output.dir <- NULL;
 }
 include.full.alignment <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_includeFullAlignment" );
-include.consensus <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_includeConsensus" );
 if( ( nchar( include.full.alignment ) == 0 ) || ( include.full.alignment == "0" ) || ( toupper( include.full.alignment ) == "F" ) || ( toupper( include.full.alignment ) == "FALSE" ) ) {
     include.full.alignment <- FALSE;
 } else {
     include.full.alignment <- TRUE;
+}
+include.consensus <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_includeConsensus" );
+if( nchar( include.consensus ) == 0 ) { # DEFAULTS TO TRUE
+    include.consensus <- TRUE;
+} else if( ( include.consensus == "0" ) || ( toupper( include.consensus ) == "F" ) || ( toupper( include.consensus ) == "FALSE" ) ) {
+    include.consensus <- FALSE;
+} else {
+    include.consensus <- TRUE;
 }
 use.sequence.numbers.as.names <- Sys.getenv( "computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames" );
 if( ( nchar( use.sequence.numbers.as.names ) == 0 ) || ( use.sequence.numbers.as.names == "0" ) || ( toupper( use.sequence.numbers.as.names ) == "F" ) || ( toupper( use.sequence.numbers.as.names ) == "FALSE" ) ) {
