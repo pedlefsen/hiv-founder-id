@@ -68,6 +68,38 @@ sub runRAPOnline {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
   }
 
+  ## Ok, for some reason RAP has strict rules about header lines...
+  ## Reformat the file.
+  my $formattedForRAP = 0;
+    if( 1 ) {
+      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+      if( $input_fasta_file_contents =~ /\|/ ) {
+        if( $VERBOSE ) {
+          print( "Input file \"$input_fasta_file\" contains illegal characters \"|\"; changing them to \"--BAR--\"\n" );
+          ## TODOL REMOVE
+          #print( $output_path_dir );
+        }
+        $formattedForRAP = 1;
+        $input_fasta_file_contents =~ s/\|/-x-BAR-x-/g;
+        # Now write it out to a temporary location in the output dir.
+        $input_fasta_file_path = $output_path_dir;
+        $input_fasta_file_short_nosuffix = "${input_fasta_file_short_nosuffix}_formattedForRAP";
+        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}${input_fasta_file_suffix}";
+        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        
+        if( $VERBOSE ) {
+          print( "Writing out fixed input file \"$input_fasta_file\".." );
+        }
+        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
+        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
+            warn "Unable to open output file \"$input_fasta_file\": $!\n";
+            return 1;
+          }
+        print input_fasta_fileFH $input_fasta_file_contents;
+        close( input_fasta_fileFH );
+      }
+    }  
+  
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/RAP/RAP.html" );
 
@@ -96,9 +128,14 @@ sub runRAPOnline {
   my ( $RAP_id ) = ( $content =~ /\/(\d+)\/summaryTable/ );
   unless( defined( $RAP_id ) ) {
     warn "No RAP_id in:\n$content\n";
+    return 0;
   }
   my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
   my $RAP_output_file_contents = get "http://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/${RAP_id}/summaryTable";
+  ## Fix the output to use the original sequence names (put back the removed symbols)
+  if( $formattedForRAP ) {
+    $RAP_output_file_contents =~ s/-x-BAR-x-/\|/g;
+  }
         if( $VERBOSE ) {
           print( "Writing out RAP output file \"$RAP_output_file\".." );
         }
@@ -109,7 +146,6 @@ sub runRAPOnline {
           }
         print RAP_output_fileFH $RAP_output_file_contents;
         close( RAP_output_fileFH );
-  
 
   if( $VERBOSE ) {
     print "Recombinants identified ($RAP_output_file)\n";

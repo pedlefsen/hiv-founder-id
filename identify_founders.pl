@@ -14,7 +14,8 @@
 ##      after the input fasta file name (unless you specify an output dir).
 ##
 ##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
-##      Or: mkdir caprisa002_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O caprisa002_1W_gold_standard-hiv-founder-id_resultDir/ caprisa002_1W_gold_standard.list  > caprisa002_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
+##      This next one skips RAP because it seems to be exceptionally slow with these large numbers of sequences.  Unsure how to proceed - maybe iterately evaluate subsets? Or use a different program.
+##      Or: mkdir caprisa002_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -R -P -O caprisa002_1W_gold_standard-hiv-founder-id_resultDir/ caprisa002_1W_gold_standard.list  > caprisa002_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > Abrahams-2009aa-hiv-founder-id_resultDir/identify-founders.out 
 ##      Whynot: mkdir new-Abrahams-2009aa-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -O new-Abrahams-2009aa-hiv-founder-id_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > new-Abrahams-2009aa-hiv-founder-id_resultDir/new-identify-founders.out 
@@ -25,26 +26,27 @@ use File::Path qw( make_path );
 use Path::Tiny;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R );
 use vars qw( $VERBOSE $DEBUG );
 
 sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-P] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PR] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
-  # This means -D, -o, -O, -V are ok, but nothin' else.
+  # This means -D, -o, -O, -V, -P, -R are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_o is an optional directory to put the output; default depends on input filename.
   # opt_O is just like opt_o.  Same thing.
   # opt_V means be verbose.
   # opt_P means skip (do not run) profillic
+  # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P ) = ();
-  if( not getopts('DVo:O:P') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R ) = ();
+  if( not getopts('DVo:O:PR') ) {
     identify_founders_usage();
   }
   
@@ -52,6 +54,7 @@ sub identify_founders {
   $VERBOSE ||= $opt_V;
 
   my $run_profillic = !$opt_P;
+  my $run_RAP = !$opt_R;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -173,34 +176,36 @@ sub identify_founders {
       print ".done.\n";
     }
 
-    ## Run RAP on LANL, which gives individual
-    ## sequences that are recombinants of other individual sequences,
-    ## allowing those to be flagged for removal just like hypermutated
-    ## ones.
-    my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
-    if( $VERBOSE ) {
-      print "Running RAP at LANL to compute recombined sequences..";
-    }
-    my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
-    if( $VERBOSE ) {
-      print "\tdone. Got $RAP_result_stdout\n";
-    }
-    if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
-      my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
+    if( $run_RAP ) {
+      ## Run RAP on LANL, which gives individual
+      ## sequences that are recombinants of other individual sequences,
+      ## allowing those to be flagged for removal just like hypermutated
+      ## ones.
+      my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
       if( $VERBOSE ) {
-        print "Calling R to remove recombined sequences..";
+        print "Running RAP at LANL to compute recombined sequences..";
       }
-      $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+      my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
       if( $VERBOSE ) {
-        print( "\tdone. The number of recombined sequences removed is: $R_output" );
+        print "\tdone. Got $RAP_result_stdout\n";
       }
-      # Now use the output from that..
-      $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
-      ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-        ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-      $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
-    } # End if any recombinants were identified.
+      if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
+        my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
+        if( $VERBOSE ) {
+          print "Calling R to remove recombined sequences..";
+        }
+        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print( "\tdone. The number of recombined sequences removed is: $R_output" );
+        }
+        # Now use the output from that..
+        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
+        ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+          ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+      } # End if any recombinants were identified.
+    } # End if $run_RAP
    
     `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
@@ -222,7 +227,8 @@ sub identify_founders {
 
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $mean_diversity_threshold = 0.001;
-    my $in_sites_ratio_threshold = 0.85;
+    #my $in_sites_ratio_threshold = 0.85; # For Abrahams and RV217
+    my $in_sites_ratio_threshold = 0.33; # For caprisa002
     my $force_one_cluster = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       if( $in_sites_stat > $in_sites_ratio_threshold ) {
