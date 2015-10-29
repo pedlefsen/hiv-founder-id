@@ -111,7 +111,7 @@ sub runGARDOnline {
                                               sequences => $datamonkey_sequences,
                                               sites => $datamonkey_sites,
                                               partitions => $datamonkey_partitions,
-                                              method => 21, # 21 is for 'GARD' (20 is SBP and 22 is for ASR)
+                                              method => 20, #  (20 is for 'SBP', 21 is for 'GARD', and 22 is for 'ASR')
                                               modelString => "012345", # for 'REV'
                                               NamedModels => "012345", # for 'REV'
                                               rateOption => '2', # for "Beta-Gamma",
@@ -142,7 +142,52 @@ sub runGARDOnline {
     print "OK4\n \$content is $content\n";
   }
 
-  ### ERE I AM, not done.  The problem is debugging this while the server queue is full.  Have to wait and do this another time.
+  
+  ## KEEP
+  ## # GARD is done when the Datamonkey Job Status page changes to include the text:
+  ## # 'GARD recombination analysis was run '
+  ## $mech->get( "http://www.datamonkey.org/cgi-bin/datamonkey/jobStatus.pl?file=$datamonkey_filename" );
+  ## $content = $mech->content();
+  ## my ( $gard_results_are_done ) = ( $content =~ m/GARD recombination analysis was run / );
+  ## #    /spool/upload.${datamonkey_filename}_gard.php
+
+  # SBP is done when the Datamonkey Job Status page changes to include the text:
+  # 'Single Breakpoint Recombination was run '
+  $mech->get( "http://www.datamonkey.org/cgi-bin/datamonkey/jobStatus.pl?file=$datamonkey_filename" );
+  $content = $mech->content();
+  if( $DEBUG ) {
+    print "OK5\n \$content is $content\n";
+  }
+  my $sbp_results_are_done = ( $content =~ m/Single Breakpoint Recombination was run / );
+  while( !$sbp_results_are_done ) {
+    sleep( 10 );
+    print( "Trying again to get the SBP results..\n" );
+    $mech->get( "http://www.datamonkey.org/cgi-bin/datamonkey/jobStatus.pl?file=$datamonkey_filename" );
+    $content = $mech->content();
+    if( $DEBUG ) {
+      print "OK5++\n";
+    }
+    $sbp_results_are_done = ( $content =~ m/Single Breakpoint Recombination was run / );
+  }
+  print( "SBP is done.\n" );
+  
+  $mech->get( "http://www.datamonkey.org/spool/upload.${datamonkey_filename}_sbp.php" );
+  $content = $mech->content();
+  if( $DEBUG ) {
+    print "OK6\n \$content is $content\n";
+  }
+
+#<TABLE><TR CLASS = 'TRReport1'><TD>Model</TD><TD>010010</TD></TR><TR CLASS = 'TRReport2'><TD>Potential Breakpoints</TD><TD>945</TD></TR><TR CLASS = 'TRReport1'><TD>Processed Breakpoints</TD><TD>945</TD></TR><TR CLASS = 'TRReport2'><TD>Run time</TD><TD>00:00:50</TD></TR></TABLE></DIV><DIV class = 'RepClassSM'><b>Recombination report</b><br><i>Small sample AIC (cAIC) is the recommended default criterion</i>
+# <p><table><tr class = 'HeaderClassSM'><td>IC <span class = 'INFO' onmouseover = "Tip('Which information criterion is used for inference')">?</span></td><td>Recombination <span class = 'INFO' onmouseover = "Tip('Was recombination inferred using this IC?')">?</span></td><td>IC improvement <span class = 'INFO' onmouseover = "Tip('How many points did the recombinant model improve the IC over the base (single tree) model?')">?</span></td><td>Breakpoint location<span class = 'INFO' onmouseover = "Tip('Where is the most likely breakpoint located?')">?</span></td><td>Model averaged support<span class = 'INFO' onmouseover = "Tip('Model averaged confidence for having recombination in the alignment')">?</span></td></tr><tr class = 'TRReport1'><td>AIC</td><td>No</td><td>N/A</td><td>N/A</td><td> 0.00%</td></tr>
+# <tr class = 'TRReport2'><td>cAIC</td><td>No</td><td>N/A</td><td>N/A</td><td> 0.00%</td></tr>
+  # <tr class = 'TRReport1'><td>BIC</td><td>No</td><td>N/A</td><td>N/A</td><td> 0.00%</td></tr></table>
+  # Recombination ?	IC improvement ?	Breakpoint location?	Model averaged support?
+    my ( $sbp_caic_support_for_recombination, $sbp_caic_IC_improvement, $sbp_caic_breakpoint_location, $sbp_caic_model_averaged_support ) =
+    ( $content =~ m/cAIC\<\/td\>\<td\>(.+)\<\/td\>\<td\>(.+)\<\/td\>\<td\>(.+)\<\/td\>\<t\d>(.+)\<\/td\>\<\/tr\>/ );
+  print( "\$sbp_caic_support_for_recombination = $sbp_caic_support_for_recombination\n" );
+  print( "\$sbp_caic_IC_improvement = $sbp_caic_IC_improvement\n" );
+  print( "\$sbp_caic_breakpoint_location = $sbp_caic_breakpoint_location\n" );
+  print( "\$sbp_caic_model_averaged_support = $sbp_caic_model_averaged_support\n" );
   exit( 1 );
 
   if( $VERBOSE ) {
