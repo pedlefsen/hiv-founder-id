@@ -60,11 +60,11 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
                   num.mut <- num.mut + 1;
                   if( fix.sequence ) {
-                      in.fasta[ seq.i, window.start.i ] <- fix.with;
+                      in.fasta[ seq.i, window.start.i ] <- as.DNAbin( fix.with );
                   }
               }
           }
-                                        #if( ( as.character( in.fasta[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ) {
+          #if( ( as.character( in.fasta[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ) {
           ## Added that the ref has to be an a or a g.
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && ( in.fasta[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
               num.potential.control <- num.potential.control + 1;

@@ -15,6 +15,8 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     }
     fasta.file.prefix.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file.prefix, perl = TRUE );
+    fasta.file.prefix.short.nosuffix <-
+        gsub( "^(.*?)\\.[^\\.]+$", "\\1", fasta.file.prefix.short, perl = TRUE );
 
   if( is.null( output.dir ) ) {
       output.dir <- fasta.file.prefix.path;
@@ -25,7 +27,7 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
   output.dir <-
       gsub( "^(.*?)\\/+$", "\\1", output.dir );
 
-    output.dir <- paste( output.dir, "/", fasta.file.prefix.short, "_MultiFounderPoissonFitterDir", sep = "" );
+    output.dir <- paste( output.dir, "/", fasta.file.prefix.short.nosuffix, "_MultiFounderPoissonFitterDir", sep = "" );
     
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
