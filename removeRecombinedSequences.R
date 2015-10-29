@@ -41,17 +41,20 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
     for( line.i in 3:length( RAP.summaryTable ) ) {
         #warning( line.i );
         #warning( RAP.summaryTable[ line.i ] );
-    p.value <- gsub( "^Set \\d+ \\S+ \\S+ ([0-9.]+) .+$", "\\1", RAP.summaryTable[ line.i ] );
-    if( !is.na( p.value ) && ( p.value < p.value.threshold ) ) {
-        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
-        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) [0-9.]+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\\S+) .+$", "\\1", RAP.summaryTable[ line.i ] );
+    # Note that the p-value could be in scientific notation, in which case it's really small.
+    if( !is.na( p.value ) && ( ( length( grep( "e", p.value ) ) > 0 ) || ( p.value < p.value.threshold ) ) ) {
+        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         ## TODO: REMOVE
-        warning( paste( "Excluding ", seq.name, " because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
+        warning( paste( "Excluding", seq.name, "because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
         exclude.sequence[ seq.name ] <- TRUE;
+#    } else {
+#        warning( paste( "NOT Excluding because the RAP p-value is ", p.value, ":", ( p.value < p.value.threshold ), "\n" ) );
     }
   } # End foreach line.i
 
-  out.fasta <- in.fasta[ !exclude.sequence, ];
+  out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
 
   # Write the subalignment as a fasta file
   out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeRecombinedSequences", fasta.file.short.suffix, sep = "" );

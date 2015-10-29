@@ -26,14 +26,14 @@ use File::Path qw( make_path );
 use Path::Tiny;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_f );
 use vars qw( $VERBOSE $DEBUG );
 
 sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-PR] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PRf] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -44,9 +44,10 @@ sub identify_founders {
   # opt_V means be verbose.
   # opt_P means skip (do not run) profillic
   # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
+  # opt_f means fix hypermutated sequences, instead of removing them.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R ) = ();
-  if( not getopts('DVo:O:PR') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_f ) = ();
+  if( not getopts('DVo:O:PRf') ) {
     identify_founders_usage();
   }
   
@@ -55,6 +56,7 @@ sub identify_founders {
 
   my $run_profillic = !$opt_P;
   my $run_RAP = !$opt_R;
+  my $fix_hypermutated_sequences = $opt_f || 0;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -93,6 +95,8 @@ sub identify_founders {
   }
   if( defined $output_path_dir ) {
     make_path( $output_path_dir );
+  } else {
+    $output_path_dir = ".";
   }
 
   my $extra_flags = "";
@@ -103,9 +107,7 @@ sub identify_founders {
     $extra_flags .= "-V ";
   }
 
-  # First remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
-  
-  # Run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
+  # After removing/fixing hypermutated sequences and removing recombined sequences, run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
   my $R_output;
@@ -157,13 +159,24 @@ sub identify_founders {
       }
     }
 
+    # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $VERBOSE ) {
-      print "Calling R to remove hypermutated sequences..";
+        if( $fix_hypermutated_sequences ) {
+          print "Calling R to fix hypermutated sequences..";
+        } else {
+          print "Calling R to remove hypermutated sequences..";
+        }
     }
     my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
-    $R_output = `export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+    $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+    ## extract the number fixed/removed from the output
+    #$R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
 #    if( $VERBOSE ) {
-      print( "The number of hypermutated sequences removed is: $R_output" );
+        if( $fix_hypermutated_sequences ) {
+          print( "The number of hypermutated sequences fixed is: $R_output" );
+        } else {
+          print( "The number of hypermutated sequences removed is: $R_output" );
+        }
 #    }
     # Now use the output from that..
     $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
@@ -186,6 +199,9 @@ sub identify_founders {
         print "Running RAP at LANL to compute recombined sequences..";
       }
       my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+      $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+    ## extract the number fixed/removed from the output
+    ( $R_output ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
       if( $VERBOSE ) {
         print "\tdone. Got $RAP_result_stdout\n";
       }
@@ -325,10 +341,10 @@ sub identify_founders {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         print "Running Profillic..\n";
         my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-        `perl runProfillic.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        `perl runProfillic.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         
         print "Clustering..\n";
-        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $tmp_extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         # Print out the number of clusters
         print "Number of founders estimated using Profillic: $num_profillic_clusters\n";
       }

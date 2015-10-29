@@ -3,10 +3,11 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 ## This implements the default options of HYPERMUT 2.0 (http://www.hiv.lanl.gov/content/sequence/HYPERMUT/hypermut.html) and its use should cite: Rose, PP and Korber, BT. 2000. Detecting hypermutations in viral sequences with an emphasis on G -> A hypermutation. Bioinformatics 16(4): 400-401.
-                                        # Note that for this (unlike the online version) we do not assume that the reference is in the file; instead we compute the consensus and use that.
-                                        ## NOTE From Abrahams, 2009: "Sequences were analyzed for evidence of APOBEC3G-induced hypermutation by using the Hypermut 2.0 tool (www.hiv.lanl.gov). Sequences with a P value of 􏰐0.1 were considered enriched for mutations consistent with APOBEC3G sig- natures. In sequence sets showing evidence of enrichment for APOBEC3G- driven G-to-A transitions but with no single significantly hypermutated sequence, hypermutation was tested for after superimposition of all mutations within that sequence set onto a single representative sequence."
-## Returns the number of hypermutated (and therefore removed) sequences.
-removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1 ) {
+## Note the new option to "fix" rather than remove.  "fix" replaces detected G->A hypermutations with fix.with (default is R, which is the iupac symbol for G or A).
+# Note that for this (unlike the online version) we do not assume that the reference is in the file; instead we compute the consensus and use that.
+## NOTE From Abrahams, 2009: "Sequences were analyzed for evidence of APOBEC3G-induced hypermutation by using the Hypermut 2.0 tool (www.hiv.lanl.gov). Sequences with a P value of 􏰐0.1 were considered enriched for mutations consistent with APOBEC3G sig- natures. In sequence sets showing evidence of enrichment for APOBEC3G- driven G-to-A transitions but with no single significantly hypermutated sequence, hypermutation was tested for after superimposition of all mutations within that sequence set onto a single representative sequence."
+## Returns the number of hypermutated (and therefore removed or fixed) sequences.
+removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "R" ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
@@ -37,7 +38,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   rownames( .consensus ) <- "Consensus sequence";
 
   compute.hypermut2.p.value <-
-    function( seq.i ) {
+    function( seq.i, fix.sequence = FALSE ) {
       ## ERE I AM.  Bizarrely I can't quite reproduce what's on the web site.  I have more "potential" sites than are computed there, and I do not know why (todo: ask LANL)
       num.mut <- 0;
       num.potential.mut <- 0;
@@ -58,6 +59,9 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
                   #print( as.character( in.fasta[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
                   num.mut <- num.mut + 1;
+                  if( fix.sequence ) {
+                      in.fasta[ seq.i, window.start.i ] <- fix.with;
+                  }
               }
           }
                                         #if( ( as.character( in.fasta[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ) {
@@ -83,16 +87,28 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   for( seq.i in 1:nrow( in.fasta ) ) {
     p.value <- compute.hypermut2.p.value( seq.i );
     if( p.value < p.value.threshold ) {
+        if( fix.instead.of.remove ) {
+            .message <- paste( "Fixing", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." );
+            # Run it again but this time fix it.
+            .result.ignored <-
+                compute.hypermut2.p.value( seq.i, fix.sequence = TRUE );
+        } else {
+            .message <- paste( "Excluding", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." );
+            exclude.sequence[ seq.i ] <- TRUE;
+        }
         ## TODO: REMOVE
-        warning( paste( "Excluding", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." ) );
-        exclude.sequence[ seq.i ] <- TRUE;
+        warning( .message );
     }
   } # End foreach seq.i
 
-  out.fasta <- in.fasta[ !exclude.sequence, ];
+  out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
 
   # Write the subalignment as a fasta file
-  out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeHypermutatedSequences", fasta.file.short.suffix, sep = "" );
+  if( fix.instead.of.remove ) {
+      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequences", fasta.file.short.suffix, sep = "" );
+  } else {
+      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeHypermutatedSequences", fasta.file.short.suffix, sep = "" );
+  }
 
   write.dna( out.fasta, out.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
     
