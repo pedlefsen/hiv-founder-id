@@ -24,16 +24,17 @@
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
 use Path::Tiny;
+require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_f );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_f $opt_I );
 use vars qw( $VERBOSE $DEBUG );
 
 sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-PRf] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PRfI] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -45,9 +46,10 @@ sub identify_founders {
   # opt_P means skip (do not run) profillic
   # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
   # opt_f means fix hypermutated sequences, instead of removing them.
+  # opt_I means run inSites online (instead of offline)
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_f ) = ();
-  if( not getopts('DVo:O:PRf') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_f, $opt_I ) = ();
+  if( not getopts('DVo:O:PRfI') ) {
     identify_founders_usage();
   }
   
@@ -57,6 +59,7 @@ sub identify_founders {
   my $run_profillic = !$opt_P;
   my $run_RAP = !$opt_R;
   my $fix_hypermutated_sequences = $opt_f || 0;
+  my $runInSites_online = $opt_I || 0;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -180,7 +183,11 @@ sub identify_founders {
 #    }
     # Now use the output from that..
     $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-    $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+    if( $fix_hypermutated_sequences ) {
+      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
+    } else {
+      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+    }
     ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
       ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
     $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
@@ -199,20 +206,13 @@ sub identify_founders {
         print "Running RAP at LANL to compute recombined sequences..";
       }
       my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
-      $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
-    ## extract the number fixed/removed from the output
-    ( $R_output ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
-      if( $VERBOSE ) {
-        print "\tdone. Got $RAP_result_stdout\n";
-      }
-      if( $RAP_result_stdout =~ /Recombinants identified \(/ ) {
-        my $RAP_output_file = $output_path_dir . "/" . $input_fasta_file_short_nosuffix . "_RAP.txt";
-        if( $VERBOSE ) {
-          print "Calling R to remove recombined sequences..";
-        }
+      if( $RAP_result_stdout =~ /Recombinants identified/ ) {
+        my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
         $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+        ## extract the number fixed/removed from the output
+        my ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
         if( $VERBOSE ) {
-          print( "\tdone. The number of recombined sequences removed is: $R_output" );
+          print( "\tdone. The number of recombined sequences removed is: $removed_recombined_sequences\n" );
         }
         # Now use the output from that..
         $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
@@ -220,10 +220,18 @@ sub identify_founders {
         ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
           ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
         $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
-      } # End if any recombinants were identified.
+      } else {
+        if( $VERBOSE ) {
+          print( "\tdone. The number of recombined sequences removed is: 0\n" );
+        }
+      } # End if any recombinants were identified. .. else ..
     } # End if $run_RAP
-   
-    `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+
+    if( $runInSites_online ) {
+      `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    } else {
+      `perl runInSitesOffline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+    }
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
 

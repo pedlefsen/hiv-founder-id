@@ -125,12 +125,18 @@ p.value.threshold <- Sys.getenv( "removeHypermutatedSequences_pValueThreshold" )
 if( p.value.threshold == "" ) {
     p.value.threshold <- "0.1"; # Abrahams et al used liberal threshold of 0.1.
 }
+fix.instead.of.remove <- Sys.getenv( "removeHypermutatedSequences_fixInsteadOfRemove" );
+if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) || ( toupper( fix.instead.of.remove ) == "F" ) || ( toupper( fix.instead.of.remove ) == "FALSE" ) ) {
+    fix.instead.of.remove <- FALSE;
+} else {
+    fix.instead.of.remove <- TRUE;
+}
 
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
 if( file.exists( fasta.file ) ) {
-    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold ) );
+    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }

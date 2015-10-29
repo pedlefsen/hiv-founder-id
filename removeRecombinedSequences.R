@@ -47,7 +47,7 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
         seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
         ## TODO: REMOVE
-        warning( paste( "Excluding", seq.name, "because the RAP p-value is ", p.value, ". It is a combination of ", seq.parents, ".", sep = "" ) );
+        warning( paste( "Excluding '", seq.name, "' because the RAP p-value is ", p.value, ". It is a combination of: ", seq.parents, ".", sep = "" ) );
         exclude.sequence[ seq.name ] <- TRUE;
 #    } else {
 #        warning( paste( "NOT Excluding because the RAP p-value is ", p.value, ":", ( p.value < p.value.threshold ), "\n" ) );

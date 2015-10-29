@@ -55,7 +55,7 @@ sub getInSitesStat {
   my $private_sites_file = shift @ARGV || getInSitesStat_usage();
 
   my $informative_no_gaps = 0; # default for when informative sites file is empty
-  if( $informative_sites_file eq '-' ) {
+  if( ( $informative_sites_file eq '-' ) || ( !-e $informative_sites_file ) ) {
     $informative_no_gaps = 0;
   } else {
     if( $VERBOSE ) { print "Opening file \"$informative_sites_file\".."; }
@@ -86,29 +86,33 @@ sub getInSitesStat {
   } # End if $informative_sites_file eq '-' .. else ..  
   
   my $private_no_gaps;
-  if( $VERBOSE ) { print "Opening file \"$private_sites_file\".."; }
-  unless( open( PRIVATE_SITES_FILE_FH, $private_sites_file ) ) {
-    warn "Unable to open private_sites_file file \"$private_sites_file\": $!";
-    return 1;
+  if( ( $private_sites_file eq '-' ) || ( !-e $private_sites_file ) ) {
+    $private_no_gaps = 0;
+  } else {
+    if( $VERBOSE ) { print "Opening file \"$private_sites_file\".."; }
+    unless( open( PRIVATE_SITES_FILE_FH, $private_sites_file ) ) {
+      warn "Unable to open private_sites_file file \"$private_sites_file\": $!";
+      return 1;
+    }
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Reading private sites file.."; }
+    my ( $line );
+    while( $line = <PRIVATE_SITES_FILE_FH> ) {
+    
+      ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+    
+      if( $VERBOSE ) { print "."; }
+      next unless $line =~ /^Alignment/;
+      ( $private_no_gaps ) = ( $line =~ /Alignment\s\d+\s(\d+)\s\d+/ );
+      last;
+    }
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Closing file \"$private_sites_file\".."; }
+    close PRIVATE_SITES_FILE_FH;
+    if( $VERBOSE ) { print ".done.\n"; }
   }
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Reading private sites file.."; }
-  my ( $line );
-  while( $line = <PRIVATE_SITES_FILE_FH> ) {
-  
-    ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
-  
-    if( $VERBOSE ) { print "."; }
-    next unless $line =~ /^Alignment/;
-    ( $private_no_gaps ) = ( $line =~ /Alignment\s\d+\s(\d+)\s\d+/ );
-    last;
-  }
-  if( $VERBOSE ) { print ".done.\n"; }
-  
-  if( $VERBOSE ) { print "Closing file \"$private_sites_file\".."; }
-  close PRIVATE_SITES_FILE_FH;
-  if( $VERBOSE ) { print ".done.\n"; }
 
   if( $VERBOSE ) {
     print "\$informative_no_gaps is $informative_no_gaps\n";

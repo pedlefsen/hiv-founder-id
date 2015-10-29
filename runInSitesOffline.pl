@@ -38,7 +38,7 @@ sub runInSitesOffline {
   @ARGV = @_;
 
   sub runInSitesOffline_usage {
-    print "\trunInSitesOnline [-DV] <input_fasta_file> [<output_dir>]\n";
+    print "\trunInSitesOffline [-DV] <input_fasta_file> [<output_dir>]\n";
     exit;
   }
 
@@ -91,9 +91,11 @@ sub runInSitesOffline {
   ##TAH this section emulates the <SUBMIT> action from the insites.cgi script which is
   ##essentially the computational (not display) functions of insites_grp.cgi
     
-  my $startTime = time();
-  my $rand = int (rand (90)) + 10;
-  my $id = $startTime.$rand;
+#  my $startTime = time();
+#  my $rand = int (rand (90)) + 10;
+  #  my $id = $startTime.$rand;
+  my $id =  $input_fasta_file_short_nosuffix;
+  
   my $datatype = "nt";
   my $seqRadio = "fasta";
   my $rsRadio = '';
@@ -113,16 +115,15 @@ sub runInSitesOffline {
   my $seqNameNseq = shift @$seqInfo;
   unshift @$seqNameNseq, $seqNum."\t".$seqLen;
 
-  my $seqFile = $uploadDir.'/'.$id;
+  my $seqFile = $uploadDir.'/'.$id."_inSitesOffline.fasta";
   WriteFile ($seqFile, $seqNameNseq);
    
   ### Now we simulate insites.cgi, the action of the grpForm form
-  my $uploadSeqFile = $seqFile;
   my $uploadseqFile = $uploadDir.'/'.$id;
   my %nameSeq = ();
   $seqLen = 0;
 
-  open SEQ, $uploadseqFile or die "couldn't open $uploadseqFile: $!\n";
+  open SEQ, $seqFile or die "couldn't open $seqFile: $!\n";
   while (my $line = <SEQ>) {
      chomp $line;
      next if $line =~ /^\s*$/;
