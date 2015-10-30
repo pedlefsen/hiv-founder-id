@@ -171,7 +171,7 @@ sub runGARDOnline {
   }
   print( "SBP is done.\n" );
   
-  $mech->get( "http://www.datamonkey.org/spool/upload.${datamonkey_filename}_sbp.php" );
+  $mech->get( "http://www.datamonkey.org/spool/${datamonkey_filename}_sbp.php" );
   $content = $mech->content();
   if( $DEBUG ) {
     print "OK6\n \$content is $content\n";
@@ -188,6 +188,8 @@ sub runGARDOnline {
   print( "\$sbp_caic_IC_improvement = $sbp_caic_IC_improvement\n" );
   print( "\$sbp_caic_breakpoint_location = $sbp_caic_breakpoint_location\n" );
   print( "\$sbp_caic_model_averaged_support = $sbp_caic_model_averaged_support\n" );
+
+  ## ERE I AM.  If SBP came back indicating a breakpoint, should we then run GARD?  It seems that GARD doesn't give individual sequences, either.
   exit( 1 );
 
   if( $VERBOSE ) {
