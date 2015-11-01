@@ -231,6 +231,20 @@ DS.lowdays <- round(DS.lowlim)
 DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="") 
 print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
 
+## Could add Bayesian.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  However alpha and beta approaching zero might give the closest analogue to the DS solution.
+posterior.lambda <- qgamma( .5, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
+posterior.lambda.low <- qgamma( .025, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
+posterior.lambda.high <- qgamma( .975, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
+posterior.estdays <- days(posterior.lambda, nbases, epsilon)
+posterior.upplim <- days(posterior.lambda.high, nbases, epsilon)
+posterior.lowlim <- days(posterior.lambda.low, nbases, epsilon)
+
+posterior.uppdays <- round(posterior.upplim)
+posterior.lowdays <- round(posterior.lowlim)
+
+posterior.formatteddays <- paste(round(posterior.estdays), " (", posterior.lowdays, ", ", posterior.uppdays, ")", sep="") 
+print(paste("Bayesian PFitter Estimated Days:", posterior.formatteddays, sep=" "))
+
 @ 
 
 <<echo = FALSE>>=
