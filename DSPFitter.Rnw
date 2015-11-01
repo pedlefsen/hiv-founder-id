@@ -1,0 +1,242 @@
+\documentclass[a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tabularx,ragged2e,booktabs,caption}
+\newcolumntype{C}[1]{>{\Centering}m{#1}}
+\renewcommand\tabularxcolumn[1]{C{#1}}
+
+\title{DS Poisson Fitter}
+\author{Paul Edlefsen}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+<<echo = FALSE>>=
+## R packages needed
+library( "xtable" )
+library( "coin" )
+library( "ggplot2" )
+
+## for prettyPrintPValuesTo4Digits
+source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
+
+# Setup for prettier Sweave output.
+old.continue.option <- options( continue = " " )
+@ 
+
+<<echo = FALSE>>=
+PoissonDSM.calculatePlausibilityOfSingleton.one.obs <- Vectorize( function( x, k ) { pgamma( x, shape = k ) - pgamma( x, shape = k + 1 ) }, vectorize.args = "k" );
+PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts ) {
+    .mat <-
+        PoissonDSM.calculatePlausibilityOfSingleton.one.obs( xs, observed.counts );
+    if( is.null( dim( .mat ) ) ) {
+        .mat <- t( as.matrix( .mat ) );
+    }
+    .plaus <- apply( .mat, 1, prod );
+    names( .plaus ) <- xs;
+    return( .plaus );
+} 
+    
+# But now we want the hpd
+PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta ) { Vectorize( function( y ) { integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value } ) }
+
+################################################################################## ten channel data generation
+# ten.channel.gen.count <- 100;
+# ten.channel.gen.truth.lambdas <- 1:ten.channel.gen.count;
+# ten.channel.gen.outrageouslyhighvalue <- ten.channel.gen.truth.lambdas + 4 * sqrt( ten.channel.gen.truth.lambdas ); # The error increases a lot if this is too high.  I think it should be no more than 20 times the true lambda.  TODO: Detect it somehow.
+# 
+# ten.channel.gen.n <- t( apply( as.array( 1:ten.channel.gen.count ), 1, function( i ) { rpois( 10, ten.channel.gen.truth.lambdas[ i ] ) } ) );
+# rownames( ten.channel.gen.n ) <- ten.channel.gen.truth.lambdas;
+# 
+# # estimates using the mode of the plausibility transform are the same as the naive estimate (mean):
+# # First 26 use lower upper bound for search or else it gets lost
+# stopifnot( all.equal( apply( ten.channel.gen.n[1:26, ], 1, function( .dta ) { optimize( function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = 40, maximum = T, tol = 1E-5 )$maximum } ), apply( ten.channel.gen.n[1:26, ], 1, function( .dta ) { mean( .dta ) } ), tolerance = 1E-5 ) )
+# # Now the rest
+# stopifnot( all.equal( apply( ten.channel.gen.n[27:100, ], 1, function( .dta ) { optimize( function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = 200, maximum = T, tol = 1E-5 )$maximum } ), apply( ten.channel.gen.n[27:100, ], 1, function( .dta ) { mean( .dta ) } )  ) )
+
+# ten.channel.gen.normalizedPlausibilities <- function ( k ) {
+#     ten.channel.gen.integratedPlausibility.totalplaus <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( ten.channel.gen.n[ k, ] )( ten.channel.gen.outrageouslyhighvalue[ k ] );
+#     return( Vectorize( function( y ) { PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( ten.channel.gen.n[ k, ] )( y ) / ten.channel.gen.integratedPlausibility.totalplaus } ) );
+# }
+# ##  NOTE HACK using upper = ten.channel.gen.outrageouslyhighvalue
+# ten.channel.gen.quantile <- function( k ) { function( quantile ) { optimize( function( y ) { abs( ten.channel.gen.normalizedPlausibilities( k )( y ) - quantile ) }, lower = 0, upper = ten.channel.gen.outrageouslyhighvalue[ k ] )$minimum } }
+# 
+# ten.channel.gen.quantiles.by.lambda <- t( sapply( truth.lambdas, function( k ) { c( ten.channel.gen.quantile( k )( 0.025 ), ten.channel.gen.quantile( k )( 0.975 ) ) } ) );
+# colnames( ten.channel.gen.quantiles.by.lambda ) <- c( "2.5%", "97.5%" );
+
+####==== From PFitter.R
+
+library(tools)
+## TODO: DEHACKIFY
+args = #commandArgs(trailingOnly=TRUE)
+ c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+   "2.16e-05", "2517" );
+infile <- args[1]
+epsilon <- c(as.numeric(args[2]))
+nbases <- c(as.numeric(args[3]))
+
+dir <- paste(dirname(infile), '/', sep='')
+outfile <- paste(dir, "DS.LOG_LIKELIHOOD.results.txt", sep="")
+outfile2 <- paste(dir, "DS.CONVOLUTION.results.txt", sep="")
+
+cat( "DS PFitter.." );
+
+### FUNCTIONS ###
+phi <- sqrt(1+4/3)
+days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(phi^2))
+### end FUNCTIONS ###
+
+if(!file.exists(outfile)){
+	write(paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE)
+}
+	
+dlist <- read.table( file=infile, sep="\t", stringsAsFactors=F )
+
+### calc HD with consensus
+d0 <- dlist[which(dlist[,1]==dlist[1,1]),]
+mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2]))
+nseq <- sum(mult0)
+yvec0 <- rep(0, (1+max(d0[,3])))
+for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
+
+nl0 <- length(yvec0);
+clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
+
+### calc intersequence HD
+d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	
+yvec <- rep(0, (1+max(d1[,3])))
+seqnames <- unique(c( d1[,1], d1[,2] ))
+for(i in 1:length(seqnames)){
+    tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
+    if( nrow( tmp ) == 0 ) {
+        next;
+    }
+	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
+	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
+	for(j in 1:dim(tmp)[1]){
+		m1 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2]))
+		val <- tmp[j,3]
+		yvec[val+1] <- yvec[val+1] + m0*m1
+	}
+}
+
+## U STAT from PFitter.R
+calculateUSTATvarHD <- function () {
+  #### U STAT ESTIMATE OF ST DEV
+  #### FORMULAE
+  #### Var(HD) = (N(N-1)/2)^(-1) (2(N-2)sigma1^2 + sigma2^2)
+  #### sigma1^2 = (N(N-1)(N-2)/3 -1)^(-1) sum_{i<j<l} ((Dij-mu)(Dil-mu)+(Dij-mu)(Djl-mu))
+  #### sigma2^2 = (N(N-1)/2-1)^(-1) sum_{i<j} (Dij-mu)^2
+  
+  ### construct a matrix of Dij's
+  TX <- matrix(rep(NA,nseq^2), ncol=nseq)
+  rownames( TX ) <- seqnames;
+  colnames( TX ) <- seqnames;
+  for(i in 1:(dim(d0)[1]-1)){
+  	useq <- d0[i,2]
+  	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
+  }
+  
+  sigma1 <- 0
+  sigma2 <- 0
+  muhat <- 0
+  denmu <- (sum( !is.na( TX )))^(-1)
+  ## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
+  den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
+  den2 <- den1/4
+  
+  for(n in 1:(nseq-1)){
+      for(m in (n+1):nseq){
+          if( !is.na( TX[ m, n ] ) ) {
+              muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
+  	}
+      }
+  }
+  
+  for(n in 1:nseq){
+  	dnn <- 0
+  	sigma1 <- sigma1 + choose(mult0[n],3)*den1*2*(dnn-muhat)^2 
+  	sigma2 <- sigma2 + choose(mult0[n],2)*den2*(dnn-muhat)^2
+  	if(n != nseq){
+  		for(m in (n+1):nseq){
+                      dnm <- TX[m,n]
+                      if( !is.na( dnm ) ) {
+  			dmm <- 0
+  			sigma2 <- sigma2 + mult0[n]*mult0[m]*(dnm - muhat)^2
+  			sigma1 <- sigma1 + (2/3)*choose(mult0[n],2)*mult0[m]*(dnm-muhat)*(dnm+2*dnn-3*muhat)
+  			sigma1 <- sigma1 + (2/3)*mult0[n]*choose(mult0[m],2)*(dnm-muhat)*(dnm+2*dmm-3*muhat)
+  			if(m != nseq){
+  				for(l in (m+1):nseq){
+  					dnl <- TX[l,n]
+  					dlm <- TX[l,m]
+                                          if( !is.na( dnl ) && !is.na( dlm ) ) {
+                                              sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
+                                          }
+  				}
+  			}
+  		    } # End if !is.na( dnm )
+                  } # End for( m )
+   	}
+  }
+  
+  ## varhd <- sqrt(denmu*(2*(nseq-2)*sigma1 + sigma2))
+  A <- 8/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
+  B <- 4/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
+  newvarhd <- sqrt(A*sigma1 + B*sigma2)
+  return( newvarhd );
+} # calculateUSTATvarHD (..)
+	
+### Fitting
+nl <- length(yvec)
+lambda <- sum((1:(nl-1))*yvec[-1])/sum(yvec)
+estdays <- days(lambda, nbases, epsilon)
+		
+print(paste("PFitter Estimated Lambda", format(lambda, digits=4), sep=" "))
+
+newvarhd <- calculateUSTATvarHD();
+lambda.low <- lambda - 1.96*newvarhd;
+lambda.high <- lambda + 1.96*newvarhd;
+upplim <- days(lambda.high, nbases, epsilon)
+lowlim <- days(lambda.low, nbases, epsilon)
+
+uppdays <- round(upplim)
+lowdays <- round(lowlim)
+formatteddays <- paste(round(estdays), " (", lowdays, ", ", uppdays, ")", sep="") 
+print(paste("PFitter Estimated Days:", formatteddays, sep=" "))
+
+
+## NOW for DS
+HD.outrageouslyhighvalue <- mean( d1[ , 3 ] ) + 4*sd( d1[ , 3 ] );
+HD.integratedPlausibility.totalplaus <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( d1[ , 3 ] )( HD.outrageouslyhighvalue );
+HD.normalizedPlausibilities <- 
+    Vectorize( function( y ) { PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( d1[ , 3 ] )( y ) / HD.integratedPlausibility.totalplaus } );
+##  NOTE HACK using upper = HD.outrageouslyhighvalue/4
+HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = 0, upper = HD.outrageouslyhighvalue/4 )$minimum }
+
+DS.lambda <- mean( d1[ , 3 ] );
+print(paste("DS PFitter Estimated Lambda", format(DS.lambda, digits=4), sep=" "))
+
+DS.lambda.low <- HD.quantile( 0.025 );
+DS.lambda.high <- HD.quantile( 0.975 );
+
+DS.estdays <- days(DS.lambda, nbases, epsilon)
+DS.upplim <- days(DS.lambda.high, nbases, epsilon)
+DS.lowlim <- days(DS.lambda.low, nbases, epsilon)
+
+DS.uppdays <- round(DS.upplim)
+DS.lowdays <- round(DS.lowlim)
+
+DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="") 
+print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
+
+@ 
+
+<<echo = FALSE>>=
+# (un)Setup for prettier Sweave output.
+options( continue = old.continue.option$continue )
+@ 
+
+\end{document}
+
