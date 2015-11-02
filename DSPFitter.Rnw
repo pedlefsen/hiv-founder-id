@@ -27,20 +27,92 @@ old.continue.option <- options( continue = " " )
 @ 
 
 <<echo = FALSE>>=
-PoissonDSM.calculatePlausibilityOfSingleton.one.obs <- Vectorize( function( x, k ) { pgamma( x, shape = k ) - pgamma( x, shape = k + 1 ) }, vectorize.args = "k" );
-PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts ) {
+#### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.
+
+  # The trick for subtracting small logged doubles in log space, with logX > logY
+  logSubtract <- Vectorize( function (logX, logY) { # modified from: https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations
+      #print( paste( "logSubtract", logX, logY ) );
+       if( !is.finite( logX ) ) {
+           return( logX );
+       }
+       negDiff <- logY - logX;
+       if( negDiff < -20 ) {
+           return( logX );
+       }
+       exp.negDiff <- exp( negDiff );
+       if( exp.negDiff == 1 ) {
+           return( - logY ); # most of the difference is just Y.
+           #return( -Inf );
+       }
+       # 4. otherwise use some nice algebra to stay in the log domain
+       #    (except for negDiff)
+      .rv <- logX + log( 1.0 - exp( negDiff ) );
+      #print( paste( "RV:", .rv ) );
+       return( .rv );
+   } ); # logSubtract (modified from https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations)
+PoissonDSM.calculatePlausibilityOfSingleton.one.obs <- Vectorize(
+    function( x, k, log.result = FALSE ) {
+        .rv <- pgamma( x, shape = k ) - pgamma( x, shape = k + 1 );
+        if( ( .rv == 0 ) || log.result ) {
+            .rv <- log( .rv );
+            if( any( !is.finite( .rv ) ) ) {
+                .rv.log.part1 <- pgamma( x, shape = k, log.p = TRUE );
+                .rv.log.part2 <- pgamma( x, shape = ( k + 1 ), log.p = TRUE );
+                .rv <- logSubtract( .rv.log.part1, .rv.log.part2 );
+                if( any( !is.finite( .rv ) ) ) {
+                    .rv.hack <- 
+                    # Very special hack:
+                    # when k is 0, we get underflow that can be recovered using the special trick that logSubtract( 0, pgamma( x, shape = 1, log.p = TRUE ) ) is approximately exp( -x - 2*k ).
+                    .rv <- exp( -x - 2*k );
+                    print( paste( "HACK:", x, k, .rv ) );
+                }
+                .rv <- ifelse( is.finite( .rv ), .rv, .rv.hack );
+            }
+            if( !log.result ) {
+                .rv <- exp( .rv );
+            }
+        }
+        return( .rv );
+    }, vectorize.args = "k" );
+PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, log.result = FALSE, scale.result.by.log = 0 ) {
     .mat <-
-        PoissonDSM.calculatePlausibilityOfSingleton.one.obs( xs, observed.counts );
+        PoissonDSM.calculatePlausibilityOfSingleton.one.obs( xs, observed.counts, log.result );
     if( is.null( dim( .mat ) ) ) {
         .mat <- t( as.matrix( .mat ) );
     }
-    .plaus <- apply( .mat, 1, prod );
-    names( .plaus ) <- xs;
-    return( .plaus );
-} 
+    if( log.result ) {
+        .log.plaus <- apply( .mat, 1, sum );
+        names( .log.plaus ) <- xs;
+        if( is.numeric( scale.result.by.log ) && ( scale.result.by.log != 0 ) ) { .log.plaus <- ( .log.plaus + scale.result.by.log ); }
+        return( .log.plaus );
+    } else {
+        .plaus <- apply( .mat, 1, prod );
+        names( .plaus ) <- xs;
+        if( is.numeric( scale.result.by.log ) && ( scale.result.by.log != 0 ) ) { .log.plaus <- ( .log.plaus * exp( scale.result.by.log ) ); }
+        return( .plaus );
+    }
+} # PoissonDSM.calculatePlausibilityOfSingletons (..)
     
 # But now we want the hpd
-PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta ) { Vectorize( function( y ) { integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value } ) }
+PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta, log.result = FALSE ) {
+    if( log.result ) {
+        # First get a sense of what the scale factor should be; look at the peak.
+        .scale.factor <- 0 - PoissonDSM.calculatePlausibilityOfSingletons( mean( .dta ), .dta, log.result = TRUE, scale.result.by.log = 0 );
+        # Sometimes if the data really poorly fit, the plausibility is 0 at what should be the peak, due to numerical instabilities.  In that case we search for the maximum.
+        if( !is.finite( .scale.factor ) ) {
+            .scale.factor = 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = mean( .dta ), maximum = T ) )$objective;
+        }
+        print( paste( "SCALE FACTOR:", .scale.factor ) );
+        .integrated.fn <- function( x ) {
+            .log.rv <- PoissonDSM.calculatePlausibilityOfSingletons( x, .dta, log.result = TRUE, scale.result.by.log = .scale.factor );
+           # print( paste( x[1], exp( .log.rv[1] ) ) );
+            exp( .log.rv );
+        };
+        Vectorize( function( y ) { log( ( integrate( f = .integrated.fn, lower = 0, upper = y )$value ) ) - .scale.factor } ); 
+    } else {
+        Vectorize( function( y ) { integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value } ) 
+    }
+} # PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility (..)
 
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
@@ -71,15 +143,16 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 library(tools)
 ## TODO: DEHACKIFY
 args = #commandArgs(trailingOnly=TRUE)
- c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+# c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
    "2.16e-05", "2517" );
 infile <- args[1]
 epsilon <- c(as.numeric(args[2]))
 nbases <- c(as.numeric(args[3]))
 
 dir <- paste(dirname(infile), '/', sep='')
-outfile <- paste(dir, "DS.LOG_LIKELIHOOD.results.txt", sep="")
-outfile2 <- paste(dir, "DS.CONVOLUTION.results.txt", sep="")
+#outfile <- paste(dir, "DS.LOG_LIKELIHOOD.results.txt", sep="")
+#outfile2 <- paste(dir, "DS.CONVOLUTION.results.txt", sep="")
 
 cat( "DS PFitter.." );
 
@@ -88,9 +161,9 @@ phi <- sqrt(1+4/3)
 days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(phi^2))
 ### end FUNCTIONS ###
 
-if(!file.exists(outfile)){
-	write(paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE)
-}
+#if(!file.exists(outfile)){
+#	write(paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE)
+#}
 	
 dlist <- read.table( file=infile, sep="\t", stringsAsFactors=F )
 
@@ -231,7 +304,8 @@ DS.lowdays <- round(DS.lowlim)
 DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="") 
 print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
 
-## Could add Bayesian.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  However alpha and beta approaching zero might give the closest analogue to the DS solution.
+## Could add Bayesian.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  [However note that alpha and beta approaching zero might give the closest analogue to the DS solution.]
+# Here I'm using the posterior median; the mode or mean are other options; can be looked up for generic gamma distrns.
 posterior.lambda <- qgamma( .5, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
 posterior.lambda.low <- qgamma( .025, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
 posterior.lambda.high <- qgamma( .975, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
@@ -246,6 +320,143 @@ posterior.formatteddays <- paste(round(posterior.estdays), " (", posterior.lowda
 print(paste("Bayesian PFitter Estimated Days:", posterior.formatteddays, sep=" "))
 
 @ 
+
+\section{Goodness of fit}
+Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
+
+<<echo = FALSE>>=
+
+## For a given set of data and corresponding set of pepr variates, compute the smallest epsilon and corresponding lambda such that the data CDF passes an average of epsilon units (vertically) from Poisson( lambda ), averaged over the observed data points.
+PoissonDSM.getSmallestEpsilonAndLambda <- function ( observed.data, pepr.variates = runif( length( observed.data ) ), observed.data.are.already.in.ascending.order = FALSE, pepr.variates.are.already.in.ascending.order = FALSE, pepr.variates.are.validity.checked = FALSE, compare.to.specific.pois.with.lambda = NULL ) {
+    stopifnot( length( observed.data ) > 0 );
+    stopifnot( length( pepr.variates ) == length( observed.data ) );
+    if( !observed.data.are.already.in.ascending.order ) {
+        observed.data <- sort( observed.data );
+        observed.data.are.already.in.ascending.order <- TRUE;
+    }
+    if( !pepr.variates.are.already.in.ascending.order ) {
+        pepr.variates <- sort( pepr.variates );
+        pepr.variates.are.already.in.ascending.order <- TRUE;
+    }
+    if( !pepr.variates.are.validity.checked ) {
+        stopifnot( ( pepr.variates[ 1 ] >= 0 ) && ( pepr.variates[ 1 ] <= pepr.variates[ length( pepr.variates ) ] ) && ( pepr.variates[ length( pepr.variates ) ] <= 1 ) );
+        pepr.variates.are.validity.checked <- TRUE;
+    }
+    if( !is.null( compare.to.specific.pois.with.lambda ) ) {
+        # Force lambda for comparison.
+        lambda.low <- compare.to.specific.pois.with.lambda;
+        lambda.high <- compare.to.specific.pois.with.lambda;
+    } else {
+        lambda.low <- max( min( observed.data ), ( mean( observed.data ) - 4 * sd( observed.data ) ) );
+        lambda.high <- min( max( observed.data ), ( mean( observed.data ) + 4 * sd( observed.data ) ) );
+    }
+    .epsilon.from.lambda.fn <- 
+      function( lambda ) {
+        # Here we use the assumption that the observed data are in ascending order, which implies that the quantiles are, too.
+        .quantiles <- ppois( observed.data, lambda );
+        .abs.diffs <- abs( pepr.variates - .quantiles );
+        # DON'T Return the largest difference.
+        #return( max( .abs.diffs ) );
+        # Return the average difference.
+        return( mean( .abs.diffs ) );
+      };
+    if( lambda.low == lambda.high ) {
+        the.results <- list( "lambda" = lambda.low,
+                         "epsilon" = .epsilon.from.lambda.fn( lambda.low ) );
+    } else {
+      the.results <- 
+      optimize( f = .epsilon.from.lambda.fn, lower = lambda.low, upper = lambda.high, maximum = FALSE, tol = 1E-5 );
+      names( the.results ) <- c( "lambda", "epsilon" );
+    }
+    return( the.results );
+} # PoissonDSM.getSmallestEpsilonAndLambda ( observed.data, pepr.variates )
+
+@ 
+
+The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the largest upper-end (sum of lower end and interval length).  If we allow for the weakening assumption that the assignment of interval lengths to interval ends is ``not known'', then condition occurs whenever the distance between the largest and smallest of the lower-ends exceeds the largest interval length.  Since they are independent, these can be described analytically. The probability distribution of the largest of the interval lengths is simply that of the maximum of exponential distributions (oddly enough in this case of unit exponentials, the maximum of two independent unit exponentials is the same as the distribution of the sum of one exponential and half of one independent exponential; so by induction the maximum of three or more exponentials is a sum with coefficients that are diminishing geometric series).  And the probability that the maximum difference in the lower ends exceeds a fixed value $c$ can be written as
+\begin{equation}
+  \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
+  \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
+\end{equation} 
+but these maximum and minimum values are not independent.  We use the law of total probability, 
+\begin{equation}
+  \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
+  \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
+\end{equation}
+where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
+
+So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
+\begin{equation}
+  \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
+  \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
+\end{equation}
+where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
+
+Next we want to know the evidence about two distributions being the same, since it turns out that the pfitter test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence.  If we pretend these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the poisson distribution of HD among seqs should have twice the mean as the dist to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
+
+So now we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports the 2x assertion.  This should be doable analytically, but here is a numerical approach:
+
+<<echo = FALSE, results = hide>>=
+draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.max = 5000 ) {
+    ## The naive way, just keep drawing until one works.
+##    if( method == "naive" ) {
+      found.it <- FALSE;
+      conflict <- 0;
+      while( !found.it && conflict < conflict.max ) {
+        # Directly draw from the Poisson DSM
+        lambda.low <-
+            rgamma( n = length( sorted.observed.data ), shape = sorted.observed.data );
+        lambda.width <-
+            rgamma( n = length( sorted.observed.data ), shape = 1 );
+        if( max( lambda.low ) > ( min( lambda.low ) + max( lambda.width ) ) ) {
+            ## CONFLICT.
+            conflict <- conflict + 1;
+            cat( "." );
+            next;
+        }
+        found.it <- 1;
+      } # end while( !found.it )
+      if( !found.it ) { stop( "TOO MUCH CONFLICT!" ) }
+    return( list( lambda.low = lambda.low, lambda.width = lambda.width ) );
+} # draw.one.nonconflicted.pepr.sample 
+
+sorted.consensus.distances <- sort( d0[ , 3 ] );
+sorted.intersequence.distances <- sort( d1[ , 3 ] );
+
+draw.once.from.each.and.evaluate.assertion <- function( assertion.is.that.1.is.x.times.2 = 2, sorted.observed.data.1 = sorted.consensus.distances, sorted.observed.data.2 = sorted.intersequence.distances ) {
+    .sample1 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.1 );
+    .sample1.min = assertion.is.that.1.is.x.times.2 * min( .sample1$lambda.low + .sample1$lambda.width );
+    .sample1.max = assertion.is.that.1.is.x.times.2 * max(  .sample1$lambda.low );
+    print( paste( c( ".sample1.min", .sample1.min,  ".sample1.max", .sample1.max ), collapse = " " ) );
+    .sample2 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.2 );
+    .sample2.min = min( .sample2$lambda.low + .sample2$lambda.width );
+    .sample2.max = max(  .sample2$lambda.low );
+    print( paste( c( ".sample2.min", .sample2.min,  ".sample2.max", .sample2.max ), collapse = " " ) );
+    if( ( .sample1.max < .sample2.min ) ||
+       ( .sample1.min > .sample2.max ) ) {
+        # Evidence against.
+        return( list( P = 0, Q = 1, R = 0 ) );
+    }
+    # No evidence can be entirely in support, so if it's not against, then we are in a "don't know" situation.
+    return( list( P = 0, Q = 0, R = 1 ) );
+} # draw.once.from.each.and.evaluate.assertion (..)
+
+# GET A BUNCH OF DRAWS
+# MAGIC N: DS.NDRAWS
+DS.NDRAWS <- 1000;
+.result <- sapply( 1:DS.NDRAWS, function( .i ) { print( .i ); draw.once.from.each.and.evaluate.assertion() } );
+DS.Q <- mean( unlist( .result[ "Q", ] ) );
+DS.R <- mean( unlist( .result[ "R", ] ) );
+stopifnot( DS.Q + DS.R == 1 );
+
+if( DS.Q == 0 ) {
+    DS.Qtext <- paste( "<=", ( 1 / DS.NDRAWS ) );
+} else {
+    DS.Qtext <- sprintf( paste( "= %0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.Q )
+}
+print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
+@ 
+
 
 <<echo = FALSE>>=
 # (un)Setup for prettier Sweave output.
