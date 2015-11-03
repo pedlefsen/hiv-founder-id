@@ -327,7 +327,7 @@ if (lambda!=0) {
 	if(chisq<0){ chisq <- NA }
 } else { 
 	chisq <- NA
-	nl <- NA
+	nl0 <- NA # Paul fixed to "nl0" from "nl"
 	pval <- 0
 }
        
