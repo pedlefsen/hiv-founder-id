@@ -27,7 +27,7 @@ old.continue.option <- options( continue = " " )
 @ 
 
 <<echo = FALSE>>=
-#### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.
+#### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
 
   # The trick for subtracting small logged doubles in log space, with logX > logY
   logSubtract <- Vectorize( function (logX, logY) { # modified from: https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations
@@ -36,17 +36,14 @@ old.continue.option <- options( continue = " " )
            return( logX );
        }
        negDiff <- logY - logX;
-       if( negDiff < -20 ) {
-           return( logX );
-       }
-       exp.negDiff <- exp( negDiff );
-       if( exp.negDiff == 1 ) {
-           return( - logY ); # most of the difference is just Y.
-           #return( -Inf );
-       }
+       # exp.negDiff <- exp( negDiff );
+       # if( exp.negDiff == 1 ) {
+       #     negDiff <- -1E-07; # Smallest value on my computer st exp( negDiff ) < 1
+       #     #return( logX );
+       # }
        # 4. otherwise use some nice algebra to stay in the log domain
        #    (except for negDiff)
-      .rv <- logX + log( 1.0 - exp( negDiff ) );
+      .rv <- logX + log1p( - exp( negDiff ) );
       #print( paste( "RV:", .rv ) );
        return( .rv );
    } ); # logSubtract (modified from https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations)
@@ -59,12 +56,13 @@ PoissonDSM.calculatePlausibilityOfSingleton.one.obs <- Vectorize(
                 .rv.log.part1 <- pgamma( x, shape = k, log.p = TRUE );
                 .rv.log.part2 <- pgamma( x, shape = ( k + 1 ), log.p = TRUE );
                 .rv <- logSubtract( .rv.log.part1, .rv.log.part2 );
+                #print( paste( "exp( ", .rv.log.part1, " ) - exp( ", .rv.log.part2, " ) = exp( ", .rv, " )", sep = "" ) );
+                # NOTE this will still include non-finite elements when x is very large. 
                 if( any( !is.finite( .rv ) ) ) {
                     .rv.hack <- 
                     # Very special hack:
-                    # when k is 0, we get underflow that can be recovered using the special trick that logSubtract( 0, pgamma( x, shape = 1, log.p = TRUE ) ) is approximately exp( -x - 2*k ).
-                    .rv <- exp( -x - 2*k );
-                    print( paste( "HACK:", x, k, .rv ) );
+                     # when k is 0, we get underflow that can be recovered using the special trick that logSubtract( 0, pgamma( x, shape = k, log.p = TRUE ) ) is approximately exp( -x - 2*k ).
+                     ( -x - 2*k );
                 }
                 .rv <- ifelse( is.finite( .rv ), .rv, .rv.hack );
             }
@@ -74,16 +72,32 @@ PoissonDSM.calculatePlausibilityOfSingleton.one.obs <- Vectorize(
         }
         return( .rv );
     }, vectorize.args = "k" );
-PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, log.result = FALSE, scale.result.by.log = 0 ) {
+PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, log.result = FALSE, scale.result.by.log = 0, finite.sums.coefs = NULL ) {
     .mat <-
-        PoissonDSM.calculatePlausibilityOfSingleton.one.obs( xs, observed.counts, log.result );
+        PoissonDSM.calculatePlausibilityOfSingleton.one.obs( xs, observed.counts, log.result = log.result );
     if( is.null( dim( .mat ) ) ) {
         .mat <- t( as.matrix( .mat ) );
     }
     if( log.result ) {
-        .log.plaus <- apply( .mat, 1, sum );
+        .sums <- apply( .mat, 1, sum, na.rm = T );
+        if( any( !is.finite( .sums ) ) || ( !is.null( finite.sums.coefs ) && ( length( finite.sums.coefs ) < 2 ) ) ) {
+          ## Fill in the nonfinite ones by extrapolation.  Works nearly perfectly here..  Or if the coefs were figured out on a previous iteration, use them...
+            .nonfinite.xs <- xs[ !is.finite( .sums ) ];
+          if( is.null( finite.sums.coefs ) || ( length( finite.sums.coefs ) < 2 ) ) {
+            .finite.sums <- .sums[ is.finite( .sums ) ];
+            .finite.xs <- xs[ is.finite( .sums ) ];
+            finite.sums.coefs <- coef( lm( .finite.sums  ~ .finite.xs ) );
+          }
+          if( any( !is.finite( .sums ) ) ) {
+              .nonfinite.sums <- finite.sums.coefs %*% sapply( .nonfinite.xs, function( .nonfinite.x ) { c( 1, .nonfinite.x ) } );
+              .sums[ !is.finite( .sums ) ] <- .nonfinite.sums;
+          }
+        } # Calculate slope; fix non-finite sums by extrapolation
+    
+        .log.plaus <- .sums;
         names( .log.plaus ) <- xs;
         if( is.numeric( scale.result.by.log ) && ( scale.result.by.log != 0 ) ) { .log.plaus <- ( .log.plaus + scale.result.by.log ); }
+        attr( .log.plaus, "finite.sums.coefs" ) <- finite.sums.coefs;
         return( .log.plaus );
     } else {
         .plaus <- apply( .mat, 1, prod );
@@ -97,20 +111,33 @@ PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, 
 PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta, log.result = FALSE ) {
     if( log.result ) {
         # First get a sense of what the scale factor should be; look at the peak.
-        .scale.factor <- 0 - PoissonDSM.calculatePlausibilityOfSingletons( mean( .dta ), .dta, log.result = TRUE, scale.result.by.log = 0 );
-        # Sometimes if the data really poorly fit, the plausibility is 0 at what should be the peak, due to numerical instabilities.  In that case we search for the maximum.
-        if( !is.finite( .scale.factor ) ) {
-            .scale.factor = 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = mean( .dta ), maximum = T ) )$objective;
-        }
+        .scale.factor = 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = mean( .dta ), maximum = T ) )$objective;
         print( paste( "SCALE FACTOR:", .scale.factor ) );
+        # Actually to get a slope for interpolating the larger values, calc a few..
+        ## finite.sums.coefs <- NULL;
+        ## lower.end.of.range.of.values.to.try <- 100;
+        ## while( is.null( finite.sums.coefs ) ) { 
+        ##   .result.mostly.ignored <-
+        ##       PoissonDSM.calculatePlausibilityOfSingletons( lower.end.of.range.of.values.to.try + 0:99, .dta, log.result = TRUE );
+        ##   if( !is.null( attr( .result.mostly.ignored, "finite.sums.coefs" ) ) ) {
+        ##       finite.sums.coefs <- attr( .result.mostly.ignored, "finite.sums.coefs" );
+        ##       ## TODO: REMOVE
+        ##       print( "FINITE SUMS COEFS" );
+        ##       print( finite.sums.coefs );
+        ##       break;
+        ##   } else {
+        ##       lower.end.of.range.of.values.to.try <- lower.end.of.range.of.values.to.try + 100;
+        ##   }
+        ##   #print( lower.end.of.range.of.values.to.try );
+        ## } # End while searching for breakdown where finite.sums.coefs is best computed.
         .integrated.fn <- function( x ) {
-            .log.rv <- PoissonDSM.calculatePlausibilityOfSingletons( x, .dta, log.result = TRUE, scale.result.by.log = .scale.factor );
-           # print( paste( x[1], exp( .log.rv[1] ) ) );
+            .log.rv <- PoissonDSM.calculatePlausibilityOfSingletons( x, .dta, log.result = TRUE, scale.result.by.log = .scale.factor );#, finite.sums.coefs = finite.sums.coefs );
+            #print( paste( x[1], .dta[1], exp( .log.rv[1] ) ) );
             exp( .log.rv );
         };
-        Vectorize( function( y ) { log( ( integrate( f = .integrated.fn, lower = 0, upper = y )$value ) ) - .scale.factor } ); 
+        Vectorize( function( y ) { unname( log( ( integrate( f = .integrated.fn, lower = 0, upper = y, subdivisions = 1000 )$value ) ) - .scale.factor ) } ); 
     } else {
-        Vectorize( function( y ) { integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value } ) 
+        Vectorize( function( y ) { unname( integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value ) } ) 
     }
 } # PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility (..)
 
@@ -141,16 +168,31 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 ####==== From PFitter.R
 
 library(tools)
-## TODO: DEHACKIFY
-args = #commandArgs(trailingOnly=TRUE)
-# c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
-    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
+args <- commandArgs(trailingOnly=TRUE);
+if( length( args ) == 0 ) {
+args <- 
+  c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+#    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
    "2.16e-05", "2517" );
+}
+
 infile <- args[1]
 epsilon <- c(as.numeric(args[2]))
 nbases <- c(as.numeric(args[3]))
 
+# sample <- basename(file_path_sans_ext(infile))
+
 dir <- paste(dirname(infile), '/', sep='')
+# ## TODO: DEHACKIFY
+# args = #commandArgs(trailingOnly=TRUE)
+# # c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+#     c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
+#    "2.16e-05", "2517" );
+# infile <- args[1]
+# epsilon <- c(as.numeric(args[2]))
+# nbases <- c(as.numeric(args[3]))
+# dir <- paste(dirname(infile), '/', sep='')
+
 #outfile <- paste(dir, "DS.LOG_LIKELIHOOD.results.txt", sep="")
 #outfile2 <- paste(dir, "DS.CONVOLUTION.results.txt", sep="")
 
@@ -169,143 +211,169 @@ dlist <- read.table( file=infile, sep="\t", stringsAsFactors=F )
 
 ### calc HD with consensus
 d0 <- dlist[which(dlist[,1]==dlist[1,1]),]
-mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2]))
-nseq <- sum(mult0)
-yvec0 <- rep(0, (1+max(d0[,3])))
-for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
-
-nl0 <- length(yvec0);
-clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
+# mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2]))
+# nseq <- sum(mult0)
+# yvec0 <- rep(0, (1+max(d0[,3])))
+# for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
+# 
+# nl0 <- length(yvec0);
+# clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
 
 ### calc intersequence HD
 d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	
-yvec <- rep(0, (1+max(d1[,3])))
-seqnames <- unique(c( d1[,1], d1[,2] ))
-for(i in 1:length(seqnames)){
-    tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
-    if( nrow( tmp ) == 0 ) {
-        next;
-    }
-	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
-	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
-	for(j in 1:dim(tmp)[1]){
-		m1 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2]))
-		val <- tmp[j,3]
-		yvec[val+1] <- yvec[val+1] + m0*m1
-	}
-}
+
+# yvec <- rep(0, (1+max(d1[,3])))
+# seqnames <- unique(c( d1[,1], d1[,2] ))
+# for(i in 1:length(seqnames)){
+#     tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
+#     if( nrow( tmp ) == 0 ) {
+#         next;
+#     }
+# 	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
+# 	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
+# 	for(j in 1:dim(tmp)[1]){
+# 		m1 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2]))
+# 		val <- tmp[j,3]
+# 		yvec[val+1] <- yvec[val+1] + m0*m1
+# 	}
+# }
 
 ## U STAT from PFitter.R
-calculateUSTATvarHD <- function () {
-  #### U STAT ESTIMATE OF ST DEV
-  #### FORMULAE
-  #### Var(HD) = (N(N-1)/2)^(-1) (2(N-2)sigma1^2 + sigma2^2)
-  #### sigma1^2 = (N(N-1)(N-2)/3 -1)^(-1) sum_{i<j<l} ((Dij-mu)(Dil-mu)+(Dij-mu)(Djl-mu))
-  #### sigma2^2 = (N(N-1)/2-1)^(-1) sum_{i<j} (Dij-mu)^2
-  
-  ### construct a matrix of Dij's
-  TX <- matrix(rep(NA,nseq^2), ncol=nseq)
-  rownames( TX ) <- seqnames;
-  colnames( TX ) <- seqnames;
-  for(i in 1:(dim(d0)[1]-1)){
-  	useq <- d0[i,2]
-  	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
-  }
-  
-  sigma1 <- 0
-  sigma2 <- 0
-  muhat <- 0
-  denmu <- (sum( !is.na( TX )))^(-1)
-  ## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
-  den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
-  den2 <- den1/4
-  
-  for(n in 1:(nseq-1)){
-      for(m in (n+1):nseq){
-          if( !is.na( TX[ m, n ] ) ) {
-              muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
-  	}
-      }
-  }
-  
-  for(n in 1:nseq){
-  	dnn <- 0
-  	sigma1 <- sigma1 + choose(mult0[n],3)*den1*2*(dnn-muhat)^2 
-  	sigma2 <- sigma2 + choose(mult0[n],2)*den2*(dnn-muhat)^2
-  	if(n != nseq){
-  		for(m in (n+1):nseq){
-                      dnm <- TX[m,n]
-                      if( !is.na( dnm ) ) {
-  			dmm <- 0
-  			sigma2 <- sigma2 + mult0[n]*mult0[m]*(dnm - muhat)^2
-  			sigma1 <- sigma1 + (2/3)*choose(mult0[n],2)*mult0[m]*(dnm-muhat)*(dnm+2*dnn-3*muhat)
-  			sigma1 <- sigma1 + (2/3)*mult0[n]*choose(mult0[m],2)*(dnm-muhat)*(dnm+2*dmm-3*muhat)
-  			if(m != nseq){
-  				for(l in (m+1):nseq){
-  					dnl <- TX[l,n]
-  					dlm <- TX[l,m]
-                                          if( !is.na( dnl ) && !is.na( dlm ) ) {
-                                              sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
-                                          }
-  				}
-  			}
-  		    } # End if !is.na( dnm )
-                  } # End for( m )
-   	}
-  }
-  
-  ## varhd <- sqrt(denmu*(2*(nseq-2)*sigma1 + sigma2))
-  A <- 8/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
-  B <- 4/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
-  newvarhd <- sqrt(A*sigma1 + B*sigma2)
-  return( newvarhd );
-} # calculateUSTATvarHD (..)
+# calculateUSTATvarHD <- function () {
+#   #### U STAT ESTIMATE OF ST DEV
+#   #### FORMULAE
+#   #### Var(HD) = (N(N-1)/2)^(-1) (2(N-2)sigma1^2 + sigma2^2)
+#   #### sigma1^2 = (N(N-1)(N-2)/3 -1)^(-1) sum_{i<j<l} ((Dij-mu)(Dil-mu)+(Dij-mu)(Djl-mu))
+#   #### sigma2^2 = (N(N-1)/2-1)^(-1) sum_{i<j} (Dij-mu)^2
+#   
+#   ### construct a matrix of Dij's
+#   TX <- matrix(rep(NA,nseq^2), ncol=nseq)
+#   rownames( TX ) <- seqnames;
+#   colnames( TX ) <- seqnames;
+#   for(i in 1:(dim(d0)[1]-1)){
+#   	useq <- d0[i,2]
+#   	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
+#   }
+#   
+#   sigma1 <- 0
+#   sigma2 <- 0
+#   muhat <- 0
+#   denmu <- (sum( !is.na( TX )))^(-1)
+#   ## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
+#   den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
+#   den2 <- den1/4
+#   
+#   for(n in 1:(nseq-1)){
+#       for(m in (n+1):nseq){
+#           if( !is.na( TX[ m, n ] ) ) {
+#               muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
+#   	}
+#       }
+#   }
+#   
+#   for(n in 1:nseq){
+#   	dnn <- 0
+#   	sigma1 <- sigma1 + choose(mult0[n],3)*den1*2*(dnn-muhat)^2 
+#   	sigma2 <- sigma2 + choose(mult0[n],2)*den2*(dnn-muhat)^2
+#   	if(n != nseq){
+#   		for(m in (n+1):nseq){
+#                       dnm <- TX[m,n]
+#                       if( !is.na( dnm ) ) {
+#   			dmm <- 0
+#   			sigma2 <- sigma2 + mult0[n]*mult0[m]*(dnm - muhat)^2
+#   			sigma1 <- sigma1 + (2/3)*choose(mult0[n],2)*mult0[m]*(dnm-muhat)*(dnm+2*dnn-3*muhat)
+#   			sigma1 <- sigma1 + (2/3)*mult0[n]*choose(mult0[m],2)*(dnm-muhat)*(dnm+2*dmm-3*muhat)
+#   			if(m != nseq){
+#   				for(l in (m+1):nseq){
+#   					dnl <- TX[l,n]
+#   					dlm <- TX[l,m]
+#                                           if( !is.na( dnl ) && !is.na( dlm ) ) {
+#                                               sigma1 <- sigma1 + (2/3)*mult0[n]*mult0[m]*mult0[l]*((dnm-muhat)*(dnl-muhat)+(dnm-muhat)*(dlm-muhat)+(dnl-muhat)*(dlm-muhat))
+#                                           }
+#   				}
+#   			}
+#   		    } # End if !is.na( dnm )
+#                   } # End for( m )
+#    	}
+#   }
+#   
+#   ## varhd <- sqrt(denmu*(2*(nseq-2)*sigma1 + sigma2))
+#   A <- 8/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
+#   B <- 4/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
+#   newvarhd <- sqrt(A*sigma1 + B*sigma2)
+#   return( newvarhd );
+# } # calculateUSTATvarHD (..)
 	
 ### Fitting
-nl <- length(yvec)
-lambda <- sum((1:(nl-1))*yvec[-1])/sum(yvec)
-estdays <- days(lambda, nbases, epsilon)
+# nl <- length(yvec)
+# lambda <- sum((1:(nl-1))*yvec[-1])/sum(yvec)
+# estdays <- days(lambda, nbases, epsilon)
 		
-print(paste("PFitter Estimated Lambda", format(lambda, digits=4), sep=" "))
-
-newvarhd <- calculateUSTATvarHD();
-lambda.low <- lambda - 1.96*newvarhd;
-lambda.high <- lambda + 1.96*newvarhd;
-upplim <- days(lambda.high, nbases, epsilon)
-lowlim <- days(lambda.low, nbases, epsilon)
-
-uppdays <- round(upplim)
-lowdays <- round(lowlim)
-formatteddays <- paste(round(estdays), " (", lowdays, ", ", uppdays, ")", sep="") 
-print(paste("PFitter Estimated Days:", formatteddays, sep=" "))
+# print(paste("PFitter Estimated Lambda", format(lambda, digits=4), sep=" "))
+# 
+# newvarhd <- calculateUSTATvarHD();
+# lambda.low <- lambda - 1.96*newvarhd;
+# lambda.high <- lambda + 1.96*newvarhd;
+# upplim <- days(lambda.high, nbases, epsilon)
+# lowlim <- days(lambda.low, nbases, epsilon)
+# 
+# uppdays <- round(upplim)
+# lowdays <- round(lowlim)
+# formatteddays <- paste(round(estdays), " (", lowdays, ", ", uppdays, ")", sep="") 
+# print(paste("PFitter Estimated Days:", formatteddays, sep=" "))
 
 
 ## NOW for DS
-HD.outrageouslyhighvalue <- mean( d1[ , 3 ] ) + 4*sd( d1[ , 3 ] );
-HD.integratedPlausibility.totalplaus <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( d1[ , 3 ] )( HD.outrageouslyhighvalue );
-HD.normalizedPlausibilities <- 
-    Vectorize( function( y ) { PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( d1[ , 3 ] )( y ) / HD.integratedPlausibility.totalplaus } );
-##  NOTE HACK using upper = HD.outrageouslyhighvalue/4
-HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = 0, upper = HD.outrageouslyhighvalue/4 )$minimum }
-
 DS.lambda <- mean( d1[ , 3 ] );
+.f <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( d1[ , 3 ], log.result = T );
+.maybe.maximal.point <- DS.lambda;
+.maximal.area.so.far <- .f( .maybe.maximal.point );
+.maximal.x.so.far <- .maybe.maximal.point;
+for( .additional.x in 1:(2*DS.lambda) ) {
+    .logtotalplaus <-
+        .f( .maybe.maximal.point + .additional.x );
+    if( .logtotalplaus > .maximal.area.so.far ) {
+        .maximal.area.so.far <- .logtotalplaus;
+        .maximal.x.so.far <- .maybe.maximal.point + .additional.x;
+    } else { # Stop if it's stable; Also stop if the maximal area starts to decline; that indicates we are in the range where the integral becomes unstable.
+        stop;
+    }
+} # look up til we find a max
+.lowest.nonzero.x <- 0;
+.f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
+while( !is.finite( .f.at.lowest.nonzero.x ) ) {
+    .lowest.nonzero.x <- .lowest.nonzero.x + ( .maximal.x.so.far / 100 );
+    stopifnot( .lowest.nonzero.x < DS.lambda );
+    .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
+}
+HD.normalizedPlausibilities <- 
+    Vectorize( function( y ) { exp( .f( y ) - .maximal.area.so.far ) } );
+##  NOTE HACK using upper = HD.outrageouslyhighvalue/2
+HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = .lowest.nonzero.x, upper = .maximal.x.so.far )$minimum }
+
 print(paste("DS PFitter Estimated Lambda", format(DS.lambda, digits=4), sep=" "))
+DS.estdays <- days(DS.lambda, nbases, epsilon)
 
 DS.lambda.low <- HD.quantile( 0.025 );
-DS.lambda.high <- HD.quantile( 0.975 );
+if( DS.lambda.low > DS.lambda ) {
+    print( "NUMERICAL ISSUES PREVENT GETTING AN ACCURATE DS POSTERIOR INTERVAL." );
+    DS.formatteddays <- round(DS.estdays);
+    print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
+} else {
+    DS.lambda.high <- HD.quantile( 0.975 );
+    DS.upplim <- days(DS.lambda.high, nbases, epsilon)
+    DS.lowlim <- days(DS.lambda.low, nbases, epsilon)
+    
+    DS.uppdays <- round(DS.upplim)
+    DS.lowdays <- round(DS.lowlim)
 
-DS.estdays <- days(DS.lambda, nbases, epsilon)
-DS.upplim <- days(DS.lambda.high, nbases, epsilon)
-DS.lowlim <- days(DS.lambda.low, nbases, epsilon)
-
-DS.uppdays <- round(DS.upplim)
-DS.lowdays <- round(DS.lowlim)
-
-DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="") 
-print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
+    DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="") 
+    print(paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "))
+}
 
 ## Could add Bayesian.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  [However note that alpha and beta approaching zero might give the closest analogue to the DS solution.]
 # Here I'm using the posterior median; the mode or mean are other options; can be looked up for generic gamma distrns.
+# Using posterior median, just to be different.
 posterior.lambda <- qgamma( .5, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
 posterior.lambda.low <- qgamma( .025, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
 posterior.lambda.high <- qgamma( .975, 1+sum( d1[ , 3 ] ), 1+nrow( d1 ) );
@@ -322,7 +390,7 @@ print(paste("Bayesian PFitter Estimated Days:", posterior.formatteddays, sep=" "
 @ 
 
 \section{Goodness of fit}
-Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
+%Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
 
 <<echo = FALSE>>=
 
@@ -373,65 +441,74 @@ PoissonDSM.getSmallestEpsilonAndLambda <- function ( observed.data, pepr.variate
 
 @ 
 
-The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the largest upper-end (sum of lower end and interval length).  If we allow for the weakening assumption that the assignment of interval lengths to interval ends is ``not known'', then condition occurs whenever the distance between the largest and smallest of the lower-ends exceeds the largest interval length.  Since they are independent, these can be described analytically. The probability distribution of the largest of the interval lengths is simply that of the maximum of exponential distributions (oddly enough in this case of unit exponentials, the maximum of two independent unit exponentials is the same as the distribution of the sum of one exponential and half of one independent exponential; so by induction the maximum of three or more exponentials is a sum with coefficients that are diminishing geometric series).  And the probability that the maximum difference in the lower ends exceeds a fixed value $c$ can be written as
-\begin{equation}
-  \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
-  \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
-\end{equation} 
-but these maximum and minimum values are not independent.  We use the law of total probability, 
-\begin{equation}
-  \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
-  \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
-\end{equation}
-where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
+%% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
+%% \begin{equation}
+%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
+%%   \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
+%% \end{equation} 
+%% but these maximum and minimum values are not independent.  We use the law of total probability, 
+%% \begin{equation}
+%%   \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
+%%   \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
+%% \end{equation}
+%% where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
+%% 
+%% So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
+%% \begin{equation}
+%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
+%%   \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
+%% \end{equation}
+%% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
 
-So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
-\begin{equation}
-  \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
-  \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
-\end{equation}
-where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
+It turns out that the PFitter ``Goodness of fit'' test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
 
-Next we want to know the evidence about two distributions being the same, since it turns out that the pfitter test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence.  If we pretend these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the poisson distribution of HD among seqs should have twice the mean as the dist to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
-
-So now we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports the 2x assertion.  This should be doable analytically, but here is a numerical approach:
+So we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.
 
 <<echo = FALSE, results = hide>>=
-draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.max = 5000 ) {
+
+sorted.consensus.distances <- sort( d0[ , 3 ] );
+sorted.intersequence.distances <- sort( d1[ , 3 ] );
+
+draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.max = 5000, method = "fast" ) {
     ## The naive way, just keep drawing until one works.
-##    if( method == "naive" ) {
       found.it <- FALSE;
       conflict <- 0;
       while( !found.it && conflict < conflict.max ) {
         # Directly draw from the Poisson DSM
         lambda.low <-
             rgamma( n = length( sorted.observed.data ), shape = sorted.observed.data );
-        lambda.width <-
-            rgamma( n = length( sorted.observed.data ), shape = 1 );
-        if( max( lambda.low ) > ( min( lambda.low ) + max( lambda.width ) ) ) {
-            ## CONFLICT.
-            conflict <- conflict + 1;
-            cat( "." );
-            next;
-        }
+          lambda.width <-
+              rgamma( n = length( sorted.observed.data ), shape = 1 );
+          if( any( max( lambda.low ) > ( lambda.low + lambda.width ) ) ) {
+              if( method == "naive" ) {
+                ## CONFLICT.
+                conflict <- conflict + 1;
+                cat( "." );
+                next;
+              } else {
+                # All of them need to overlap, so every value of lambda.width must be at least as long as max( lambda.low ) - lambda.low.  They are iid, so the condition that any one of them is at least that value has no effect on the rest of them.
+                # But also, the distribution of an exponential is memoryless, so we can just shift everything. Note we do need to draw them again so they are not truncated (because we've conditioned on them being small).
+                  lambda.width <-
+                      ( max( lambda.low ) - lambda.low ) +
+                     rgamma( n = length( sorted.observed.data ), shape = 1 );
+              } # End if method == "naive" .. else ..
+          } # End if the draws aren't long enough.
         found.it <- 1;
       } # end while( !found.it )
       if( !found.it ) { stop( "TOO MUCH CONFLICT!" ) }
+      
     return( list( lambda.low = lambda.low, lambda.width = lambda.width ) );
 } # draw.one.nonconflicted.pepr.sample 
-
-sorted.consensus.distances <- sort( d0[ , 3 ] );
-sorted.intersequence.distances <- sort( d1[ , 3 ] );
 
 draw.once.from.each.and.evaluate.assertion <- function( assertion.is.that.1.is.x.times.2 = 2, sorted.observed.data.1 = sorted.consensus.distances, sorted.observed.data.2 = sorted.intersequence.distances ) {
     .sample1 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.1 );
     .sample1.min = assertion.is.that.1.is.x.times.2 * min( .sample1$lambda.low + .sample1$lambda.width );
     .sample1.max = assertion.is.that.1.is.x.times.2 * max(  .sample1$lambda.low );
-    print( paste( c( ".sample1.min", .sample1.min,  ".sample1.max", .sample1.max ), collapse = " " ) );
+    #print( paste( c( ".sample1.min", .sample1.min,  ".sample1.max", .sample1.max ), collapse = " " ) );
     .sample2 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.2 );
     .sample2.min = min( .sample2$lambda.low + .sample2$lambda.width );
     .sample2.max = max(  .sample2$lambda.low );
-    print( paste( c( ".sample2.min", .sample2.min,  ".sample2.max", .sample2.max ), collapse = " " ) );
+    #print( paste( c( ".sample2.min", .sample2.min,  ".sample2.max", .sample2.max ), collapse = " " ) );
     if( ( .sample1.max < .sample2.min ) ||
        ( .sample1.min > .sample2.max ) ) {
         # Evidence against.
@@ -444,7 +521,7 @@ draw.once.from.each.and.evaluate.assertion <- function( assertion.is.that.1.is.x
 # GET A BUNCH OF DRAWS
 # MAGIC N: DS.NDRAWS
 DS.NDRAWS <- 1000;
-.result <- sapply( 1:DS.NDRAWS, function( .i ) { print( .i ); draw.once.from.each.and.evaluate.assertion() } );
+.result <- sapply( 1:DS.NDRAWS, function( .i ) { cat( .i, fill = T ); draw.once.from.each.and.evaluate.assertion() } );
 DS.Q <- mean( unlist( .result[ "Q", ] ) );
 DS.R <- mean( unlist( .result[ "R", ] ) );
 stopifnot( DS.Q + DS.R == 1 );
@@ -457,6 +534,7 @@ if( DS.Q == 0 ) {
 print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
 @ 
 
+Note that the other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistical test.  It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
 
 <<echo = FALSE>>=
 # (un)Setup for prettier Sweave output.
