@@ -1,3 +1,4 @@
+% -*- mode: noweb; ess-noweb-default-code-mode: R-mode; -*-
 \documentclass[a4paper]{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -175,7 +176,8 @@ library(tools)
 args <- commandArgs(trailingOnly=TRUE);
 if( length( args ) == 0 ) {
   args <- 
-    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
+    c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+#    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
   #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
      "2.16e-05", "2517" );
 }
@@ -584,11 +586,11 @@ if (lambda!=0) {
 }
 
 if( be.verbose ) {
-    .message <- paste( "The stats for the PFitter Chi-squared test for whether our intersequence counts deviate from the expected values of a Poisson with lambda equal to twice the estimate from HD to the consensus sequence are chisq = ", round( chisq, digits = 2 ), ", P = ", round( pval, digits = 3 ), ".", sep = "" );
+    .message <- paste( "The stats for the PFitter Chi-squared test for whether our intersequence counts deviate from the expected values of a Poisson with lambda equal to twice the estimate from HD to the consensus sequence are chisq = ", round( chisq, digits = 4 ), ", P = ", round( pval, digits = 4 ), ".", sep = "" );
     if( pval < 0.05 ) {
         print( paste( "DOES NOT FIT.\n", .message, sep = "" ) );
     } else {
-        print( paste( "FITS.\n", .message, sep = "" ) );
+        print( paste( "FITS (insufficient evidence to conclude that it does not).\n", .message, sep = "" ) );
     }
 }
 pfitter.results <- c( pfitter.results, list( twox = list( "chisq.stat" = chisq, "chisq.df" = ( nl0 - 1 ), "P" = pval ) ) );    
@@ -617,9 +619,10 @@ draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.
                 # But also, the distribution of an exponential is memoryless, so we can just shift everything. Note we do need to draw them again so they are not truncated (because we've conditioned on them being small
                   lambda.width <-
                       ( max( lambda.low ) - lambda.low ) +
-                     rgamma( n = length( sorted.observed.data ), shape = 1 );
+                      rgamma( n = length( sorted.observed.data ), shape = 1 );
               } # End if method == "naive" .. else ..
           } # End if the draws aren't long enough.
+          stopifnot( !any( max( lambda.low ) > ( lambda.low + lambda.width ) ) );
         found.it <- 1;
       } # end while( !found.it )
       if( !found.it ) { stop( "TOO MUCH CONFLICT!" ) }
@@ -629,13 +632,15 @@ draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.
 
 draw.once.from.each.and.evaluate.assertion <- function( assertion.is.that.1.is.x.times.2 = 2, sorted.observed.data.1 = sorted.consensus.distances, sorted.observed.data.2 = sorted.intersequence.distances ) {
     .sample1 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.1 );
-    .sample1.min = assertion.is.that.1.is.x.times.2 * min( .sample1$lambda.low + .sample1$lambda.width );
-    .sample1.max = assertion.is.that.1.is.x.times.2 * max(  .sample1$lambda.low );
+    .sample1.max = assertion.is.that.1.is.x.times.2 * min( .sample1$lambda.low + .sample1$lambda.width );
+    .sample1.min = assertion.is.that.1.is.x.times.2 * max(  .sample1$lambda.low );
+    stopifnot( .sample1.min <= .sample1.max );
     #print( paste( c( ".sample1.min", .sample1.min,  ".sample1.max", .sample1.max ), collapse = " " ) );
     .sample2 <- draw.one.nonconflicted.pepr.sample( sorted.observed.data.2 );
-    .sample2.min = min( .sample2$lambda.low + .sample2$lambda.width );
-    .sample2.max = max(  .sample2$lambda.low );
+    .sample2.max = min( .sample2$lambda.low + .sample2$lambda.width );
+    .sample2.min = max(  .sample2$lambda.low );
     #print( paste( c( ".sample2.min", .sample2.min,  ".sample2.max", .sample2.max ), collapse = " " ) );
+    stopifnot( .sample2.min <= .sample2.max );
     if( ( .sample1.max < .sample2.min ) ||
        ( .sample1.min > .sample2.max ) ) {
         # Evidence against.
@@ -668,7 +673,7 @@ if( be.verbose ) {
   if( DS.Q >= 0.95 ) {
       print( paste( "DOES NOT FIT.\nThere is evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
   } else {
-      print( paste( "FITS.\nThere is not sufficient evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
+      print( paste( "FITS (insufficient evidence to conclude that it does not).\nThere is not sufficient evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
   }
 }
 dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
