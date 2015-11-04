@@ -26,7 +26,7 @@ source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util
 old.continue.option <- options( continue = " " )
 @ 
 
-<<echo = FALSE>>=
+<<echo = FALSE, results = hide>>=
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
 
   # The trick for subtracting small logged doubles in log space, with logX > logY
@@ -140,7 +140,9 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
         Vectorize( function( y ) { unname( integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value ) } ) 
     }
 } # PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility (..)
+@
 
+<<echo = FALSE, results = hide>>=
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
 # ten.channel.gen.truth.lambdas <- 1:ten.channel.gen.count;
@@ -164,7 +166,9 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 # 
 # ten.channel.gen.quantiles.by.lambda <- t( sapply( truth.lambdas, function( k ) { c( ten.channel.gen.quantile( k )( 0.025 ), ten.channel.gen.quantile( k )( 0.975 ) ) } ) );
 # colnames( ten.channel.gen.quantiles.by.lambda ) <- c( "2.5%", "97.5%" );
+@
 
+<<echo = FALSE, results = hide>>=
 ####==== From PFitter.R
 
 library(tools)
@@ -199,7 +203,35 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 #if(!file.exists(outfile)){
 #	write(paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE)
 #}
+@ 
 
+\section{Goodness of fit}
+The PFitter code does not actually perform a Poisson Goodness-of-fit test, though it seems a good idea.  Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
+
+%% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
+%% \begin{equation}
+%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
+%%   \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
+%% \end{equation} 
+%% but these maximum and minimum values are not independent.  We use the law of total probability, 
+%% \begin{equation}
+%%   \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
+%%   \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
+%% \end{equation}
+%% where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
+%% 
+%% So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
+%% \begin{equation}
+%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
+%%   \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
+%% \end{equation}
+%% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
+
+It turns out that the PFitter ``Goodness of fit'' test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
+
+So we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.
+
+<<echo = FALSE, results = hide>>=
 DSPFitter <- function (
   infile = args[1],
   dlist = read.table( file=infile, sep="\t", stringsAsFactors=F ),
@@ -403,16 +435,18 @@ if( be.verbose ) {
     posterior.formatteddays <- paste(round(posterior.estdays), " (", posterior.lowdays, ", ", posterior.uppdays, ")", sep="") 
     print(paste("Bayesian PFitter Estimated Days:", posterior.formatteddays, sep=" "))
 }
-if( be.verbose ) {
-}
-bayespfitter.results <- list( lambda = c( "estimate" = posterior.lambda, "2.5%" = posterior.lambda.low, "97.5%" = posterior.lambda.high ), days = c( "estimate" = posterior.estdays, "2.5%" = posterior.lowlim, "97.5%" = posterior.upplim ) );
+bayespfitter.results <-
+    list(
+        lambda = c(
+            "estimate" = posterior.lambda,
+            "2.5%" = posterior.lambda.low,
+            "97.5%" = posterior.lambda.high ), 
+        days = c(
+            "estimate" = posterior.estdays,
+            "2.5%" = posterior.lowlim,
+            "97.5%" = posterior.upplim )
+       );
 
-@ 
-
-\section{Goodness of fit}
-The PFitter code does not actually perform a Poisson Goodness-of-fit test, though it seems a good idea.  Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
-
-<<echo = FALSE>>=
 
 ## For a given set of data and corresponding set of pepr variates, compute the smallest epsilon and corresponding lambda such that the data CDF passes an average of epsilon units (vertically) from Poisson( lambda ), averaged over the observed data points.
 PoissonDSM.getSmallestEpsilonAndLambda <- function ( observed.data, pepr.variates = runif( length( observed.data ) ), observed.data.are.already.in.ascending.order = FALSE, pepr.variates.are.already.in.ascending.order = FALSE, pepr.variates.are.validity.checked = FALSE, compare.to.specific.pois.with.lambda = NULL ) {
@@ -468,30 +502,7 @@ if( be.verbose ) {
 }
 
 dspfitter.results <- c( dspfitter.results, list( espilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
-@ 
 
-%% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
-%% \begin{equation}
-%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
-%%   \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
-%% \end{equation} 
-%% but these maximum and minimum values are not independent.  We use the law of total probability, 
-%% \begin{equation}
-%%   \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
-%%   \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
-%% \end{equation}
-%% where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
-%% 
-%% So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
-%% \begin{equation}
-%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
-%%   \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
-%% \end{equation}
-%% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
-
-It turns out that the PFitter ``Goodness of fit'' test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
-
-<<echo = FALSE, results = hide>>=
 #### This is from PFitter.R.  This is how they do it.
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
 #pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
@@ -573,7 +584,7 @@ if (lambda!=0) {
 }
 
 if( be.verbose ) {
-    .message <- paste( "The stats for the PFitter Chi-squared test for whether our intersequence counts deviate from the expected values of a Poisson with lambda equal to twice the estimate from HD to the consensus sequence are chisq = ", chisq, "P = ", pval ".", sep = "" );
+    .message <- paste( "The stats for the PFitter Chi-squared test for whether our intersequence counts deviate from the expected values of a Poisson with lambda equal to twice the estimate from HD to the consensus sequence are chisq = ", round( chisq, digits = 2 ), ", P = ", round( pval, digits = 3 ), ".", sep = "" );
     if( pval < 0.05 ) {
         print( paste( "DOES NOT FIT.\n", .message, sep = "" ) );
     } else {
@@ -581,11 +592,6 @@ if( be.verbose ) {
     }
 }
 pfitter.results <- c( pfitter.results, list( twox = list( "chisq.stat" = chisq, "chisq.df" = ( nl0 - 1 ), "P" = pval ) ) );    
-@ 
-
-So we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.
-
-<<echo = FALSE, results = hide>>=
 
 sorted.consensus.distances <- sort( consensus.distances );
 sorted.intersequence.distances <- sort( intersequence.distances );
@@ -608,7 +614,7 @@ draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.
                 next;
               } else {
                 # All of them need to overlap, so every value of lambda.width must be at least as long as max( lambda.low ) - lambda.low.  They are iid, so the condition that any one of them is at least that value has no effect on the rest of them.
-                # But also, the distribution of an exponential is memoryless, so we can just shift everything. Note we do need to draw them again so they are not truncated (because we've conditioned on them being small).
+                # But also, the distribution of an exponential is memoryless, so we can just shift everything. Note we do need to draw them again so they are not truncated (because we've conditioned on them being small
                   lambda.width <-
                       ( max( lambda.low ) - lambda.low ) +
                      rgamma( n = length( sorted.observed.data ), shape = 1 );
@@ -660,19 +666,25 @@ if( DS.R == 0 ) {
 #print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
 if( be.verbose ) {
   if( DS.Q >= 0.95 ) {
-      print( paste( "FITS.\nThere is evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
+      print( paste( "DOES NOT FIT.\nThere is evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
   } else {
-      print( paste( "DOES NOT FIT.\nThere is not sufficient evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
+      print( paste( "FITS.\nThere is not sufficient evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus ( R ", DS.Rtext, ".", sep = "" ) );
   }
 }
 dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
+
+return( list( pfitter.results = pfitter.results, dspfitter.results = dspfitter.results, bayespfitter.results = bayespfitter.results ) );
+} # DSPFitter (..)
+
+
 @ 
 
 Note that the other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistical test.  It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
 
-<<echo = FALSE>>=
-return( list( 
+<<echo = FALSE, results = hide>>=
+.result.ignored <- DSPFitter( be.verbose = TRUE );
 @ 
+
 
 <<echo = FALSE>>=
 # (un)Setup for prettier Sweave output.
