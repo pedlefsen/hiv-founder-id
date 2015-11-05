@@ -1,6 +1,6 @@
-library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
+library( "ade4", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # needed by something.  ape?
 library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
-library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
+library( "seqinr", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # for "as.alignment", "consensus"
 
 # This parses the summaryTable output of the RAP tool; see runRAPOnline.pl.
 removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, output.dir = NULL, p.value.threshold = 0.0007 ) {
