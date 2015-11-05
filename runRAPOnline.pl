@@ -73,14 +73,18 @@ sub runRAPOnline {
   my $formattedForRAP = 0;
     if( 1 ) {
       my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-      if( $input_fasta_file_contents =~ /\|/ ) {
+      if( $input_fasta_file_contents =~ /[\|\/]/ ) {
         if( $VERBOSE ) {
-          print( "Input file \"$input_fasta_file\" contains illegal characters \"|\"; changing them to \"--BAR--\"\n" );
+          print( "Input file \"$input_fasta_file\" contains illegal characters \"|\"; changing them to \"-x-BAR-x-\" or \"-x-SLASH-x-\"\n" );
           ## TODOL REMOVE
           #print( $output_path_dir );
         }
         $formattedForRAP = 1;
         $input_fasta_file_contents =~ s/\|/-x-BAR-x-/g;
+        $input_fasta_file_contents =~ s/\//-x-SLASH-x-/g;
+        $input_fasta_file_contents =~ s/\\/-x-BACKSLASH-x-/g;
+        $input_fasta_file_contents =~ s/\.\./-x-DOTDOT-x-/g;
+        $input_fasta_file_contents =~ s/\./-x-DOT-x-/g;
         # Now write it out to a temporary location in the output dir.
         $input_fasta_file_path = $output_path_dir;
         $input_fasta_file_short_nosuffix = "${input_fasta_file_short_nosuffix}_formattedForRAP";

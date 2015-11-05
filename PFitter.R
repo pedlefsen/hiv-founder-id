@@ -261,7 +261,7 @@ if (lambda!=0) {
 
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
 #pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
-pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda^x))-lfactorial(x) ) )
+pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda)*x)-lfactorial(x) ) ) # PAUL CHANGED log( clambda^x ) to log(clambda)*x
 mui <- function(x) nseq*dpois(x, lambda=clambda)
 SIGMA.DIM.MAX <- 170; # Beyond this value, factorial stops working in R.
 sigma.dim <- min( SIGMA.DIM.MAX, (2*nl0) );
@@ -278,13 +278,17 @@ if (lambda!=0) {
   
 		for(l in 0:(sigma.dim-1)){   
 			
-			if(k>=l){ 
-				c1 <- ((clambda^k)/factorial(k))*sum(choose(k,l:0)*((clambda^(0:l))/factorial(0:l)))
-				c2 <- ((clambda^l)/factorial(l))*sum(choose(l,l:0)*((clambda^((k-l):k))/factorial((k-l):k))) 
+			if(k>=l){
+                            c1 <- exp( ((log( clambda )* k) - lfactorial(k)) + log( sum( exp( lchoose(k,l:0)+((log(clambda)*(0:l)) - lfactorial(0:l)) ) ) ) );
+                            stopifnot( is.finite( c1 ) );
+                            c2 <- exp( ((log( clambda )* l) - lfactorial(l)) + log( sum(exp( lchoose(l,l:0)+((log( clambda )*((k-l):k))-lfactorial((k-l):k))) ) ) );
+                            stopifnot( is.finite( c2 ) );
 			}
 			if(k<l){
-				c1 <- ((clambda^l)/factorial(l))*sum(choose(l,k:0)*((clambda^(0:k))/factorial(0:k)))
-				c2 <- ((clambda^k)/factorial(k))*sum(choose(k,k:0)*((clambda^((l-k):l))/factorial((l-k):l))) 
+                            c1 <- exp( ((log( clambda )* l) - lfactorial(l)) + log( sum( exp( lchoose(l,k:0)+((log( clambda )*(0:k)) - lfactorial(0:k))) ) ) );
+                          stopifnot( is.finite( c1 ) );
+                            c2 <- exp( ((log( clambda )* k) - lfactorial(k)) + log( sum(exp( lchoose(k,k:0)+((log(clambda)*((l-k):l)) - lfactorial((l-k):l))) ) ) );
+                          stopifnot( is.finite( c2 ) );
 			}
                     if( is.na( c1 ) ) {
                         c1 <- 0;
@@ -292,11 +296,15 @@ if (lambda!=0) {
                     if( is.na( c2 ) ) {
                         c2 <- 0;
                     }
-			sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2)
-
-			
-			if(k==l){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) }
-			if((k==l)&(iseven(k))){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2) }
+                        sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2);
+			if(k==l){
+                          if( iseven(k) ) {
+                            sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2);
+                          } else {
+                            sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) ;
+                          }
+                        }
+                        stopifnot( is.finite( sigmaij[k+1,l+1] ) );
 		}
 	}
     
@@ -308,7 +316,7 @@ if (lambda!=0) {
 	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
 	sigmainv <- sdec$u%*%diagmat%*%sdec$vt
 	
-	h <- hist(dvec1[ dvec1 <= sigma.dim ], breaks=seq(-1,(sigma.dim-1),1), plot=FALSE)
+	h <- hist(dvec1[ dvec1 < sigma.dim ], breaks=seq(-1,(sigma.dim-1),1), plot=FALSE)
 	xvec <- h$breaks
 	yvec <- h$counts
 	nl1 <- length(yvec)

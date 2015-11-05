@@ -14,6 +14,7 @@
 ##      after the input fasta file name (unless you specify an output dir).
 ##
 ##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
+##      Or: rm -r rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; mkdir rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; perl ./identify_founders.pl -fV -O rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/identify-founders.out
 ##      This next one skips RAP because it seems to be exceptionally slow with these large numbers of sequences.  Unsure how to proceed - maybe iterately evaluate subsets? Or use a different program.
 ##      Or: mkdir caprisa002_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -R -P -O caprisa002_1W_gold_standard-hiv-founder-id_resultDir/ caprisa002_1W_gold_standard.list  > caprisa002_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
@@ -251,8 +252,8 @@ sub identify_founders {
 
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $mean_diversity_threshold = 0.001;
-    #my $in_sites_ratio_threshold = 0.85; # For Abrahams and RV217
-    my $in_sites_ratio_threshold = 0.33; # For caprisa002
+    my $in_sites_ratio_threshold = 0.85; # For Abrahams and RV217
+    #my $in_sites_ratio_threshold = 0.33; # For caprisa002
     my $force_one_cluster = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       if( $in_sites_stat > $in_sites_ratio_threshold ) {
