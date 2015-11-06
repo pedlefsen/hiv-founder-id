@@ -39,7 +39,7 @@ use vars qw( $opt_D $opt_V );
 use vars qw( $VERBOSE $DEBUG );
 
 ## NOTE THAT THIS NEEDS TO BE PATCHED; SEE ABOVE.
-use constant PHYML_EXECUTABLE => "phyml";
+use constant PHYML_EXECUTABLE => "./phyml";
 
 Readonly my %PHYML_OPTIONS => (
   datatype       => "nt",	# sequence data type ('nt' or 'aa')
