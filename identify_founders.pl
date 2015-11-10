@@ -328,20 +328,21 @@ sub identify_founders {
       my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_stat ) =
         ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
       my $multi_founder_is_poisson = defined( $multi_founder_poisson_fit_stat ) && ( $multi_founder_poisson_fit_stat > 0.05 );
-      my $multi_founder_starlike_raw =
-        `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
-      if( $DEBUG ) {
-        ## TODO: REMOVE
-        #print "MULTI-FOUNDER PoissonFitter RAW: $multi_founder_starlike_raw\n";
-      }
-      my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-      my $multi_founder_is_starlike = ( $multi_founder_starlike_text eq "FOLLOWS" );
-      print "Multi-Founder PoissonFitter Determination: ";
-      if( $multi_founder_is_starlike ) {
-        print "Star-Like Phylogenies within clusters";
-      } else {
-        print "Non-Star-Like Phylogenies within clusters";
-      }
+      ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
+      # my $multi_founder_starlike_raw =
+      #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+      # if( $DEBUG ) {
+      #   ## TODO: REMOVE
+      #   #print "MULTI-FOUNDER PoissonFitter RAW: $multi_founder_starlike_raw\n";
+      # }
+      # my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+      # my $multi_founder_is_starlike = ( $multi_founder_starlike_text eq "FOLLOWS" );
+      # print "Multi-Founder PoissonFitter Determination: ";
+      # if( $multi_founder_is_starlike ) {
+      #   print "Star-Like Phylogenies within clusters";
+      # } else {
+      #   print "Non-Star-Like Phylogenies within clusters";
+      # }
       print "\nMulti-Founder Poisson Fit: ";
       if( $multi_founder_is_poisson ) {
         print "OK";
