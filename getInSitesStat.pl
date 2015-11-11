@@ -25,7 +25,7 @@ sub getInSitesStat {
   @ARGV = @_;
 
   sub getInSitesStat_usage {
-    print "\tgetInSitesStat [-DV] [-(o|O) <Output File>] <jobnum.txt> <jobnum_priv.txt> [<Output File]\n";
+    print "\tgetInSitesStat [-DV] [-(o|O) <Output File>] <jobnum.txt> <jobnum_priv.txt> [<Output File>]\n";
     exit;
   }
 
@@ -72,9 +72,10 @@ sub getInSitesStat {
     while( $line = <INFORMATIVE_SITES_FILE_FH> ) {
     
       ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+      next unless( defined( $line ) && ( $line ne '' ) );
   
       if( $VERBOSE ) { print "."; }
-      next unless $line =~ /^Alignment/;
+      next unless( $line =~ /^Alignment/ );
       ( $informative_no_gaps ) = ( $line =~ /Alignment\s\d+\s(\d+)\s\d+/ );
       last;
     }
@@ -101,6 +102,7 @@ sub getInSitesStat {
     while( $line = <PRIVATE_SITES_FILE_FH> ) {
     
       ( $line ) = ( $line =~ /^(.+?)\s*$/ );  # Chop and Chomp won't remove ^Ms
+      next unless( defined( $line ) && ( $line ne '' ) );
     
       if( $VERBOSE ) { print "."; }
       next unless $line =~ /^Alignment/;

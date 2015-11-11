@@ -87,37 +87,58 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
       print( in.dist );
     }
     dist.mat <- as.matrix( in.dist );
+    ## NOTE: Because of ambiguity codes, the transitivity property
+    ## might _not_ hold, eg you could have dist(A,B) == 0, dist(B,C) == 0, dist(A, C) == 1.
     
     # Ok so duplicates are those pairs with dist.mat == 0.
     # Keep the first.
-    seq.was.already.removed <- rep( FALSE, nrow( dist.mat ) );
+    seq.removed.since.represented.by.seq <- rep( 0, nrow( dist.mat ) );
+    names( seq.removed.since.represented.by.seq ) <- colnames( dist.mat );
     output.table.as.list <- list();
     for( seq.i in ( 1:nrow( dist.mat ) ) ) {
-        if( seq.was.already.removed[ seq.i ] ) {
+        if( seq.removed.since.represented.by.seq[ seq.i ] != 0 ) {
             next;
         }
-        # We should not find this one to be identical to one already
+        # If the distances were true metric distances, ie if the transitivity property did hold, then it would be the case that we should not find this one to be identical to one already
         # removed, since then this one would also have already been
-        # removed.
-        stopifnot( !any( dist.mat[ seq.i, seq.was.already.removed ] == 0 ) );
+        # removed.  However, it does not hold (see above).  Thus we might need to add this to a collection of already removed sequences if it is zero-distance from something already removed.
+        if( any( seq.removed.since.represented.by.seq != 0 ) && any( dist.mat[ seq.i, ( seq.removed.since.represented.by.seq > 0 ) ] == 0 ) ) {
+            # This is part of a group that was already removed. It got
+            # missed by being not perfectly identical to every other
+            # member due to ambiguities.  We go ahead and include it if it is distance zero from any member.
+            .representative.seq <- seq.removed.since.represented.by.seq[ ( seq.removed.since.represented.by.seq > 0 ) & ( dist.mat[ seq.i, ] == 0 ) ];
+            stopifnot( length( .representative.seq ) > 0 );
+            if( length( .representative.seq ) > 1 ) {
+                stopifnot( all( .representative.seq == .representative.seq[ 1 ] ) );
+                .representative.seq <- .representative.seq[ 1 ];
+            }
+            ## TODO: REMOVE
+            # print( paste( "adding", colnames( dist.mat )[ seq.i ], "to", rownames( dist.mat )[ .representative.seq ] ) );
+            output.table.as.list[[ rownames( dist.mat )[ .representative.seq ] ]][ 2 ] <-
+                paste( output.table.as.list[[ rownames( dist.mat )[ .representative.seq ] ]][ 2 ], colnames( dist.mat )[ seq.i ], sep = "," );
+            seq.removed.since.represented.by.seq[ seq.i ] <- .representative.seq;
+            next;
+        }
         # Are there any identical to this one?
         if( !any( dist.mat[ seq.i, -seq.i ] == 0 ) ) {
             next;
         }
+        all.the.zeros <-
+            colnames( dist.mat )[ -seq.i ][ dist.mat[ seq.i, -seq.i ] == 0 ];
         output.table.as.list[[ rownames( dist.mat )[ seq.i ] ]] <-
-            paste( colnames( dist.mat )[ -seq.i ][ which( dist.mat[ seq.i, -seq.i ] == 0 ) ], collapse = "," );
-        seq.was.already.removed[ -seq.i ][ which( dist.mat[ seq.i, -seq.i ] == 0 ) ] <- TRUE;
+            c( colnames( dist.mat )[ seq.i ], paste( all.the.zeros, collapse = "," ) );
+        #print( paste( all.the.zeros, collapse = ", " ) );
+        seq.removed.since.represented.by.seq[ all.the.zeros ] <- seq.i;
     } # End foreach seq.i
 
     if( !is.null( output.table.file ) && ( length( output.table.as.list ) > 0 ) ) {
         output.table <- do.call( rbind, output.table.as.list );
-        output.table <- cbind( rownames( output.table ), output.table );
         colnames( output.table ) <- c( "retained", "removed" );
         rownames( output.table ) <- NULL;
         write.table( output.table, file = output.table.file, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE );
     }
     
-    output.fasta <- input.fasta[ !seq.was.already.removed, , drop = FALSE ];
+    output.fasta <- input.fasta[ ( seq.removed.since.represented.by.seq == 0 ), , drop = FALSE ];
                
     output.fasta.path <-
         paste( output.dir, "/", output.fasta.file, sep = "" );

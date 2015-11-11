@@ -3,9 +3,9 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
-## Input files are taken to be all files matching /${fasta.file.prefix}.cluster\d+.fasta/.
+## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE ) {
+runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.cluster\\d+\\.fasta" ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file.prefix ) ) == 0 ) {
         fasta.file.prefix.path <- ".";
@@ -32,7 +32,7 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
 
-    fasta.files <- grep( paste( fasta.file.prefix.short, "\\.cluster\\d+\\.fasta", sep = "" ), dir( fasta.file.prefix.path, full.names = FALSE ), value = T );
+    fasta.files <- grep( paste( fasta.file.prefix.short, fasta.file.suffix.pattern, sep = "" ), dir( fasta.file.prefix.path, full.names = FALSE ), value = T );
     ## TODO: REMOVE
     print( fasta.files );
     stopifnot( length( fasta.files ) > 1 );
@@ -109,12 +109,21 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
 ## Here is where the action is.
 fasta.file.prefix <- Sys.getenv( "runMultiFounderPoissonFitter_inputFilenamePrefix" ); # alignment
 output.dir <- Sys.getenv( "runMultiFounderPoissonFitter_outputDir" ); # NOTE: will create a subdir for the output, named after the fasta file, with "MultiFounderPoissonFitterDir".
+suffix.pattern <- Sys.getenv( "runMultiFounderPoissonFitter_suffixPattern" );
+if( suffix.pattern == "" ) {
+    suffix.pattern <- NULL;
+}
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
+# warning( paste( "suffix pattern:", suffix.pattern ) );
 
 if( file.exists( fasta.file.prefix ) ) {
-    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir ) );
+    if( is.null( suffix.pattern ) ) {
+        print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir ) );
+    } else {
+        print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern ) );
+    }
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }
