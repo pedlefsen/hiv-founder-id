@@ -18,8 +18,7 @@
 ##      seqinr (from bioconductor)
 ##      dynamicTreeCut
 ##
-##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
-##      Or: rm -r rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; mkdir rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; perl ./identify_founders.pl -fV -O rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/identify-founders.out
+##      Try: rm -r rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/; mkdir rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/; perl -w ./identify_founders.pl -sf -O rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/identify-founders.out
 ##      This next one skips RAP because it seems to be exceptionally slow with these large numbers of sequences.  Unsure how to proceed - maybe iterately evaluate subsets? Or use a different program.
 ##      Or: mkdir caprisa002_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -V -R -P -O caprisa002_1W_gold_standard-hiv-founder-id_resultDir/ caprisa002_1W_gold_standard.list  > caprisa002_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
@@ -33,7 +32,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_f $opt_I $opt_s );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_H $opt_f $opt_I $opt_s );
 use vars qw( $VERBOSE $DEBUG );
 
 ## NOTE: If there is only one sequence in a group, we don't bother writing out the file.
@@ -194,7 +193,7 @@ sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-PRfI] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PRFHfIs] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -205,12 +204,14 @@ sub identify_founders {
   # opt_V means be verbose.
   # opt_P means skip (do not run) profillic
   # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
+  # opt_F means skip (do not run) PFitter
+  # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
   # opt_f means fix hypermutated sequences, instead of removing them.
   # opt_I means run inSites online (instead of offline)
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_f, $opt_I, $opt_s ) = ();
-  if( not getopts('DVo:O:PRfIs') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_H, $opt_f, $opt_I, $opt_s ) = ();
+  if( not getopts('DVo:O:PRFHfIs') ) {
     identify_founders_usage();
   }
   
@@ -219,10 +220,11 @@ sub identify_founders {
 
   my $run_profillic = !$opt_P;
   my $run_RAP = !$opt_R;
+  my $run_PFitter = !$opt_F;
+  my $run_Hypermut = !$opt_H;
   my $fix_hypermutated_sequences = $opt_f || 0;
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
-  my $run_PFitter = 1;
 
   ## TODO: DEHACKIFY MAGIC #s
   my $mean_diversity_threshold = 0.001;
@@ -350,6 +352,9 @@ sub identify_founders {
       }
       if( ( $input_fasta_file_contents =~ /RH\|/ ) && ( $input_fasta_file_contents =~ /LH\|/ ) ) {
         ## SPECIAL CASE: If the input file contains left-half and right-half genomes, separate them into separate input files and do both.
+        if( $VERBOSE ) {
+          print( "Input file contains left- and right- halves of the genome; separating them.\n" );
+        }
         my @new_input_fasta_files =
           splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, , "NFLG\|", "LH\|", "RH\|" ); # NOTE THAT THE ORDER MATTERS.  RH last is assumed below.
         if( $VERBOSE ) {
@@ -360,38 +365,41 @@ sub identify_founders {
       }
     }
 
+    print "\nInput Fasta file: $input_fasta_file_short\n";
     # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
-    if( $VERBOSE ) {
-        if( $fix_hypermutated_sequences ) {
-          print "Calling R to fix hypermutated sequences..";
-        } else {
-          print "Calling R to remove hypermutated sequences..";
-        }
-    }
-    $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
-    ## extract the number fixed/removed from the output
-    #$R_output = gsub( "^.*\\[1\\]\\s*(\\d+)", "\\1", $R_output );
-#    if( $VERBOSE ) {
-        if( $fix_hypermutated_sequences ) {
-          print( "The number of hypermutated sequences fixed is: $R_output" );
-        } else {
-          print( "The number of hypermutated sequences removed is: $R_output" );
-        }
-#    }
-    # Now use the output from that..
-    $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-    if( $fix_hypermutated_sequences ) {
-      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
-    } else {
-      $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
-    }
-    ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-      ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-    $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
-    
-    if( $VERBOSE ) {
-      print ".done.\n";
-    }
+    if( $run_Hypermut ) {
+      if( $VERBOSE ) {
+          if( $fix_hypermutated_sequences ) {
+            print "Calling R to fix hypermutated sequences..";
+          } else {
+            print "Calling R to remove hypermutated sequences..";
+          }
+      }
+      $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      ## extract the number fixed/removed from the output
+      my $num_hypermut_sequences = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
+  #    if( $VERBOSE ) {
+          if( $fix_hypermutated_sequences ) {
+            print( "The number of hypermutated sequences fixed is: $num_hypermut_sequences\n" );
+          } else {
+            print( "The number of hypermutated sequences removed is: $num_hypermut_sequences\n" );
+          }
+  #    }
+      # Now use the output from that..
+      $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+      if( $fix_hypermutated_sequences ) {
+        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
+      } else {
+        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+      }
+      ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+        ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+      $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+      
+      if( $VERBOSE ) {
+        print ".done.\n";
+      }
+    } # End if $run_Hypermut
 
     if( $run_RAP ) {
       ## Run RAP on LANL, which gives individual
@@ -406,10 +414,11 @@ sub identify_founders {
         my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
         $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
         ## extract the number fixed/removed from the output
-        my ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)/ );
+        my ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
         if( $VERBOSE ) {
-          print( "\tdone. The number of recombined sequences removed is: $removed_recombined_sequences\n" );
+          print( ".done." );
         }
+        print( "The number of recombined sequences removed is: $removed_recombined_sequences\n" );
         # Now use the output from that..
         $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
         $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
@@ -418,13 +427,16 @@ sub identify_founders {
         $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
       } else {
         if( $VERBOSE ) {
-          print( "\tdone. The number of recombined sequences removed is: 0\n" );
+          print( ".done." );
+          print( "The number of recombined sequences removed is: 0\n" );
         }
       } # End if any recombinants were identified. .. else ..
     } # End if $run_RAP
 
+    print "Fasta file for analysis: $input_fasta_file_short\n";
+
     ## TODO: REMOVE
-    print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $input_fasta_file_short_nosuffix\n" );
+    #print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $input_fasta_file_short_nosuffix\n" );
     if( exists( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } ) ) {
       push @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } }, $input_fasta_file_short_nosuffix;
     } else {
@@ -448,7 +460,6 @@ sub identify_founders {
     unless( defined( $num_seqs ) ) {
       warn( "UH OH: $input_fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
     }
-    print "Input fasta file: $input_fasta_file_short\n";
     print "Number of sequences: $num_seqs\n";
     print "Mean pairwise diversity: $mean_diversity\n";
     print "Informative sites to private sites ratio: $in_sites_stat"; # Newline is already on there
@@ -470,9 +481,9 @@ sub identify_founders {
     }
 
     if( $morgane_calls_one_cluster ) {
-      print "\nNumber of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: 1\n";
+      print "Number of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: 1\n";
     } else {
-      print "\nNumber of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: greater than 1\n";
+      print "Number of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: greater than 1\n";
     }
 
     ## Now run PoissonFitter.
@@ -481,6 +492,9 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
         }
+        print "PoissonFitter Determination: Degenerate Phylogeny (all seqs are the same)\n";
+        print "Poisson Fit: NA\n";
+        print "Poisson time estimate (95\% CI): 0 (NA, NA)\n";
       } else {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
@@ -518,80 +532,6 @@ sub identify_founders {
       } # End if( $mean_diversity > 0 );
     } # End if( $run_PFitter )
 
-    # Should we call runMultiFounderPoissonFitter to put together the two datasets for better Poisson estimation?
-    if( $input_fasta_file_short =~ /_RH/ ) {
-      my $nflg_version = $input_fasta_file;
-      $nflg_version =~ s/_RH/_NFLG/;
-      my $lh_version = $input_fasta_file;
-      $lh_version =~ s/_RH/_LH/;
-      # Do it only if there are at least the two; do it after "RH".
-      # NOTE THAT WE ASSUME RH IS LAST. SEE ABOVE.
-      if( ( $input_fasta_file_short =~ /_RH/ ) && ( ( -e $lh_version ) || ( -e $nflg_version ) ) ) {
-        # OK, do it.
-
-        ## Now run PoissonFitter on the regions.
-        if( $VERBOSE ) {
-          print "Calling R to run MultiRegionPoissonFitter..";
-        }
-        # NOTE that this strips off any modifiers like remove/fix HypermutatedSequences and removeRecombinedSequences: (this is dealt with in runMultiFounderPoissonFitter.R)
-        my ( $input_fasta_file_very_short ) =
-          ( $input_fasta_file_short =~ /^(.+)_RH/ );
-        #print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n"; 
-        if( !exists ( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } ) ) {
-          die( "\$final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } doesn't exist!" );
-        }
-        print "Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "\n";
-        
-        my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
-        my $suffix_pattern = join( "\.fasta\$|", @file_suffixes ) . "\.fasta\$";
-        print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
-        print "\$suffix_pattern: $suffix_pattern\n";
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='$input_fasta_file_very_short'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
-        if( $VERBOSE ) {
-          print( "\tdone.\n" );
-        }
-        my $multi_region_poisson_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_stat ) =
-          ( $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-        my $multi_region_is_poisson = defined( $multi_region_poisson_fit_stat ) && ( $multi_region_poisson_fit_stat > 0.05 );
-        ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
-        # my $multi_region_starlike_raw =
-        #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
-        # if( $DEBUG ) {
-        #   ## TODO: REMOVE
-        #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
-        # }
-        # my ( $multi_region_starlike_text ) = ( $multi_region_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-        # my $multi_region_is_starlike = ( $multi_region_starlike_text eq "FOLLOWS" );
-        # print "Multi-Region PoissonFitter Determination: ";
-        # if( $multi_region_is_starlike ) {
-        #   print "Star-Like Phylogenies within clusters";
-        # } else {
-        #   print "Non-Star-Like Phylogenies within clusters";
-        # }
-        print "\nMulti-Region Poisson Fit: ";
-        if( $multi_region_is_poisson ) {
-          print "OK";
-        } else {
-          print "BAD (p = $multi_region_poisson_fit_stat)";
-        }
-        print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
-        #print "\n$multi_region_poisson_fitter_stats_raw\n";
-      } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
-    } # End if this is an RH or LH one, consider combining for PoissonFitter.
-    elsif( $input_fasta_file_short =~ /_LH/ ) {
-      ## I've lazily assumed that if there are _LH and _NFLG then there are also _RH.  That's the only case we miss because we don't care about _LH alone (since we only need to merge if there are multiple, and we've already handled the cases with _RH).
-      ## HERE WE CHECK THIS ASSUMPTION.
-      my $nflg_version = $input_fasta_file;
-      $nflg_version =~ s/_LH/_NFLG/;
-      my $rh_version = $input_fasta_file;
-      $rh_version =~ s/_LH/_RH/;
-      if( -e $nflg_version ) {
-        stopifnot( -e $rh_version );
-      }
-    }
-
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
@@ -602,9 +542,9 @@ sub identify_founders {
     ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
     
     # Print out the number of clusters
-    print "\nNumber of founders estimated by clustering informative sites: $num_clusters\n\n";
+    print "Number of founders estimated by clustering informative sites: $num_clusters\n";
 
-    if( $num_clusters > 1 ) {
+    if( $run_PFitter && ( $num_clusters > 1 ) ) {
       ## Now run PoissonFitter on the clusters.
       if( $VERBOSE ) {
         print "Calling R to run MultiFounderPoissonFitter..";
@@ -647,16 +587,100 @@ sub identify_founders {
     if( $run_profillic ) {
       if( !$force_one_cluster ) {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
-        print "Running Profillic..\n";
+        if( $VERBOSE ) {
+          print "Running Profillic..\n";
+        }
         my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
         `perl runProfillic.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
-        
-        print "Clustering..\n";
+
+        if( $VERBOSE ) {
+          print "Clustering..\n";
+        }
         my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         # Print out the number of clusters
         print "Number of founders estimated using Profillic: $num_profillic_clusters\n";
       }
     } # End if $run_profillic
+
+    # If this is a half-genome dataset, should we call
+    # runMultiFounderPoissonFitter to put together the two datasets
+    # for better Poisson estimation?
+    if( $run_PFitter && ( $input_fasta_file_short =~ /_RH/ ) ) {
+      my $nflg_version = $input_fasta_file;
+      $nflg_version =~ s/_RH/_NFLG/;
+      my $lh_version = $input_fasta_file;
+      $lh_version =~ s/_RH/_LH/;
+      # Do it only if there are at least the two; do it after "RH".
+      # NOTE THAT WE ASSUME RH IS LAST. SEE ABOVE.
+      if( ( $input_fasta_file_short =~ /_RH/ ) && ( ( -e $lh_version ) || ( -e $nflg_version ) ) ) {
+        # OK, do it.
+
+        ## Now run PoissonFitter on the regions.
+        if( $VERBOSE ) {
+          print "Calling R to run MultiRegionPoissonFitter..";
+        }
+        # NOTE that this strips off any modifiers like remove/fix HypermutatedSequences and removeRecombinedSequences: (this is dealt with in runMultiFounderPoissonFitter.R)
+        my ( $input_fasta_file_very_short ) =
+          ( $input_fasta_file_short =~ /^(.+)_RH/ );
+        #print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n"; 
+        if( !exists ( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } ) ) {
+          die( "\$final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } doesn't exist!" );
+        }
+        if( $VERBOSE ) {
+          print "[Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "]..";
+        }
+        
+        my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
+        my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
+        # print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
+        # print "\$suffix_pattern: $suffix_pattern\n";
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        # print $R_output;
+        if( $VERBOSE ) {
+          print( "\tdone.\n" );
+        }
+        my $multi_region_poisson_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+        my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_stat ) =
+          ( $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+        my $multi_region_is_poisson = defined( $multi_region_poisson_fit_stat ) && ( $multi_region_poisson_fit_stat > 0.05 );
+        ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
+        # my $multi_region_starlike_raw =
+        #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+        # if( $DEBUG ) {
+        #   ## TODO: REMOVE
+        #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
+        # }
+        # my ( $multi_region_starlike_text ) = ( $multi_region_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+        # my $multi_region_is_starlike = ( $multi_region_starlike_text eq "FOLLOWS" );
+        # print "Multi-Region PoissonFitter Determination: ";
+        # if( $multi_region_is_starlike ) {
+        #   print "Star-Like Phylogenies within clusters";
+        # } else {
+        #   print "Non-Star-Like Phylogenies within clusters";
+        # }
+        print "\nInput fasta file: ${input_fasta_file_very_short}${input_fasta_file_suffix}\n";
+        print "Multi-Region Poisson Fit: ";
+        if( $multi_region_is_poisson ) {
+          print "OK";
+        } else {
+          print "BAD (p = $multi_region_poisson_fit_stat)";
+        }
+        print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
+        #print "\n$multi_region_poisson_fitter_stats_raw\n";
+      } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
+    } # End if this is an RH or LH one, consider combining for MultiRegionPoissonFitter.
+    elsif( $input_fasta_file_short =~ /_LH/ ) {
+      ## I've lazily assumed that if there are _LH and _NFLG then there are also _RH.  That's the only case we miss because we don't care about _LH alone (since we only need to merge if there are multiple, and we've already handled the cases with _RH).
+      ## HERE WE CHECK THIS ASSUMPTION.
+      my $nflg_version = $input_fasta_file;
+      $nflg_version =~ s/_LH/_NFLG/;
+      my $rh_version = $input_fasta_file;
+      $rh_version =~ s/_LH/_RH/;
+      if( -e $nflg_version ) {
+        stopifnot( -e $rh_version );
+      }
+    }
 
   } # End foreach $input_fasta_file
 
