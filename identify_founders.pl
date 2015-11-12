@@ -543,7 +543,7 @@ sub identify_founders {
         print "Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "\n";
         
         my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
-        my $suffix_pattern = join( "\$\.fasta|", @file_suffixes ) . "\$\.fasta";
+        my $suffix_pattern = join( "\.fasta\$|", @file_suffixes ) . "\.fasta\$";
         print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
         print "\$suffix_pattern: $suffix_pattern\n";
         $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='$input_fasta_file_very_short'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
