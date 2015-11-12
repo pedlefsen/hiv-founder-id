@@ -13,6 +13,11 @@
 ##      Note that this creates output files in subdirectories named
 ##      after the input fasta file name (unless you specify an output dir).
 ##
+##      R packages you'll need:
+##      ade4
+##      seqinr (from bioconductor)
+##      dynamicTreeCut
+##
 ##      Try: mkdir rv217_1W_gold_standard-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O rv217_1W_gold_standard-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: rm -r rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; mkdir rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/; perl ./identify_founders.pl -fV -O rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_-f_resultDir/identify-founders.out
 ##      This next one skips RAP because it seems to be exceptionally slow with these large numbers of sequences.  Unsure how to proceed - maybe iterately evaluate subsets? Or use a different program.
@@ -217,6 +222,7 @@ sub identify_founders {
   my $fix_hypermutated_sequences = $opt_f || 0;
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
+  my $run_PFitter = 1;
 
   ## TODO: DEHACKIFY MAGIC #s
   my $mean_diversity_threshold = 0.001;
@@ -284,6 +290,8 @@ sub identify_founders {
   my $output_path_dir_for_input_fasta_file;
   my $R_output;
   my $input_fasta_file;
+  my $original_short_name_nosuffix_stripped;
+  my %final_input_fasta_file_short_names_by_original_short_name_stripped;
   while ( scalar( @input_fasta_files ) > 0 ) {
     $input_fasta_file = shift @input_fasta_files;
     if( $VERBOSE ) {
@@ -306,6 +314,14 @@ sub identify_founders {
     }
     # remove trailing "/"
     ( $output_path_dir_for_input_fasta_file ) = ( $output_path_dir_for_input_fasta_file =~ /^(.*[^\/])\/*$/ );
+
+    if( $input_fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG))$/ ) {
+      ( $original_short_name_nosuffix_stripped ) =
+        ( $input_fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG))$/ );
+    } else {
+      $original_short_name_nosuffix_stripped =
+        $input_fasta_file_short_nosuffix;
+    }
 
     if( 1 ) {
       my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
@@ -335,7 +351,7 @@ sub identify_founders {
       if( ( $input_fasta_file_contents =~ /RH\|/ ) && ( $input_fasta_file_contents =~ /LH\|/ ) ) {
         ## SPECIAL CASE: If the input file contains left-half and right-half genomes, separate them into separate input files and do both.
         my @new_input_fasta_files =
-          splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, "RH\|", "LH\|", "NFLG\|" );
+          splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, , "NFLG\|", "LH\|", "RH\|" ); # NOTE THAT THE ORDER MATTERS.  RH last is assumed below.
         if( $VERBOSE ) {
           print( "Queueing the new files ( ", join( ", ", @new_input_fasta_files ), " ).\n" );
         }
@@ -407,6 +423,14 @@ sub identify_founders {
       } # End if any recombinants were identified. .. else ..
     } # End if $run_RAP
 
+    ## TODO: REMOVE
+    print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $input_fasta_file_short_nosuffix\n" );
+    if( exists( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } ) ) {
+      push @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } }, $input_fasta_file_short_nosuffix;
+    } else {
+      $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $input_fasta_file_short_nosuffix ];
+    }
+
     if( $runInSites_online ) {
       `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     } else {
@@ -452,39 +476,121 @@ sub identify_founders {
     }
 
     ## Now run PoissonFitter.
-    if( $VERBOSE ) {
-      print "\nCalling R to run PoissonFitter..";
+    if( 0 && $run_PFitter ) {
+      if( $mean_diversity == 0 ) {
+        if( $VERBOSE ) {
+          print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
+        }
+      } else {
+        if( $VERBOSE ) {
+          print "\nCalling R to run PoissonFitter..";
+        }
+        $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print( "\tdone.\n" );
+        }
+        my $poisson_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+        my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+        my $is_poisson = defined( $poisson_fit_stat ) && ( $poisson_fit_stat > 0.05 );
+        my $starlike_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+        if( $DEBUG ) {
+          ## TODO: REMOVE
+          # print "PoissonFitter RAW: $starlike_raw\n";
+        }
+        my ( $starlike_text ) = ( $starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+        my $is_starlike = ( $starlike_text eq "FOLLOWS" );
+        print "PoissonFitter Determination: ";
+        if( $is_starlike ) {
+          print "Star-Like Phylogeny";
+        } else {
+          print "Non-Star-Like Phylogeny";
+        }
+        print "\nPoisson Fit: ";
+        if( $is_poisson ) {
+          print "OK";
+        } else {
+          print "BAD (p = $poisson_fit_stat)";
+        }
+        print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
+        #print "\n$poisson_fitter_stats_raw\n";
+      } # End if( $mean_diversity > 0 );
+    } # End if( $run_PFitter )
+
+    # Should we call runMultiFounderPoissonFitter to put together the two datasets for better Poisson estimation?
+    if( $input_fasta_file_short =~ /_RH/ ) {
+      my $nflg_version = $input_fasta_file;
+      $nflg_version =~ s/_RH/_NFLG/;
+      my $lh_version = $input_fasta_file;
+      $lh_version =~ s/_RH/_LH/;
+      # Do it only if there are at least the two; do it after "RH".
+      # NOTE THAT WE ASSUME RH IS LAST. SEE ABOVE.
+      if( ( $input_fasta_file_short =~ /_RH/ ) && ( ( -e $lh_version ) || ( -e $nflg_version ) ) ) {
+        # OK, do it.
+
+        ## Now run PoissonFitter on the regions.
+        if( $VERBOSE ) {
+          print "Calling R to run MultiRegionPoissonFitter..";
+        }
+        # NOTE that this strips off any modifiers like remove/fix HypermutatedSequences and removeRecombinedSequences: (this is dealt with in runMultiFounderPoissonFitter.R)
+        my ( $input_fasta_file_very_short ) =
+          ( $input_fasta_file_short =~ /^(.+)_RH/ );
+        #print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n"; 
+        if( !exists ( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } ) ) {
+          die( "\$final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } doesn't exist!" );
+        }
+        print "Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "\n";
+        
+        my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
+        my $suffix_pattern = join( "\$\.fasta|", @file_suffixes ) . "\$\.fasta";
+        print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
+        print "\$suffix_pattern: $suffix_pattern\n";
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='$input_fasta_file_very_short'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print( "\tdone.\n" );
+        }
+        my $multi_region_poisson_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+        my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_stat ) =
+          ( $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
+        my $multi_region_is_poisson = defined( $multi_region_poisson_fit_stat ) && ( $multi_region_poisson_fit_stat > 0.05 );
+        ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
+        # my $multi_region_starlike_raw =
+        #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+        # if( $DEBUG ) {
+        #   ## TODO: REMOVE
+        #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
+        # }
+        # my ( $multi_region_starlike_text ) = ( $multi_region_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+        # my $multi_region_is_starlike = ( $multi_region_starlike_text eq "FOLLOWS" );
+        # print "Multi-Region PoissonFitter Determination: ";
+        # if( $multi_region_is_starlike ) {
+        #   print "Star-Like Phylogenies within clusters";
+        # } else {
+        #   print "Non-Star-Like Phylogenies within clusters";
+        # }
+        print "\nMulti-Region Poisson Fit: ";
+        if( $multi_region_is_poisson ) {
+          print "OK";
+        } else {
+          print "BAD (p = $multi_region_poisson_fit_stat)";
+        }
+        print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
+        #print "\n$multi_region_poisson_fitter_stats_raw\n";
+      } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
+    } # End if this is an RH or LH one, consider combining for PoissonFitter.
+    elsif( $input_fasta_file_short =~ /_LH/ ) {
+      ## I've lazily assumed that if there are _LH and _NFLG then there are also _RH.  That's the only case we miss because we don't care about _LH alone (since we only need to merge if there are multiple, and we've already handled the cases with _RH).
+      ## HERE WE CHECK THIS ASSUMPTION.
+      my $nflg_version = $input_fasta_file;
+      $nflg_version =~ s/_LH/_NFLG/;
+      my $rh_version = $input_fasta_file;
+      $rh_version =~ s/_LH/_RH/;
+      if( -e $nflg_version ) {
+        stopifnot( -e $rh_version );
+      }
     }
-    $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
-    if( $VERBOSE ) {
-      print( "\tdone.\n" );
-    }
-    my $poisson_fitter_stats_raw =
-      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-    my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-    my $is_poisson = defined( $poisson_fit_stat ) && ( $poisson_fit_stat > 0.05 );
-    my $starlike_raw =
-      `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
-    if( $DEBUG ) {
-      ## TODO: REMOVE
-      # print "PoissonFitter RAW: $starlike_raw\n";
-    }
-    my ( $starlike_text ) = ( $starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-    my $is_starlike = ( $starlike_text eq "FOLLOWS" );
-    print "PoissonFitter Determination: ";
-    if( $is_starlike ) {
-      print "Star-Like Phylogeny";
-    } else {
-      print "Non-Star-Like Phylogeny";
-    }
-    print "\nPoisson Fit: ";
-    if( $is_poisson ) {
-      print "OK";
-    } else {
-      print "BAD (p = $poisson_fit_stat)";
-    }
-    print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
-    #print "\n$poisson_fitter_stats_raw\n";
 
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
