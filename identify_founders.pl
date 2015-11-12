@@ -476,7 +476,7 @@ sub identify_founders {
     }
 
     ## Now run PoissonFitter.
-    if( 0 && $run_PFitter ) {
+    if( $run_PFitter ) {
       if( $mean_diversity == 0 ) {
         if( $VERBOSE ) {
           print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
