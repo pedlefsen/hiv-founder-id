@@ -287,6 +287,49 @@ sub identify_founders {
     $default_force_one_cluster = 0;
   }
 
+  my $output_table_file = $output_path_dir . '/' . "identify_founders.tbl";
+
+  if( $VERBOSE ) { print "Opening file \"$output_table_file\" for writing.."; }
+  unless( open OUTPUT_TABLE_FH, ">$output_table_file" ) {
+    warn "Unable to open output file \"$output_table_file\": $!";
+    return 1;
+  }
+  if( $VERBOSE ) { print ".done.\n"; }
+
+  if( $VERBOSE ) { print "Writing results table to file \"$output_table_file\".."; }
+  my @table_column_headers =
+    (
+     "infile"
+    );
+  if( $run_Hypermut ) {
+    if( $fix_hypermutated_sequences ) {
+      push @table_column_headers, "fixed-hypermut";
+    } else {
+      push @table_column_headers, "removed-hypermut";
+    }
+  }
+  if( $run_RAP ) {
+    push @table_column_headers, "removed-recomb";
+  }
+
+  push @table_column_headers,
+  (
+   "file", "num.seqs", "diversity", "inf.to.priv.ratio",
+   "exceeds.diversity.threshold", "exceeds.ratio.threshold",
+   "is.one.founder"
+   );
+
+  if( $run_PFitter ) {
+    push @table_column_headers,
+    (
+     "poisson.fit.p.value"
+     );
+    
+  } # End if $run_PFitter
+
+  my $table_header = join( "\t", @table_column_headers );
+  print OUTPUT_TABLE_FH $table_header, "\n";
+
   # After removing/fixing hypermutated sequences and removing recombined sequences, run InSites (online) and get the informative:private site ratio stat; also run PhyML (locally) to get the mean pairwise diversity statistic, and also cluster the informative sites subalignments and compute the full consensus sequences for each cluster.
   my $id_string = "";
   my $output_path_dir_for_input_fasta_file;
@@ -307,6 +350,9 @@ sub identify_founders {
     }
     my ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
       ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+
+    # This is the original unaltered fasta file (path removed), printed to the table out:
+    print OUTPUT_TABLE_FH $input_fasta_file_short;
   
     if( defined $output_path_dir ) {
       $output_path_dir_for_input_fasta_file = $output_path_dir;
@@ -385,6 +431,9 @@ sub identify_founders {
             print( "The number of hypermutated sequences removed is: $num_hypermut_sequences\n" );
           }
   #    }
+
+      print OUTPUT_TABLE_FH "\t", $num_hypermut_sequences;
+
       # Now use the output from that..
       $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
       if( $fix_hypermutated_sequences ) {
@@ -409,16 +458,16 @@ sub identify_founders {
       if( $VERBOSE ) {
         print "Running RAP at LANL to compute recombined sequences..";
       }
+      my $removed_recombined_sequences = 0;
       my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
       if( $RAP_result_stdout =~ /Recombinants identified/ ) {
         my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
         $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
         ## extract the number fixed/removed from the output
-        my ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
+        ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
         if( $VERBOSE ) {
           print( ".done." );
         }
-        print( "The number of recombined sequences removed is: $removed_recombined_sequences\n" );
         # Now use the output from that..
         $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
         $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
@@ -428,12 +477,17 @@ sub identify_founders {
       } else {
         if( $VERBOSE ) {
           print( ".done." );
-          print( "The number of recombined sequences removed is: 0\n" );
         }
+        $removed_recombined_sequences = 0;
       } # End if any recombinants were identified. .. else ..
+      print( "The number of recombined sequences removed is: $removed_recombined_sequences\n" );
+
+      print OUTPUT_TABLE_FH "\t", $removed_recombined_sequences;
     } # End if $run_RAP
 
     print "Fasta file for analysis: $input_fasta_file_short\n";
+    # This is the file for analysis (again, path stripped); maybe altered from the original input file.
+    print OUTPUT_TABLE_FH "\t", $input_fasta_file_short;
 
     ## TODO: REMOVE
     #print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $input_fasta_file_short_nosuffix\n" );
@@ -449,7 +503,7 @@ sub identify_founders {
       `perl runInSitesOffline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
     }
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    my $in_sites_stat = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
 
     # Run phyML, get stats
     `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
@@ -462,13 +516,21 @@ sub identify_founders {
     }
     print "Number of sequences: $num_seqs\n";
     print "Mean pairwise diversity: $mean_diversity\n";
-    print "Informative sites to private sites ratio: $in_sites_stat"; # Newline is already on there
+    print "Informative sites to private sites ratio: $in_sites_ratio"; # Newline is already on there
+
+    print OUTPUT_TABLE_FH "\t", $num_seqs;
+    print OUTPUT_TABLE_FH "\t", $mean_diversity;
+    print OUTPUT_TABLE_FH "\t", $in_sites_ratio;
 
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $force_one_cluster = $default_force_one_cluster;
     my $morgane_calls_one_cluster = 1;
+    my $diversity_threshold_exceeded = 0;
+    my $in_sites_ratio_threshold_exceeded = 0;
     if( $mean_diversity > $mean_diversity_threshold ) {
-      if( $in_sites_stat > $in_sites_ratio_threshold ) {
+      $diversity_threshold_exceeded = 1;
+      if( $in_sites_ratio > $in_sites_ratio_threshold ) {
+        $in_sites_ratio_threshold_exceeded = 1;
         print( "DIVERSITY THRESHOLD EXCEEDED\n" );
         print( "RATIO THRESHOLD EXCEEDED TOO\n" );
         $morgane_calls_one_cluster = 0;
@@ -476,14 +538,19 @@ sub identify_founders {
       } else {
         print( "diversity threshold exceeded\n" );
       }
-    } elsif( $in_sites_stat > $in_sites_ratio_threshold ) {
+    } elsif( $in_sites_ratio > $in_sites_ratio_threshold ) {
+        $in_sites_ratio_threshold_exceeded = 1;
         print( "ratio threshold exceeded\n" );
     }
+    print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
+    print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
+    ## "is.one.cluster":
+    print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
 
     if( $morgane_calls_one_cluster ) {
-      print "Number of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: 1\n";
+      print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: 1\n";
     } else {
-      print "Number of founders estimated using Morgane's informative:private sites ratio and diversity threshold is: greater than 1\n";
+      print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: greater than 1\n";
     }
 
     ## Now run PoissonFitter.
@@ -505,8 +572,10 @@ sub identify_founders {
         }
         my $poisson_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $poisson_time_est_and_ci, $poisson_fit_stat ) = ( $poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-        my $is_poisson = defined( $poisson_fit_stat ) && ( $poisson_fit_stat > 0.05 );
+        my ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_time_est_and_ci, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value  ) =
+          (
+           $poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+\t([^\t]+))\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+        my $is_poisson = defined( $poisson_chi_sq_p_value ) && ( $poisson_chi_sq_p_value > 0.05 );
         my $starlike_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
@@ -525,12 +594,25 @@ sub identify_founders {
         if( $is_poisson ) {
           print "OK";
         } else {
-          print "BAD (p = $poisson_fit_stat)";
+          print "BAD (p = $poisson_chi_sq_p_value)";
         }
         print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
+        print OUTPUT_TABLE_FH, "\t", $poisson_lambda;
+        print OUTPUT_TABLE_FH, "\t", $poisson_se;
+        print OUTPUT_TABLE_FH, "\t", $poisson_nseq;
+        print OUTPUT_TABLE_FH, "\t", $poisson_nbases;
+        print OUTPUT_TABLE_FH, "\t", $poisson_mean_hd;
+        print OUTPUT_TABLE_FH, "\t", $poisson_max_hd;
+        print OUTPUT_TABLE_FH, "\t", $poisson_time_est_and_ci;
+        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_stat;
+        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_df;
+        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_p_value;
+        print OUTPUT_TABLE_FH, "\t", $is_poisson;
+        print OUTPUT_TABLE_FH, "\t", $is_starlike;
         #print "\n$poisson_fitter_stats_raw\n";
       } # End if( $mean_diversity > 0 );
     } # End if( $run_PFitter )
+    ## ERE I AM 
 
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
@@ -555,9 +637,9 @@ sub identify_founders {
       }
       my $multi_founder_poisson_fitter_stats_raw =
         `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-      my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_stat ) =
+      my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_p_value ) =
         ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-      my $multi_founder_is_poisson = defined( $multi_founder_poisson_fit_stat ) && ( $multi_founder_poisson_fit_stat > 0.05 );
+      my $multi_founder_is_poisson = defined( $multi_founder_poisson_fit_p_value ) && ( $multi_founder_poisson_fit_p_value > 0.05 );
       ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
       # my $multi_founder_starlike_raw =
       #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
@@ -573,11 +655,11 @@ sub identify_founders {
       # } else {
       #   print "Non-Star-Like Phylogenies within clusters";
       # }
-      print "\nMulti-Founder Poisson Fit: ";
+      print "Multi-Founder Poisson Fit: ";
       if( $multi_founder_is_poisson ) {
         print "OK";
       } else {
-        print "BAD (p = $multi_founder_poisson_fit_stat)";
+        print "BAD (p = $multi_founder_poisson_fit_p_value)";
       }
       print "\nMulti-Founder Poisson time estimate (95\% CI): $multi_founder_poisson_time_est_and_ci\n";
       #print "\n$multi_founder_poisson_fitter_stats_raw\n";
@@ -596,7 +678,8 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "Clustering..\n";
         }
-        my $num_profillic_clusters = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        $R_output = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my ( $num_profillic_clusters ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
         # Print out the number of clusters
         print "Number of founders estimated using Profillic: $num_profillic_clusters\n";
       }
@@ -641,9 +724,9 @@ sub identify_founders {
         }
         my $multi_region_poisson_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_stat ) =
+        my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_p_value ) =
           ( $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-        my $multi_region_is_poisson = defined( $multi_region_poisson_fit_stat ) && ( $multi_region_poisson_fit_stat > 0.05 );
+        my $multi_region_is_poisson = defined( $multi_region_poisson_fit_p_value ) && ( $multi_region_poisson_fit_p_value > 0.05 );
         ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
         # my $multi_region_starlike_raw =
         #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
@@ -664,7 +747,7 @@ sub identify_founders {
         if( $multi_region_is_poisson ) {
           print "OK";
         } else {
-          print "BAD (p = $multi_region_poisson_fit_stat)";
+          print "BAD (p = $multi_region_poisson_fit_p_value)";
         }
         print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
         #print "\n$multi_region_poisson_fitter_stats_raw\n";
@@ -678,11 +761,17 @@ sub identify_founders {
       my $rh_version = $input_fasta_file;
       $rh_version =~ s/_LH/_RH/;
       if( -e $nflg_version ) {
-        stopifnot( -e $rh_version );
+        die unless( -e $rh_version );
       }
     }
 
+    print OUTPUT_TABLE_FH "\n";
   } # End foreach $input_fasta_file
+  if( $VERBOSE ) { print ".done.\n"; }
+
+  if( $VERBOSE && $output_table_file ) { print "Closing file \"$output_table_file\".."; }
+  close OUTPUT_TABLE_FH;
+  if( $VERBOSE && $output_table_file ) { print ".done.\n"; }
 
   if( $VERBOSE ) {
     select STDOUT;

@@ -97,7 +97,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
             exclude.sequence[ seq.i ] <- TRUE;
         }
         ## TODO: REMOVE
-        warning( .message );
+        cat( .message, fill = TRUE );
     }
   } # End foreach seq.i
 
