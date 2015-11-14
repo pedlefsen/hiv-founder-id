@@ -358,7 +358,7 @@ sub identify_founders {
   } # End if $run_PFitter
 
   if( $run_profillic ) {
-
+    push @table_column_headers, "profillic_clusters";
   } # End if $run_profillic
 
   if( $run_PFitter ) {
@@ -609,6 +609,10 @@ sub identify_founders {
     }
 
     ## Now run PoissonFitter.
+    my ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value ) = 0;
+    my $poisson_time_est_and_ci = "0 (0, 0)";
+    my $is_poisson = 1;
+    my $is_starlike = 1;
     if( $run_PFitter ) {
       if( $mean_diversity == 0 ) {
         if( $VERBOSE ) {
@@ -617,19 +621,6 @@ sub identify_founders {
         print "PoissonFitter Determination: Degenerate Phylogeny (all seqs are the same)\n";
         print "Poisson Fit: NA\n";
         print "Poisson time estimate (95\% CI): 0 (NA, NA)\n";
-        ## Avoid NA in the table output.
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_lambda
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_se
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_nseq
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_nbases
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_mean_hd
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_max_hd
-        print OUTPUT_TABLE_FH, "\t", "0 (0, 0)"; # $poisson_time_est_and_ci
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_chi_sq_stat
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_chi_sq_df
-        print OUTPUT_TABLE_FH, "\t", 0; # $poisson_chi_sq_p_value
-        print OUTPUT_TABLE_FH, "\t", 1; # $is_poisson
-        print OUTPUT_TABLE_FH, "\t", 1; # $is_starlike
       } else {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
@@ -640,10 +631,10 @@ sub identify_founders {
         }
         my $poisson_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_time_est_and_ci, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value  ) =
+        ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_time_est_and_ci, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value  ) =
           (
            $poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-        my $is_poisson = defined( $poisson_chi_sq_p_value ) && ( $poisson_chi_sq_p_value > 0.05 );
+        $is_poisson = defined( $poisson_chi_sq_p_value ) && ( $poisson_chi_sq_p_value > 0.05 );
         my $starlike_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
@@ -651,7 +642,7 @@ sub identify_founders {
           # print "PoissonFitter RAW: $starlike_raw\n";
         }
         my ( $starlike_text ) = ( $starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-        my $is_starlike = ( $starlike_text eq "FOLLOWS" );
+        $is_starlike = ( $starlike_text eq "FOLLOWS" );
         print "PoissonFitter Determination: ";
         if( $is_starlike ) {
           print "Star-Like Phylogeny";
@@ -665,20 +656,20 @@ sub identify_founders {
           print "BAD (p = $poisson_chi_sq_p_value)";
         }
         print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
-        print OUTPUT_TABLE_FH, "\t", $poisson_lambda;
-        print OUTPUT_TABLE_FH, "\t", $poisson_se;
-        print OUTPUT_TABLE_FH, "\t", $poisson_nseq;
-        print OUTPUT_TABLE_FH, "\t", $poisson_nbases;
-        print OUTPUT_TABLE_FH, "\t", $poisson_mean_hd;
-        print OUTPUT_TABLE_FH, "\t", $poisson_max_hd;
-        print OUTPUT_TABLE_FH, "\t", $poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_p_value;
-        print OUTPUT_TABLE_FH, "\t", $is_poisson;
-        print OUTPUT_TABLE_FH, "\t", $is_starlike;
         #print "\n$poisson_fitter_stats_raw\n";
       } # End if( $mean_diversity > 0 );
+        print OUTPUT_TABLE_FH "\t", $poisson_lambda;
+        print OUTPUT_TABLE_FH "\t", $poisson_se;
+        print OUTPUT_TABLE_FH "\t", $poisson_nseq;
+        print OUTPUT_TABLE_FH "\t", $poisson_nbases;
+        print OUTPUT_TABLE_FH "\t", $poisson_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $poisson_max_hd;
+        print OUTPUT_TABLE_FH "\t", $poisson_time_est_and_ci;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $is_poisson;
+        print OUTPUT_TABLE_FH "\t", $is_starlike;
     } # End if( $run_PFitter )
 
     my $tmp_extra_flags = $extra_flags;
@@ -702,18 +693,18 @@ sub identify_founders {
     if( $run_PFitter ) {
       if( $num_clusters == 1 ) {
         ## Avoid NA in the table output.  Multifounder results default to single-founder results.
-        print OUTPUT_TABLE_FH, "\t", $poisson_lambda;
-        print OUTPUT_TABLE_FH, "\t", $poisson_se;
-        print OUTPUT_TABLE_FH, "\t", $poisson_nseq;
-        print OUTPUT_TABLE_FH, "\t", $poisson_nbases;
-        print OUTPUT_TABLE_FH, "\t", $poisson_mean_hd;
-        print OUTPUT_TABLE_FH, "\t", $poisson_max_hd;
-        print OUTPUT_TABLE_FH, "\t", $poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH, "\t", $poisson_chi_sq_p_value;
-        print OUTPUT_TABLE_FH, "\t", $is_poisson;
-#        print OUTPUT_TABLE_FH, "\t", $is_starlike;
+        print OUTPUT_TABLE_FH "\t", $poisson_lambda;
+        print OUTPUT_TABLE_FH "\t", $poisson_se;
+        print OUTPUT_TABLE_FH "\t", $poisson_nseq;
+        print OUTPUT_TABLE_FH "\t", $poisson_nbases;
+        print OUTPUT_TABLE_FH "\t", $poisson_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $poisson_max_hd;
+        print OUTPUT_TABLE_FH "\t", $poisson_time_est_and_ci;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $is_poisson;
+#        print OUTPUT_TABLE_FH "\t", $is_starlike;
       } else {
        stopifnot( $num_clusters > 1 );
         ## Now run PoissonFitter on the clusters.
@@ -726,11 +717,9 @@ sub identify_founders {
         }
         my $multi_founder_poisson_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $multifounder_poisson_lambda, $multifounder_poisson_se, $multifounder_poisson_nseq, $multifounder_poisson_nbases, $multifounder_poisson_mean_hd, $multifounder_poisson_max_hd, $multifounder_poisson_time_est_and_ci, $multifounder_poisson_chi_sq_stat, $multifounder_poisson_chi_sq_df, $multifounder_poisson_chi_sq_p_value  ) =
+        my ( $multi_founder_poisson_lambda, $multi_founder_poisson_se, $multi_founder_poisson_nseq, $multi_founder_poisson_nbases, $multi_founder_poisson_mean_hd, $multi_founder_poisson_max_hd, $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_chi_sq_stat, $multi_founder_poisson_chi_sq_df, $multi_founder_poisson_chi_sq_p_value  ) =
           (
            $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+\t([^\t]+))\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-        my ( $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_fit_p_value ) =
-          ( $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
         my $multi_founder_is_poisson = defined( $multi_founder_poisson_chi_sq_p_value ) && ( $multi_founder_poisson_chi_sq_p_value > 0.05 );
         ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
         # my $multi_founder_starlike_raw =
@@ -751,23 +740,23 @@ sub identify_founders {
         if( $multi_founder_is_poisson ) {
           print "OK";
         } else {
-          print "BAD (p = $multi_founder_poisson_fit_p_value)";
+          print "BAD (p = $multi_founder_poisson_chi_sq_p_value)";
         }
         print "\nMulti-Founder Poisson time estimate (95\% CI): $multi_founder_poisson_time_est_and_ci\n";
         #print "\n$multi_founder_poisson_fitter_stats_raw\n";
       
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_lambda;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_se;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_nseq;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_nbases;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_mean_hd;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_max_hd;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_poisson_chi_sq_p_value;
-        print OUTPUT_TABLE_FH, "\t", $multifounder_is_poisson;
-#        print OUTPUT_TABLE_FH, "\t", $multifounder_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_lambda;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_se;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_nseq;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_nbases;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_max_hd;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_time_est_and_ci;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $multi_founder_is_poisson;
+#        print OUTPUT_TABLE_FH "\t", $multi_founder_is_starlike;
       } # End if $num_clusters > 1
     } # End if $run_PFitter
 
@@ -775,7 +764,7 @@ sub identify_founders {
     if( $run_profillic ) {
       if( $force_one_cluster ) {
         # Avoid NA in the table output.  Just print that the estimated number of founders is 1.  Which it is.
-        print OUTPUT_TABLE_FH, "\t", 1;
+        print OUTPUT_TABLE_FH "\t", 1;
       } else {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         if( $VERBOSE ) {
@@ -796,7 +785,7 @@ sub identify_founders {
         } else {
           print "Number of founders estimated by clustering profillic alignment profiles: $num_profillic_clusters\n";
         }
-        print OUTPUT_TABLE_FH, "\t", $num_profillic_clusters;
+        print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
       }
     } # End if $run_profillic
 
@@ -841,9 +830,10 @@ sub identify_founders {
           }
           my $multi_region_poisson_fitter_stats_raw =
             `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-          my ( $multi_region_poisson_time_est_and_ci, $multi_region_poisson_fit_p_value ) =
-            ( $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+\t([^\t]+)\t[^\t]+\t[^\t]+\t(\S+)\s*$/ );
-          my $multi_region_is_poisson = defined( $multi_region_poisson_fit_p_value ) && ( $multi_region_poisson_fit_p_value > 0.05 );
+          my ( $multi_region_poisson_lambda, $multi_region_poisson_se, $multi_region_poisson_nseq, $multi_region_poisson_nbases, $multi_region_poisson_mean_hd, $multi_region_poisson_max_hd, $multi_region_poisson_time_est_and_ci, $multi_region_poisson_chi_sq_stat, $multi_region_poisson_chi_sq_df, $multi_region_poisson_chi_sq_p_value  ) =
+            (
+             $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+\t([^\t]+))\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+          my $multi_region_is_poisson = defined( $multi_region_poisson_chi_sq_p_value ) && ( $multi_region_poisson_chi_sq_p_value > 0.05 );
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
           #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
@@ -864,23 +854,23 @@ sub identify_founders {
           if( $multi_region_is_poisson ) {
             print "OK";
           } else {
-            print "BAD (p = $multi_region_poisson_fit_p_value)";
+            print "BAD (p = $multi_region_poisson_chi_sq_p_value)";
           }
           print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
           #print "\n$multi_region_poisson_fitter_stats_raw\n";
           
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_lambda;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_se;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_nseq;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_nbases;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_mean_hd;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_max_hd;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_time_est_and_ci;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_chi_sq_stat;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_chi_sq_df;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_poisson_chi_sq_p_value;
-          print OUTPUT_TABLE_FH, "\t", $multiregion_is_poisson;
-#          print OUTPUT_TABLE_FH, "\t", $multiregion_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_lambda;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_se;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_nseq;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_nbases;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_mean_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_max_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_time_est_and_ci;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_stat;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_df;
+          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_p_value;
+          print OUTPUT_TABLE_FH "\t", $multi_region_is_poisson;
+#          print OUTPUT_TABLE_FH "\t", $multi_region_is_starlike;
         } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
       } else {  # if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
         if( $input_fasta_file_short =~ /_LH/ ) {
@@ -895,7 +885,20 @@ sub identify_founders {
           }
         }
       } # End if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
-      if( $did_it ) {
+      if( !$did_it ) {
+        ## Avoid NA in the table output.
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_lambda
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_se
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_nseq
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_nbases
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_mean_hd
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_max_hd
+        print OUTPUT_TABLE_FH "\t", "0 (0, 0)"; # $poisson_time_est_and_ci
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_stat
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_df
+        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_p_value
+        print OUTPUT_TABLE_FH "\t", 1; # $is_poisson
+#        print OUTPUT_TABLE_FH "\t", 1; # $is_starlike
       }
     } # End if $run_PFitter
 
