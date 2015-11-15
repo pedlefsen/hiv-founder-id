@@ -85,8 +85,20 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     pairwise.distances.as.matrix.file <- paste( output.dir, "/", fasta.file.short.nosuffix, "_pairwiseHammingDistances.txt", sep = "" );
     write.table( pairwise.distances.as.matrix.flat, file = pairwise.distances.as.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
 
-    R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
-    .rv <- system( R.cmd );
+    if( nrow( in.fasta ) <= 1 ) {
+        # Uh oh.  Can't run PFitter.
+    } else if( all( pairwise.distances.as.matrix == 0, ra.rm = TRUE ) ) {
+        # Uh oh.  PFitter doesn't handle this case very well.  Instead of running PFitter, write out files communicating that this is a degenerate situation.
+        outfile <- paste( output.dir, "/", "LOG_LIKELIHOOD.results.txt", sep="" );
+        write( paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE );
+        write( paste( fasta.file.short.nosuffix, format( 0, digits=4 ), format( 0, digits=4 ), 0, 0, format(0, digits=2), 0, "0 (0, 1)", format(0, digits=4), 0, format(1, digits=4), sep="\t"), file=outfile, append=TRUE );
+        outfile2 <- paste( output.dir, "/", "CONVOLUTION.results.txt", sep="" );
+        write( paste( fasta.file.short.nosuffix, "FOLLOWS A STAR-PHYLOGENY", sep = " " ), file=outfile2, append=FALSE );
+        .rv <- "0";
+    } else {
+      R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
+      .rv <- system( R.cmd );
+    }
 
     if( run.DSPFitter ) {
         DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );

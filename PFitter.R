@@ -56,7 +56,9 @@ if(!file.exists(outfile)){
 dlist <- read.table(file=infile, sep="\t", stringsAsFactors=F)
 
 ### calc HD with consensus
-d0 <- dlist[which(dlist[,1]==dlist[1,1]),]
+d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	 # PAUL moved this here, to help handle singleton clusters.
+seqnames <- unique(c( d1[,1], d1[,2] ))          # PAUL moved this here, to help handle singleton clusters.
+d0 <- dlist[which(dlist[,1]==dlist[1,1] & (dlist[,2] %in% seqnames)),] # PAUL changed this, to handle singleton clusters.
 mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2]))
 nseq <- sum(mult0)
 yvec0 <- rep(0, (1+max(d0[,3])))
@@ -66,9 +68,7 @@ nl0 <- length(yvec0);
 clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
 
 ### calc intersequence HD
-d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	
 yvec <- rep(0, (1+max(d1[,3])))
-seqnames <- unique(c( d1[,1], d1[,2] ))
 for(i in 1:length(seqnames)){
     tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
     if( nrow( tmp ) == 0 ) {

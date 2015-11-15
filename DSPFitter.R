@@ -17,7 +17,7 @@ old.continue.option <- options( continue = " " )
 
 
 ###################################################
-### code chunk number 2: DSPFitter.Rnw:30-143
+### code chunk number 2: DSPFitter.Rnw:30-153
 ###################################################
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
 
@@ -104,7 +104,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
     if( log.result ) {
         # First get a sense of what the scale factor should be; look at the peak.
         .scale.factor = 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = mean( .dta ), maximum = T ) )$objective;
-        # print( paste( "SCALE FACTOR:", .scale.factor ) );
+        print( paste( "SCALE FACTOR:", .scale.factor ) );
         # Actually to get a slope for interpolating the larger values, calc a few..
         ## finite.sums.coefs <- NULL;
         ## lower.end.of.range.of.values.to.try <- 100;
@@ -127,7 +127,17 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
             #print( paste( x[1], .dta[1], exp( .log.rv[1] ) ) );
             exp( .log.rv );
         };
-        Vectorize( function( y ) { unname( log( ( integrate( f = .integrated.fn, lower = 0, upper = y, subdivisions = 1000 )$value ) ) - .scale.factor ) } ); 
+        .foo <- function( y ) {
+            tryCatch(
+              {
+                unname( log( ( integrate( f = .integrated.fn, lower = 0, upper = y, subdivisions = 1000 )$value ) ) - .scale.factor );
+              }, error = function ( .e.msg ) {
+                warning( paste( "Integration proglems in PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility:", .e.msg ) );
+                0;
+              }
+            );
+       } # .foo
+        Vectorize( .foo );
     } else {
         Vectorize( function( y ) { unname( integrate( f = function( x ) { PoissonDSM.calculatePlausibilityOfSingletons( x, .dta ) }, lower = 0, upper = y )$value ) } ) 
     }
@@ -135,7 +145,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 3: DSPFitter.Rnw:146-169
+### code chunk number 3: DSPFitter.Rnw:156-179
 ###################################################
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
@@ -163,7 +173,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 4: DSPFitter.Rnw:172-207
+### code chunk number 4: DSPFitter.Rnw:182-217
 ###################################################
 ####==== From PFitter.R
 
@@ -203,7 +213,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:236-827
+### code chunk number 5: DSPFitter.Rnw:246-849
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -505,60 +515,72 @@ DSPFitter <- function (
     names( intersequence.distances ) <- apply( dlist[ -which(dlist[,1]==dlist[1,1]), 1:2 ], 1, paste, collapse = " to " );
     
     DS.lambda <- mean( intersequence.distances );
-    .f <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( intersequence.distances, log.result = T );
-    # Find range for integration.
-    .maybe.maximal.point <- DS.lambda;
-    .maximal.area.so.far <- .f( .maybe.maximal.point );
-    .maximal.x.so.far <- .maybe.maximal.point;
-    for( .additional.x in 1:(2*DS.lambda) ) {
-        .logtotalplaus <-
-            .f( .maybe.maximal.point + .additional.x );
-        if( .logtotalplaus > .maximal.area.so.far ) {
-            .maximal.area.so.far <- .logtotalplaus;
-            .maximal.x.so.far <- .maybe.maximal.point + .additional.x;
-        } else { # Stop if it's stable; Also stop if the maximal area starts to decline; that indicates we are in the range where the integral becomes unstable.
-            break;
-        }
-    } # look up til we find a max
-    .lowest.nonzero.x <- 0;
-    .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
-    while( !is.finite( .f.at.lowest.nonzero.x ) ) {
-        .lowest.nonzero.x <- .lowest.nonzero.x + ( .maximal.x.so.far / 100 );
-        stopifnot( .lowest.nonzero.x < DS.lambda );
-        .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
-    }
-    HD.normalizedPlausibilities <- 
-        Vectorize( function( y ) { exp( .f( y ) - .maximal.area.so.far ) } );
-    ##  NOTE HACK using upper = HD.outrageouslyhighvalue/2
-    HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = .lowest.nonzero.x, upper = .maximal.x.so.far )$minimum }
+    DS.estdays <- days( DS.lambda, nbases, epsilon );
     
-    DS.estdays <- days(DS.lambda, nbases, epsilon)
-    DS.lambda.low <- HD.quantile( 0.025 );
-    if( DS.lambda.low > DS.lambda ) {
-        if( be.verbose ) {
-            cat( "WARNING: NUMERICAL ISSUES PREVENT GETTING AN ACCURATE DS POSTERIOR INTERVAL.", fill = TRUE );
-        }
+    if( DS.lambda == 0 ) {
+        # Special case. All zeros.
         DS.lambda.low <- 0;
-        DS.lambda.high <- Inf;
-        DS.lowlim <- 0;
-        DS.lowdays <- 0;
-        DS.upplim <- Inf;
-        DS.uppdays <- Inf;
-    } else {
-        DS.lambda.high <- HD.quantile( 0.975 );
+        # TODO: ENSURE THIS IS THE PROPER UPPER BOUND.
+        DS.lambda.high <- qgamma( .975, 1 + sum( intersequence.distances ), length( intersequence.distances ) );
         DS.upplim <- days(DS.lambda.high, nbases, epsilon)
         DS.lowlim <- days(DS.lambda.low, nbases, epsilon)
-        
+          
         DS.lowdays <- round(DS.lowlim)
         DS.uppdays <- round(DS.upplim)
-    }
+    } else { # if( DS.lambda == 0 ) .. else ..
+      .f <- PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility( intersequence.distances, log.result = T );
+      # Find range for integration.
+      .maybe.maximal.point <- DS.lambda;
+      .maximal.area.so.far <- .f( .maybe.maximal.point );
+      .maximal.x.so.far <- .maybe.maximal.point;
+      for( .additional.x in 1:(2*DS.lambda) ) {
+          .logtotalplaus <-
+              .f( .maybe.maximal.point + .additional.x );
+          if( .logtotalplaus > .maximal.area.so.far ) {
+              .maximal.area.so.far <- .logtotalplaus;
+              .maximal.x.so.far <- .maybe.maximal.point + .additional.x;
+          } else { # Stop if it's stable; Also stop if the maximal area starts to decline; that indicates we are in the range where the integral becomes unstable.
+              break;
+          }
+      } # look up til we find a max
+      .lowest.nonzero.x <- 0;
+      .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
+      while( !is.finite( .f.at.lowest.nonzero.x ) ) {
+          .lowest.nonzero.x <- .lowest.nonzero.x + ( .maximal.x.so.far / 100 );
+          stopifnot( .lowest.nonzero.x < DS.lambda );
+          .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
+      }
+      HD.normalizedPlausibilities <- 
+          Vectorize( function( y ) { exp( .f( y ) - .maximal.area.so.far ) } );
+      ##  NOTE HACK using upper = HD.outrageouslyhighvalue/2
+      HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = .lowest.nonzero.x, upper = .maximal.x.so.far )$minimum }
+      
+      DS.lambda.low <- HD.quantile( 0.025 );
+      if( DS.lambda.low > DS.lambda ) {
+          if( be.verbose ) {
+              cat( "WARNING: NUMERICAL ISSUES PREVENT GETTING AN ACCURATE DS POSTERIOR INTERVAL.", fill = TRUE );
+          }
+          DS.lambda.low <- 0;
+          DS.lambda.high <- Inf;
+          DS.lowlim <- 0;
+          DS.lowdays <- 0;
+          DS.upplim <- Inf;
+          DS.uppdays <- Inf;
+      } else {
+          DS.lambda.high <- HD.quantile( 0.975 );
+          DS.upplim <- days(DS.lambda.high, nbases, epsilon)
+          DS.lowlim <- days(DS.lambda.low, nbases, epsilon)
+          
+          DS.lowdays <- round(DS.lowlim)
+          DS.uppdays <- round(DS.upplim)
+      }
+    } # End if( DS.lambda == 0 ) .. else ..
     if( be.verbose ) {
         cat( paste("DS PFitter Estimated Lambda is ", format(DS.lambda, digits=4), " (95% CI ", format(DS.lambda.low, digits=4), " to ", format(DS.lambda.high, digits=4), ")", sep=""), fill = T );
         DS.formatteddays <- paste(round(DS.estdays), " (", DS.lowdays, ", ", DS.uppdays, ")", sep="");
         cat( paste("DS PFitter Estimated Days:", DS.formatteddays, sep=" "), fill = T );
     }
     dspfitter.results <- list( lambda = c( "estimate" = DS.lambda, "2.5%" = DS.lambda.low, "97.5%" = DS.lambda.high ), days = c( "estimate" = DS.estdays, "2.5%" = DS.lowlim, "97.5%" = DS.upplim ) );
-    
     
     ## For a given set of data and corresponding set of pepr variates, compute the smallest epsilon and corresponding lambda such that the data CDF passes an average of epsilon units (vertically) from Poisson( lambda ), averaged over the observed data points.
     PoissonDSM.getSmallestEpsilonAndLambda <- function ( observed.data, pepr.variates = runif( length( observed.data ) ), observed.data.are.already.in.ascending.order = FALSE, pepr.variates.are.already.in.ascending.order = FALSE, pepr.variates.are.validity.checked = FALSE, compare.to.specific.pois.with.lambda = NULL ) {
@@ -799,7 +821,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:832-835
+### code chunk number 6: DSPFitter.Rnw:854-857
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -807,7 +829,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:839-841
+### code chunk number 7: DSPFitter.Rnw:861-863
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )

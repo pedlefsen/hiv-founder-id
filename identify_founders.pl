@@ -643,37 +643,55 @@ sub identify_founders {
     }
 
     ## Now run PoissonFitter.
-    my ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value ) = 0;
-    my $PFitter_time_est_and_ci = "";
-    my $PFitter_time_est = 0;
+    my $PFitter_lambda = 0;
+    my $PFitter_se = 0;
+    my $PFitter_nseq = 0;
+    my $PFitter_nbases = 0;
+    my $PFitter_mean_hd = 0;
+    my $PFitter_max_hd = 0;
+    my $PFitter_chi_sq_stat = 0;
+    my $PFitter_chi_sq_df = 0;
+    my $PFitter_chi_sq_p_value = 1;
+    my $PFitter_days_est_and_ci = "0 (0,0)";
+    my $PFitter_days_est = 0;
     my $PFitter_time_ci_low = 0;
     my $PFitter_time_ci_high = 0;
     my $is_poisson = 1;
     my $is_starlike = 1;
-    my ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) = 0;
-    my ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) = 0;
-    my ( $DS_PFitter_lambda_est, $DS_PFitter_lambda_ci_low, $DS_PFitter_lambda_ci_high ) = 0;
-    my ( $DS_PFitter_days_est, $DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high ) = 0;
-    my ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) = 0;
+    my $Bayesian_PFitter_lambda_est = 0;
+    my $Bayesian_PFitter_lambda_ci_low = 0;
+    my $Bayesian_PFitter_lambda_ci_high = 0;
+    my $Bayesian_PFitter_days_est = 0;
+    my $Bayesian_PFitter_days_ci_low = 0;
+    my $Bayesian_PFitter_days_ci_high = 0;
+    my $DS_PFitter_lambda_est = 0;
+    my $DS_PFitter_lambda_ci_low = 0;
+    my $DS_PFitter_lambda_ci_high = 0;
+    my $DS_PFitter_days_est = 0;
+    my $DS_PFitter_days_ci_low = 0;
+    my $DS_PFitter_days_ci_high = 0;
+    my $DS_PFitter_distance_mean = 0;
+    my $DS_PFitter_distance_ci_low = 0;
+    my $DS_PFitter_distance_ci_high = 0;
     my $DS_PFitter_fitstext = "FITS (for very acute infection).";
     my $DS_PFitter_fits = 1;
     my $DS_PFitter_assertion_low = 1.5;
     my $DS_PFitter_assertion_high = 2.5;
-    my $DS_PFitter_R = "1.0";;
+    my $DS_PFitter_R = "1.0";
     if( $run_PFitter ) {
-      if( $mean_diversity == 0 ) {
-        if( $VERBOSE ) {
-          print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
-        }
-        print "PoissonFitter Determination: Degenerate Phylogeny (all seqs are the same)\n";
-        print "PoissonFitter Poisson Fit: NA\n";
-        print "DS Poisson Fit: $DS_PFitter_fitstext (R=$DS_PFitter_R).\n";
-        print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_distance_mean ($DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high)\n";
-        print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_time_est ($PFitter_time_ci_low, $PFitter_time_ci_high)\n";
-        #print "\n$PFitter_fitter_stats_raw\n";
-        print "DS Poisson time estimate (95\% CI): $DS_PFitter_days_est ($DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high)\n";
-        print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_days_est ($Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high)\n";
-      } else {
+      #if( $mean_diversity == 0 ) {
+      #  if( $VERBOSE ) {
+      #    print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
+      #  }
+      #  print "PoissonFitter Determination: Degenerate Phylogeny (all seqs are the same)\n";
+      #  print "PoissonFitter Poisson Fit: NA\n";
+      #  print "DS Poisson Fit: $DS_PFitter_fitstext (R=$DS_PFitter_R).\n";
+      #  print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_distance_mean ($DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high)\n";
+      #  print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_days_est ($PFitter_time_ci_low, $PFitter_time_ci_high)\n";
+      #  #print "\n$PFitter_fitter_stats_raw\n";
+      #  print "DS Poisson time estimate (95\% CI): $DS_PFitter_days_est ($DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high)\n";
+      #  print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_days_est ($Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high)\n";
+      #} else {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
@@ -685,11 +703,11 @@ sub identify_founders {
         # print "GOT: $R_output\n";
         my $PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_time_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
+        ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_days_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
           (
            $PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-        ( $PFitter_time_est, $PFitter_time_ci_low, $PFitter_time_ci_high ) =
-          ( $PFitter_time_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+        ( $PFitter_days_est, $PFitter_time_ci_low, $PFitter_time_ci_high ) =
+          ( $PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
 
         $is_poisson = ( defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 ) ) || 0;
         my $starlike_raw =
@@ -738,18 +756,18 @@ sub identify_founders {
         }
         print "DS Poisson Fit: $DS_PFitter_fitstext (R=$DS_PFitter_R).\n";
         print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_distance_mean ($DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high)\n";
-        print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_time_est ($PFitter_time_ci_low, $PFitter_time_ci_high)\n";
+        print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_days_est ($PFitter_time_ci_low, $PFitter_time_ci_high)\n";
         #print "\n$PFitter_fitter_stats_raw\n";
         print "DS Poisson time estimate (95\% CI): $DS_PFitter_days_est ($DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high)\n";
         print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_days_est ($Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high)\n";
-      } # End if( $mean_diversity > 0 );
+      #} # End if( $mean_diversity > 0 );
       print OUTPUT_TABLE_FH "\t", $PFitter_lambda;
       print OUTPUT_TABLE_FH "\t", $PFitter_se;
       print OUTPUT_TABLE_FH "\t", $PFitter_nseq;
       print OUTPUT_TABLE_FH "\t", $PFitter_nbases;
       print OUTPUT_TABLE_FH "\t", $PFitter_mean_hd;
       print OUTPUT_TABLE_FH "\t", $PFitter_max_hd;
-      print OUTPUT_TABLE_FH "\t", $PFitter_time_est;
+      print OUTPUT_TABLE_FH "\t", $PFitter_days_est;
       print OUTPUT_TABLE_FH "\t", $PFitter_time_ci_low;
       print OUTPUT_TABLE_FH "\t", $PFitter_time_ci_high;
       print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
@@ -803,7 +821,7 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $PFitter_nbases;
         print OUTPUT_TABLE_FH "\t", $PFitter_mean_hd;
         print OUTPUT_TABLE_FH "\t", $PFitter_max_hd;
-        print OUTPUT_TABLE_FH "\t", $PFitter_time_est;
+        print OUTPUT_TABLE_FH "\t", $PFitter_days_est;
         print OUTPUT_TABLE_FH "\t", $PFitter_time_ci_low;
         print OUTPUT_TABLE_FH "\t", $PFitter_time_ci_high;
         print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
@@ -842,11 +860,12 @@ sub identify_founders {
        }
        my $multifounder_PFitter_fitter_stats_raw =
          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-       my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_time_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
+       print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
+       my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_days_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
          (
           $multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-       my ( $multifounder_PFitter_time_est, $multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high ) =
-         ( $multifounder_PFitter_time_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+       my ( $multifounder_PFitter_days_est, $multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high ) =
+         ( $multifounder_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
        my $multifounder_is_poisson = ( defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
         ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
         # my $multifounder_starlike_raw =
@@ -894,7 +913,7 @@ sub identify_founders {
         }
         print "Multi-Founder DS Poisson Fit: $multifounder_DS_PFitter_fitstext (R=$multifounder_DS_PFitter_R).\n";
         print "Multi-Founder Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multifounder_DS_PFitter_distance_mean ($multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high)\n";
-        print "Multi-Founder PoissonFitter Poisson time estimate (95\% CI): $multifounder_PFitter_time_est ($multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high)\n";
+        print "Multi-Founder PoissonFitter Poisson time estimate (95\% CI): $multifounder_PFitter_days_est ($multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high)\n";
         print "Multi-Founder DS Poisson time estimate (95\% CI): $multifounder_DS_PFitter_days_est ($multifounder_DS_PFitter_days_ci_low, $multifounder_DS_PFitter_days_ci_high)\n";
         print "Multi-Founder Bayesian Poisson time estimate (95\% CI): $multifounder_Bayesian_PFitter_days_est ($multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high)\n";
         #print "\n$multifounder_PFitter_fitter_stats_raw\n";
@@ -905,7 +924,7 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_nbases;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_mean_hd;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_max_hd;
-        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_time_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_days_est;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_time_ci_low;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_time_ci_high;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_stat;
@@ -1009,11 +1028,11 @@ sub identify_founders {
           }
           my $multi_region_PFitter_fitter_stats_raw =
             `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-          my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_time_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
+          my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_days_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
             (
              $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-         my ( $multi_region_PFitter_time_est, $multi_region_PFitter_time_ci_low, $multi_region_PFitter_time_ci_high ) =
-           ( $multi_region_PFitter_time_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+         my ( $multi_region_PFitter_days_est, $multi_region_PFitter_time_ci_low, $multi_region_PFitter_time_ci_high ) =
+           ( $multi_region_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
           my $multi_region_is_poisson = defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 );
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
@@ -1060,7 +1079,7 @@ sub identify_founders {
           }
         print "Multi-Region DS Poisson Fit: $multi_region_DS_PFitter_fitstext (R=$multi_region_DS_PFitter_R).\n";
         print "Multi-Region Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multi_region_DS_PFitter_distance_mean ($multi_region_DS_PFitter_distance_ci_low, $multi_region_DS_PFitter_distance_ci_high)\n";
-        print "Multi-Region PFitter Poisson time estimate (95\% CI): $multi_region_PFitter_time_est ($multi_region_PFitter_time_ci_low, $multi_region_PFitter_time_ci_high)\n";
+        print "Multi-Region PFitter Poisson time estimate (95\% CI): $multi_region_PFitter_days_est ($multi_region_PFitter_time_ci_low, $multi_region_PFitter_time_ci_high)\n";
         print "Multi-Region DS Poisson time estimate (95\% CI): $multi_region_DS_PFitter_days_est ($multi_region_DS_PFitter_days_ci_low, $multi_region_DS_PFitter_days_ci_high)\n";
         print "Multi-Region Bayesian Poisson time estimate (95\% CI): $multi_region_Bayesian_PFitter_days_est ($multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high)\n";
           #print "\n$multi_region_PFitter_fitter_stats_raw\n";
@@ -1081,7 +1100,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nbases;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_mean_hd;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_max_hd;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_time_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_est;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_time_ci_low;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_time_ci_high;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_stat;
