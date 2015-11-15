@@ -698,8 +698,11 @@ sub identify_founders {
           ## TODO: REMOVE
           # print "PoissonFitter RAW: $starlike_raw\n";
         }
-        my ( $starlike_text ) = ( $starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-        $is_starlike = ( $starlike_text eq "FOLLOWS" );
+        my ( $starlike_text ) = ( $starlike_raw =~ /^.+(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*$/m );
+        $is_starlike = "0";
+        if( $starlike_text eq "FOLLOWS" ) {
+          $is_starlike = "1";
+        }
 
         # DS results
         my $DSPFitter_fitter_stats_raw =
@@ -719,7 +722,7 @@ sub identify_founders {
         $DS_PFitter_fits =
           ( ( $DS_PFitter_fitstext =~ /^FITS.+$/m ) ? "1" : "0" );
         ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
-          ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+          ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
 
         print "PoissonFitter Determination: ";
         if( $is_starlike ) {
@@ -875,7 +878,7 @@ sub identify_founders {
          $multifounder_DS_PFitter_fits = "1";
        }
        my ( $multifounder_DS_PFitter_assertion_low, $multifounder_DS_PFitter_assertion_high, $multifounder_DS_PFitter_R ) =
-          ( $multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
 
         # print "Multi-Founder PoissonFitter Determination: ";
         # if( $multifounder_is_starlike ) {

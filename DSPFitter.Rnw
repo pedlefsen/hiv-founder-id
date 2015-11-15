@@ -546,7 +546,7 @@ DSPFitter <- function (
             .maximal.area.so.far <- .logtotalplaus;
             .maximal.x.so.far <- .maybe.maximal.point + .additional.x;
         } else { # Stop if it's stable; Also stop if the maximal area starts to decline; that indicates we are in the range where the integral becomes unstable.
-            stop;
+            break;
         }
     } # look up til we find a max
     .lowest.nonzero.x <- 0;
