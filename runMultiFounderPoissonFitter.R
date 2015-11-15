@@ -107,7 +107,7 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     # Ok now merge them.  It suffices to just rbind them.
     pairwise.distances.as.matrix.flat <- do.call( rbind, pairwise.distances.as.matrix.flat.by.fasta.file );
     
-    pairwise.distances.as.matrix.file <- paste( output.dir, "/", fasta.file.prefix.short, pairwise.hamming.distances.file.suffix, sep = "" );
+    pairwise.distances.as.matrix.file <- paste( output.dir, "/", fasta.file.prefix.short.nosuffix, pairwise.hamming.distances.file.suffix, sep = "" );
     write.table( pairwise.distances.as.matrix.flat, file = pairwise.distances.as.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
 
     # Seq lengths may vary.  To make it work with PFitter, which needs just one vlaue here, use the weighted average, where the weight is in terms of evidence for days (which comes only from the intersequence distances).
@@ -123,8 +123,8 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     .rv <- system( R.cmd );
     
     if( run.DSPFitter ) {
-        DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );
-        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
+        DSPFitter.outfile <- paste( output.dir, "/", fasta.file.prefix.short.nosuffix, "_DSPFitter.out", sep = "" );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", seq.length, "' DSPFitter.R", DSPFitter.outfile );
         .rv <- system( R.cmd );
     }
     return( .rv );
