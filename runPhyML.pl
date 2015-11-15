@@ -109,7 +109,8 @@ sub runPhyML {
   # Create a temporary file for the conversion via "unix", whatever Wenjie meant by that.
   my $unixFile = $phylipFile .".unix";
   ConvertToUnix( $input_fasta_file, $unixFile );
-  ChangetoPhylip( $unixFile, $phylipFile );
+  my @seqNames = ChangetoPhylip( $unixFile, $phylipFile );
+  my $seqCount = scalar( @seqNames );
   unlink( $unixFile );# Removing the temporary file.
 
   my @cmd = (
@@ -134,7 +135,8 @@ sub runPhyML {
     print( join( ' ', @cmd ), "\n" );
   }
   # run it; redirect STDOUT and STDERR
-  system( join( ' ', @cmd ) . "1>$phymlOutFile 2>$errFile" );
+  my $cmd_str  = join( ' ', @cmd );
+  my $phyml_result = system( "$cmd_str 1>$phymlOutFile 2>$errFile" );
   if( $VERBOSE ) {
     print( "Done running PhyML." );
   }
@@ -148,7 +150,7 @@ sub runPhyML {
 
   # Get pairwise distances.
   my $pwDistHashRef;
-  my( @seqNames, @seqNamesWithDists );
+  my( @seqNamesWithDists );
   my $flag = my $count = 0;
   if( $VERBOSE ) {
     print( "Extracting pairwise distances from PhyML output in file $phymlOutFile\n" );
@@ -222,6 +224,9 @@ sub runPhyML {
       } else {
         for( $j = ( $i + 1 ); $j < scalar( @seqNames ); $j++ ) {
           $secondName = $seqNames[ $j ];
+          if( $firstName eq $secondName ) {
+            next;
+          }
           if( !defined( $pwDistHashRef->{ $firstName }->{ $secondName } ) ) {
             print "Warning: no distance value between $firstName and $secondName\n";
           } else {
@@ -245,21 +250,25 @@ sub runPhyML {
   if( $VERBOSE ) {
     print( "Writing diversity statistics to file $pwDiversityFile.." );
   }
-  my $stat = Statistics::Descriptive::Full->new();
-  $stat->add_data( @diversity );
-  my $mean = $stat->mean();
-  my $sqrt_n = ( scalar( @diversity ) ** 0.5 );
-  my $sem = ( $stat->standard_deviation() / $sqrt_n );
-  my $min = $stat->min();
-  my $q1 = $stat->quantile( 1 );
-  my $median = $stat->quantile( 2 );
-  my $q3 = $stat->quantile( 3 );
-  my $max = $stat->max();
-  my @diversityResult = ( $mean, $sem, $min, $q1, $median, $q3, $max );
-
   print OUT "Number of sequences\tMean\tStandard error\tMin\tQ1\tMedian\tQ3\tMax\n";
-  print OUT scalar( @seqNames ), "\t"; 
-  print OUT join( "\t", @diversityResult ), "\n";
+  if( scalar( @diversity ) > 0 ) {
+    my $stat = Statistics::Descriptive::Full->new();
+    $stat->add_data( @diversity );
+    my $mean = $stat->mean();
+    my $sqrt_n = ( scalar( @diversity ) ** 0.5 );
+    my $sem = ( $stat->standard_deviation() / $sqrt_n );
+    my $min = $stat->min();
+    my $q1 = $stat->quantile( 1 );
+    my $median = $stat->quantile( 2 );
+    my $q3 = $stat->quantile( 3 );
+    my $max = $stat->max();
+    my @diversityResult = ( $mean, $sem, $min, $q1, $median, $q3, $max );
+  
+    print OUT scalar( @seqNames ), "\t"; 
+    print OUT join( "\t", @diversityResult ), "\n";
+  } else {
+    print OUT "0\t0\t0\t0\t0\t0\t0\t0\n";
+  }
 
   if( $VERBOSE ) {
     print( "Done.\nClosing file $phymlOutFile.." );
@@ -320,6 +329,7 @@ sub ChangetoPhylip {
 	print OUT $seqCount," ",$seqLen,"\n";
 	$seqCount = 0;
 	$seq = "";
+        my @seqNames;
 	while(my $line = <IN>) {
 		chomp $line;	
 		next if($line =~ /^\s*$/);
@@ -336,7 +346,8 @@ sub ChangetoPhylip {
 					die "Error: the sequence length of $seqName is not same as others.\n";
 				}
 			}	
-			$seqName = $seqCount . $1; # PAUL CHANGED; ADDED THE index
+			$seqName = $seqCount; # PAUL CHANGED; USING ONLY THE index is safest
+                        push @seqNames, $seqName;
 			$seqCount++;
 		}else {
 			$seq .= $line;		
@@ -354,6 +365,9 @@ sub ChangetoPhylip {
 	}	
 	close IN;
 	close OUT;
+        ## PAUL CHANGED; ADDED RETURN STATEMENT.
+        die unless( scalar( @seqNames ) == $seqCount );
+        return( @seqNames );
 }
 ######################################################################################
 

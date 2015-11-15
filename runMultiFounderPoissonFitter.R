@@ -5,7 +5,7 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.fasta\\.cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
+runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\_cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file.prefix ) ) == 0 ) {
         fasta.file.prefix.path <- ".";

@@ -213,7 +213,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:246-849
+### code chunk number 5: DSPFitter.Rnw:246-852
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -602,6 +602,9 @@ DSPFitter <- function (
             # Force lambda for comparison.
             lambda.low <- compare.to.specific.pois.with.lambda;
             lambda.high <- compare.to.specific.pois.with.lambda;
+        } else if( length( observed.data ) == 1 ) {
+            lambda.low <- observed.data;
+            lambda.high <- observed.data;
         } else {
             lambda.low <- max( min( observed.data ), ( mean( observed.data ) - 4 * sd( observed.data ) ) );
             lambda.high <- min( max( observed.data ), ( mean( observed.data ) + 4 * sd( observed.data ) ) );
@@ -821,7 +824,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:854-857
+### code chunk number 6: DSPFitter.Rnw:857-860
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -829,7 +832,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:861-863
+### code chunk number 7: DSPFitter.Rnw:864-866
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )

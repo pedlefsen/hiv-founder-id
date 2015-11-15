@@ -32,7 +32,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_H $opt_f $opt_I $opt_s );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_H $opt_f $opt_I $opt_s $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 ## NOTE: If there is only one sequence in a group, we don't bother writing out the file.
@@ -193,7 +193,7 @@ sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-PRFHfIs] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PRFHfIsr] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -209,9 +209,10 @@ sub identify_founders {
   # opt_f means fix hypermutated sequences, instead of removing them.
   # opt_I means run inSites online (instead of offline)
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
+  # opt_r means recursively operate on clusters identified using the Informtive Sites method. 
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_H, $opt_f, $opt_I, $opt_s ) = ();
-  if( not getopts('DVo:O:PRFHfIs') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_H, $opt_f, $opt_I, $opt_s, $opt_r ) = ();
+  if( not getopts('DVo:O:PRFHfIsr') ) {
     identify_founders_usage();
   }
   
@@ -225,6 +226,7 @@ sub identify_founders {
   my $fix_hypermutated_sequences = $opt_f || 0;
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
+  my $recurse_on_clusters = $opt_r || 0;
 
   ## TODO: make into an arg
   my $run_DSPFitter = 1;
@@ -317,7 +319,7 @@ sub identify_founders {
 
   push @table_column_headers,
   (
-   "file", "num.seqs", "diversity", "inf.to.priv.ratio",
+   "file", "num.seqs", "num.unique.seqs", "diversity", "inf.to.priv.ratio",
    "exceeds.diversity.threshold", "exceeds.ratio.threshold",
    "is.one.founder"
    );
@@ -447,6 +449,14 @@ sub identify_founders {
 
     # Duplicate the input file, possibly modifying it.
     my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+    my ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
+    if( scalar( @seq_headers ) == 1 ) {
+      # THE INPUT FASTA FILE CONTAINS ONLY ONE SEQUENCE.  SKIP IT.
+      #if( $VERBOSE ) {
+        print( "\nThere's only one sequence in input file \"$input_fasta_file\".  Skipping it.\n" );
+      #}
+      next;
+    }
     ## HACK: make sure there are no bangs in the input file (since sometimes there are, right now).
     if( $input_fasta_file_contents =~ /\!/ ) {
       if( $VERBOSE ) {
@@ -475,6 +485,7 @@ sub identify_founders {
       warn "Unable to open output file \"$input_fasta_file\": $!\n";
       return 1;
     }
+    ( @seq_headers ) = map { s/\!/-/g } @seq_headers;
     print input_fasta_fileFH $input_fasta_file_contents;
     close( input_fasta_fileFH );
     
@@ -525,6 +536,9 @@ sub identify_founders {
           $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
         } else {
           $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+          # Recompute the seq_headers.
+          $input_fasta_file_contents = path( "${input_fasta_file_path}/${input_fasta_file_short}" )->slurp();
+          ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
         }
         ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
           ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
@@ -560,6 +574,9 @@ sub identify_founders {
         ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
           ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
         $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        # Recompute the seq_headers.
+        $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+        ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
       } else {
         if( $VERBOSE ) {
           print( ".done." );
@@ -593,19 +610,28 @@ sub identify_founders {
     ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
 
     # Run phyML, get stats
-    `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
-
+    my $phyml_out = `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
+    if( $VERBOSE ) {
+      print $phyml_out;
+    }
     my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
-    my ( $num_seqs, $mean_diversity ) =
+    my ( $num_unique_seqs, $mean_diversity ) =
       ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
-    unless( defined( $num_seqs ) ) {
+    unless( defined( $num_unique_seqs ) ) {
       warn( "UH OH: $input_fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
     }
+    # unless( $num_unique_seqs == scalar( @seq_headers ) ) {
+    #   ## THIS IS BECAUSE phyml apparently only counts unique sequences.
+    #   # print "WHY ARE THERE $num_seqs SEQS, when there are ", scalar( @seq_headers ), " sequences in the input file?\n";
+    # }
+    my $num_seqs = scalar( @seq_headers );
     print "Number of sequences: $num_seqs\n";
+    print "Number of unique sequences: $num_unique_seqs\n";
     print "Mean pairwise diversity: $mean_diversity\n";
     print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
 
     print OUTPUT_TABLE_FH "\t", $num_seqs;
+    print OUTPUT_TABLE_FH "\t", $num_unique_seqs;
     print OUTPUT_TABLE_FH "\t", $mean_diversity;
     print OUTPUT_TABLE_FH "\t", $in_sites_ratio;
 
@@ -860,7 +886,7 @@ sub identify_founders {
        }
        my $multifounder_PFitter_fitter_stats_raw =
          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-       print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
+       #print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
        my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_days_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
          (
           $multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -1181,6 +1207,18 @@ sub identify_founders {
 
     } # End if $run_PFitter
 
+    if( $recurse_on_clusters && ( $num_clusters > 1 ) ) {
+      # Add them.
+      opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
+      my @cluster_files = grep { /^${input_fasta_file_short_nosuffix}_cluster\d+\.fasta$/ } readdir( OUTPUT_DIR );
+      closedir OUTPUT_DIR;
+      print "CLUSTER FILES: ", join( ", ", @cluster_files ), "\n";
+      my @new_input_fasta_files = map { $output_path_dir_for_input_fasta_file . "/" . $_ } @cluster_files;
+      #'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+      print "NEW INPUT FILES: ", join( ", ", @cluster_files ), "\n";
+      unshift @input_fasta_files, @new_input_fasta_files;
+    } # End if( $recurse_on_clusters )
+    
   } # End foreach $input_fasta_file
   if( $VERBOSE ) { print ".done.\n"; }
 

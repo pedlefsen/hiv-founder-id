@@ -631,6 +631,9 @@ DSPFitter <- function (
             # Force lambda for comparison.
             lambda.low <- compare.to.specific.pois.with.lambda;
             lambda.high <- compare.to.specific.pois.with.lambda;
+        } else if( length( observed.data ) == 1 ) {
+            lambda.low <- observed.data;
+            lambda.high <- observed.data;
         } else {
             lambda.low <- max( min( observed.data ), ( mean( observed.data ) - 4 * sd( observed.data ) ) );
             lambda.high <- min( max( observed.data ), ( mean( observed.data ) + 4 * sd( observed.data ) ) );

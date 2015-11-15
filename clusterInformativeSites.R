@@ -17,6 +17,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     }
     insites.fasta.file.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", insites.fasta.file, perl = TRUE );
+    insites.fasta.file.short.nosuffix <-
+        gsub( "^(.*?)\\.[^\\.]+$", "\\1", insites.fasta.file.short, perl = TRUE );
 
   if( is.null( output.dir ) ) {
       insites.output.dir <- insites.fasta.file.path;
@@ -37,6 +39,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
     }
     full.fasta.file.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", full.fasta.file, perl = TRUE );
+    full.fasta.file.short.nosuffix <-
+        gsub( "^(.*?)\\.[^\\.]+$", "\\1", full.fasta.file.short, perl = TRUE );
     
       if( is.null( output.dir ) ) {
           full.output.dir <- full.fasta.file.path;
@@ -107,7 +111,7 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       cluster.fasta <- in.fasta[ names( clusters[ clusters == cluster.i ] ), ];
 
       # Write the cluster alignment as a fasta file
-      cluster.fasta.file = paste( insites.output.dir, "/", insites.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" );
+      cluster.fasta.file = paste( insites.output.dir, "/", insites.fasta.file.short.nosuffix, "_cluster", cluster.i, ".fasta", sep = "" );
       # warning( insites.output.dir );
       # warning( insites.fasta.file.short );
       # warning( cluster.fasta.file );
@@ -116,7 +120,7 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
       # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
       .consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.fasta ) ), nrow = 1 ) );
       rownames( .consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
-      write.dna( .consensus, paste( insites.output.dir, "/", insites.fasta.file.short, ".cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+      write.dna( .consensus, paste( insites.output.dir, "/", insites.fasta.file.short.nosuffix, "_cluster", cluster.i, "_cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
 
       if( !is.null( full.fasta ) ) {
         cluster.full.fasta <- full.fasta[ names( clusters[ clusters == cluster.i ] ), ];
@@ -124,12 +128,12 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
         # Write the cluster alignment as a fasta file
         ## TODO: REMOVE
         #print( paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
-        write.dna( cluster.full.fasta, paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+        write.dna( cluster.full.fasta, paste( full.output.dir, "/", full.fasta.file.short.nosuffix, "_cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
         
         # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
         .full.consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.full.fasta ) ), nrow = 1 ) );
         rownames( .full.consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
-        write.dna( .full.consensus, paste( full.output.dir, "/", full.fasta.file.short, ".cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+        write.dna( .full.consensus, paste( full.output.dir, "/", full.fasta.file.short.nosuffix, "_cluster", cluster.i, "_cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
       }
   } # End foreach cluster.i
 

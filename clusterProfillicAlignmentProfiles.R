@@ -60,6 +60,8 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
     }
     input.fasta.file.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", input.fasta.file, perl = TRUE );
+    input.fasta.file.short.nosuffix <-
+        gsub( "^(.*?)\\.[^\\.]+$", "\\1", input.fasta.file.short, perl = TRUE );
     
       if( is.null( output.dir ) ) {
           input.output.dir = input.fasta.file.path;
@@ -134,12 +136,12 @@ clusterProfillicAlignmentProfiles <- function ( alignment.profiles.filenames, in
       # Write the cluster alignment as a fasta file
       ## TODO: REMOVE
       #print( paste( input.output.dir, "/", input.fasta.file.short, ".cluster", cluster.i, ".fasta", sep = "" ) );
-       write.dna( cluster.input.fasta, paste( input.output.dir, "/", input.fasta.file.short, ".Profillic_cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+       write.dna( cluster.input.fasta, paste( input.output.dir, "/", input.fasta.file.short.nosuffix, "_Profillic_cluster", cluster.i, ".fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
         
         # Write the cluster consensus as its own fasta file (note function default is to use majority consensus).
         .input.consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( cluster.input.fasta ) ), nrow = 1 ) );
         rownames( .input.consensus ) <- paste( "Cluster", cluster.i, "consensus sequence" );
-        write.dna( .input.consensus, paste( input.output.dir, "/", input.fasta.file.short, ".Profillic_cluster", cluster.i, ".cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+        write.dna( .input.consensus, paste( input.output.dir, "/", input.fasta.file.short.nosuffix, "_Profillic_cluster", cluster.i, "_cons.fasta", sep = "" ), format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
   } # End foreach cluster.i
 
   # Return the number of clusters (equivalently the index of the largest cluster)
