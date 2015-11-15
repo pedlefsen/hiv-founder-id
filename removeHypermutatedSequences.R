@@ -84,6 +84,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     } # compute.hypermut2.p.value (..)
 
   exclude.sequence <- rep( FALSE, nrow( in.fasta ) );
+  fixed.sequence <- rep( FALSE, nrow( in.fasta ) );
   for( seq.i in 1:nrow( in.fasta ) ) {
     p.value <- compute.hypermut2.p.value( seq.i );
     if( p.value < p.value.threshold ) {
@@ -92,6 +93,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
             # Run it again but this time fix it.
             .result.ignored <-
                 compute.hypermut2.p.value( seq.i, fix.sequence = TRUE );
+            fixed.sequence[ seq.i ] <- TRUE;
         } else {
             .message <- paste( "Excluding", rownames( in.fasta )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." );
             exclude.sequence[ seq.i ] <- TRUE;
@@ -112,7 +114,13 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
 
   write.dna( out.fasta, out.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
     
-  return( sum( exclude.sequence ) );
+  if( fix.instead.of.remove ) {
+      .rv <- sum( fixed.sequence );
+  } else {
+      .rv <- sum( exclude.sequence );
+  }
+    
+  return( .rv );
 } # removeHypermutatedSequences (..)
 
 ## Here is where the action is.

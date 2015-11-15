@@ -428,9 +428,6 @@ sub identify_founders {
     my ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
       ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
 
-    # This is the original unaltered fasta file (path removed), printed to the table out:
-    print OUTPUT_TABLE_FH $input_fasta_file_short;
-  
     if( defined $output_path_dir ) {
       $output_path_dir_for_input_fasta_file = $output_path_dir;
     } else {
@@ -495,6 +492,9 @@ sub identify_founders {
       next; # That's all we do with the original input file.
     }
 
+    # This is the original unaltered fasta file (path removed), printed to the table out:
+    print OUTPUT_TABLE_FH $input_fasta_file_short;
+  
     print "\nInput Fasta file: $input_fasta_file_short\n";
     # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $run_Hypermut ) {
@@ -507,7 +507,7 @@ sub identify_founders {
       }
       $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
       ## extract the number fixed/removed from the output
-      my $num_hypermut_sequences = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
+      my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
   #    if( $VERBOSE ) {
           if( $fix_hypermutated_sequences ) {
             print( "The number of hypermutated sequences fixed is: $num_hypermut_sequences\n" );
@@ -519,15 +519,17 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $num_hypermut_sequences;
 
       # Now use the output from that..
-      $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-      if( $fix_hypermutated_sequences ) {
-        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
-      } else {
-        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
-      }
-      ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-        ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-      $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+      if( $num_hypermut_sequences > 0 ) {
+        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+        if( $fix_hypermutated_sequences ) {
+          $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
+        } else {
+          $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+        }
+        ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+          ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+      } # End if we need to change files..
       
       if( $VERBOSE ) {
         print ".done.\n";
