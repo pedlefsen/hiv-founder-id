@@ -824,7 +824,7 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-       $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="$input_fasta_file"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+       $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
        if( $VERBOSE ) {
          print( "\tdone.\n" );
        }
@@ -988,7 +988,7 @@ sub identify_founders {
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
           # print "\$suffix_pattern: $suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           # print $R_output;
           if( $VERBOSE ) {
             print( "\tdone.\n" );

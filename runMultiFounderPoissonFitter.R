@@ -5,7 +5,7 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
+runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.fasta\\.cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file.prefix ) ) == 0 ) {
         fasta.file.prefix.path <- ".";
@@ -32,11 +32,16 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
 
-    fasta.files <- grep( paste( "^", fasta.file.prefix.short, sep = "" ), grep( paste( "(", fasta.file.suffix.pattern, ")$", sep = "" ), dir( fasta.file.prefix.path, full.names = FALSE ), value = T, perl = TRUE ), value = T );
+    # cat( "fasta.file.prefix.path: ", fasta.file.prefix.path, sep = "", fill = TRUE );
+    .dir <- dir( fasta.file.prefix.path, full.names = FALSE );
+    #cat( "dir(fasta.file.prefix.path): ", paste( .dir, collapse = ", " ), sep = "", fill = TRUE );
+    fasta.files <- grep( paste( "^", fasta.file.prefix.short, "(", fasta.file.suffix.pattern, ")$", sep = "" ), .dir, value = TRUE, perl = TRUE );
+    #cat( "grep( \"", paste( "(", fasta.file.suffix.pattern, ")$", sep = "" ), "\", dir(fasta.file.prefix.path) ): ", paste( .dir.withsuffix, collapse = ", " ), sep = "", fill = TRUE );
+    #cat( "grep( \"", paste( "^", fasta.file.prefix.short, sep = "" ), "\", grep( \"", paste( "(", fasta.file.suffix.pattern, ")$", sep = "" ), "\", dir(fasta.file.prefix.path) ) ): ", paste( fasta.files, collapse = ", " ), sep = "", fill = TRUE );
     ## TODO: REMOVE
-    # print( paste( "MATCHING suffix:", fasta.file.suffix.pattern, "\n", sep = "" ) );
-    # print( paste( "and MATCHING prefix:", fasta.file.prefix.short, "\n", sep = "" ) );
-    #print( fasta.files );
+    # warning( paste( "MATCHING suffix:", fasta.file.suffix.pattern, sep = "" ) );
+    #  warning( paste( "and MATCHING prefix:", fasta.file.prefix.short, sep = "" ) );
+    #  warning( fasta.files );
     stopifnot( length( fasta.files ) > 1 );
 
     seq.lengths <- c();
@@ -153,9 +158,5 @@ if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper(
 if( !is.null( suffix.pattern ) ) {
     print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt" ), run.DSPFitter = run.DSPFitter );
 } else {
-    if( file.exists( fasta.file.prefix ) ) {
-        print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter ) );
-    } else {
-        stop( paste( "File does not exist:", fasta.file ) );
-    }
+    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter ) );
 }
