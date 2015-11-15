@@ -615,23 +615,23 @@ sub identify_founders {
       print $phyml_out;
     }
     my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
-    my ( $num_unique_seqs, $mean_diversity ) =
+    my ( $num_phyml_seqs, $mean_diversity ) =
       ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
-    unless( defined( $num_unique_seqs ) ) {
+    unless( defined( $num_phyml_seqs ) ) {
       warn( "UH OH: $input_fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
     }
-    # unless( $num_unique_seqs == scalar( @seq_headers ) ) {
+    # unless( $num_phyml_seqs == scalar( @seq_headers ) ) {
     #   ## THIS IS BECAUSE phyml apparently only counts unique sequences.
     #   # print "WHY ARE THERE $num_seqs SEQS, when there are ", scalar( @seq_headers ), " sequences in the input file?\n";
     # }
     my $num_seqs = scalar( @seq_headers );
     print "Number of sequences: $num_seqs\n";
-    print "Number of unique sequences: $num_unique_seqs\n";
+    if( $num_seqs != $num_phyml_seqs ) { print "BUT NOTE: Number of PhyML sequences: $num_phyml_seqs\n" };
     print "Mean pairwise diversity: $mean_diversity\n";
     print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
 
     print OUTPUT_TABLE_FH "\t", $num_seqs;
-    print OUTPUT_TABLE_FH "\t", $num_unique_seqs;
+    print OUTPUT_TABLE_FH "\t", $num_phyml_seqs;
     print OUTPUT_TABLE_FH "\t", $mean_diversity;
     print OUTPUT_TABLE_FH "\t", $in_sites_ratio;
 
@@ -640,7 +640,7 @@ sub identify_founders {
     my $morgane_calls_one_cluster = 1;
     my $diversity_threshold_exceeded = 0;
     my $in_sites_ratio_threshold_exceeded = 0;
-    my $in_sites_cluster_call = 1;
+    my $in_sites_founders_call = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       $diversity_threshold_exceeded = 1;
       if( $in_sites_ratio > $in_sites_ratio_threshold ) {
@@ -663,7 +663,7 @@ sub identify_founders {
 
     if( $morgane_calls_one_cluster ) {
       print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: 1\n";
-      $in_sites_cluster_call = 1; # go with Morgane's call if it is 1.
+      $in_sites_founders_call = 1; # go with Morgane's call if it is 1.
     } else {
       print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: greater than 1\n";
     }
@@ -831,15 +831,15 @@ sub identify_founders {
     #warn "GOT $num_clusters\n";
     ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
     if( !$morgane_calls_one_cluster ) {
-      $in_sites_cluster_call = $num_clusters;
+      $in_sites_founders_call = $num_clusters;
     }
 
     # Print out the number of clusters
     print "Number of clusters found when clustering informative sites: $num_clusters\n";
-    print "Number of founders estimated by the Informative Sites method: $in_sites_cluster_call\n";
+    print "Number of founders estimated by the Informative Sites method: $in_sites_founders_call\n";
 
     if( $run_PFitter ) {
-      if( $in_sites_cluster_call == 1 ) {
+      if( $num_clusters == 1 ) {
         ## Avoid NA in the table output.  Multifounder results default to single-founder results.
         print OUTPUT_TABLE_FH "\t", $PFitter_lambda;
         print OUTPUT_TABLE_FH "\t", $PFitter_se;
@@ -980,7 +980,7 @@ sub identify_founders {
       } # End if $num_clusters > 1
     } # End if $run_PFitter
 
-    print OUTPUT_TABLE_FH "\t", $in_sites_cluster_call;
+    print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
 
     ## Now try it the more profillic way.  This is a hybrid approach that makes profiles only of the informative sites.
     if( $run_profillic ) {
@@ -1192,7 +1192,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\n";
         } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
       } else {  # if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
-        if( $input_fasta_file_short =~ /_LH/ ) {
+        if( $input_fasta_file_short =~ /_LH\./ ) { # the dot at the end excludes the "_cluster" files
           ## I've lazily assumed that if there are _LH and _NFLG then there are also _RH.  That's the only case we miss because we don't care about _LH alone (since we only need to merge if there are multiple, and we've already handled the cases with _RH).
           ## HERE WE CHECK THIS ASSUMPTION.
           my $nflg_version = $input_fasta_file;
@@ -1212,10 +1212,9 @@ sub identify_founders {
       opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
       my @cluster_files = grep { /^${input_fasta_file_short_nosuffix}_cluster\d+\.fasta$/ } readdir( OUTPUT_DIR );
       closedir OUTPUT_DIR;
-      print "CLUSTER FILES: ", join( ", ", @cluster_files ), "\n";
+      # print "CLUSTER FILES: ", join( ", ", @cluster_files ), "\n";
       my @new_input_fasta_files = map { $output_path_dir_for_input_fasta_file . "/" . $_ } @cluster_files;
-      #'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
-      print "NEW INPUT FILES: ", join( ", ", @cluster_files ), "\n";
+      print "NEW INPUT FILES: ", join( ", ", @new_input_fasta_files ), "\n";
       unshift @input_fasta_files, @new_input_fasta_files;
     } # End if( $recurse_on_clusters )
     

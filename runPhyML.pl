@@ -150,6 +150,7 @@ sub runPhyML {
 
   # Get pairwise distances.
   my $pwDistHashRef;
+  my( @alternative_seqNames );
   my( @seqNamesWithDists );
   my $flag = my $count = 0;
   if( $VERBOSE ) {
@@ -180,12 +181,16 @@ sub runPhyML {
       $flag = 0;
     }
     if( $flag ) {
-      if( $line =~ /^(.*)$/ ) {
+      if( $line =~ /^(.+)$/ ) {
         my $seqnName = $1;				
         push @seqNamesWithDists, $seqnName;
         $seqnName =~ /^(\S+)\s+/;
         my $seqName = $1;
-        push @seqNames, $seqName;
+        unless( $seqName eq $seqNames[ scalar( @alternative_seqNames ) ] ) {
+          warn( "seqName changed: was " . $seqNames[ scalar( @alternative_seqNames ) ] . "; is now " . $seqName );
+          $seqNames[ scalar( @alternative_seqNames ) ] = $seqName;
+        }
+        push @alternative_seqNames, $seqName;
       }
     }
   }
