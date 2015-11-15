@@ -40,8 +40,8 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     #cat( "grep( \"", paste( "^", fasta.file.prefix.short, sep = "" ), "\", grep( \"", paste( "(", fasta.file.suffix.pattern, ")$", sep = "" ), "\", dir(fasta.file.prefix.path) ) ): ", paste( fasta.files, collapse = ", " ), sep = "", fill = TRUE );
     ## TODO: REMOVE
     # warning( paste( "MATCHING suffix:", fasta.file.suffix.pattern, sep = "" ) );
-    #  warning( paste( "and MATCHING prefix:", fasta.file.prefix.short, sep = "" ) );
-    #  warning( fasta.files );
+    # warning( paste( "and MATCHING prefix:", fasta.file.prefix.short, sep = "" ) );
+    # warning( fasta.files );
     stopifnot( length( fasta.files ) > 1 );
 
     seq.lengths <- c();
@@ -120,15 +120,16 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     .weight.denom <- sum( .weight.num );
     seq.length <- sum( seq.lengths * ( .weight.num / .weight.denom ) );
     ## TODO: REMOVE
-    print( paste( "seq lengths:", paste( seq.lengths, collapse = ", " ), "\n" ) );
-    print( paste( "seq weights:", paste( ( .weight.num / .weight.denom ), collapse = ", " ), "\n" ) );
-    print( paste( "seq.length:", seq.length, "\n" ) );
+    print( paste( "seq lengths:", paste( seq.lengths, collapse = ", " ), "\\n" ) );
+    print( paste( "seq weights:", paste( ( .weight.num / .weight.denom ), collapse = ", " ), "\\n" ) );
+    print( paste( "seq.length:", seq.length, "\\n" ) );
     
     R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", seq.length, "' PFitter.R" );
     .rv <- system( R.cmd );
     
     if( run.DSPFitter ) {
         DSPFitter.outfile <- paste( output.dir, "/", fasta.file.prefix.short.nosuffix, "_DSPFitter.out", sep = "" );
+        #warning( paste( "DSPFitter.outfile:", DSPFitter.outfile ) );
         R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", seq.length, "' DSPFitter.R", DSPFitter.outfile );
         .rv <- system( R.cmd );
     }
@@ -156,7 +157,7 @@ if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper(
 # warning( paste( "run DSPFitter:", run.DSPFitter ) );
 
 if( !is.null( suffix.pattern ) ) {
-    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt" ), run.DSPFitter = run.DSPFitter );
+    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt", run.DSPFitter = run.DSPFitter ) );
 } else {
     print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter ) );
 }

@@ -448,44 +448,51 @@ sub identify_founders {
         $input_fasta_file_short_nosuffix;
     }
 
-    if( 1 ) {
-      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-      ## HACK: make sure there are no bangs in the input file (since sometimes there are, right now).
+    # Duplicate the input file, possibly modifying it.
+    my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
+    ## HACK: make sure there are no bangs in the input file (since sometimes there are, right now).
+    if( $input_fasta_file_contents =~ /\!/ ) {
+      if( $VERBOSE ) {
+        print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps, saving to output directory.\n" );
+        ## TODOL REMOVE
+        #print( $output_path_dir_for_input_fasta_file );
+      }
+      $input_fasta_file_contents =~ s/\!/-/g;
+    } else {
+      if( $VERBOSE ) {
+        print( "Copying input file \"$input_fasta_file\" to output directory.\n" );
+      }
+    }
+    # Now write it out to a temporary location in the output dir.
+    $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+    $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    if( $VERBOSE ) {
       if( $input_fasta_file_contents =~ /\!/ ) {
-        if( $VERBOSE ) {
-          print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps\n" );
-          ## TODOL REMOVE
-          print( $output_path_dir_for_input_fasta_file );
-        }
-        $input_fasta_file_contents =~ s/\!/-/g;
-
-        # Now write it out to a temporary location in the output dir.
-        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
-        if( $VERBOSE ) {
-          print( "Writing out fixed input file \"$input_fasta_file\".." );
-        }
-        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
-        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
-            warn "Unable to open output file \"$input_fasta_file\": $!\n";
-            return 1;
-          }
-        print input_fasta_fileFH $input_fasta_file_contents;
-        close( input_fasta_fileFH );
+        print( "Writing out fixed input file \"$input_fasta_file\".." );
+      } else {
+        print( "Writing out copy of input file to \"$input_fasta_file\".." );
       }
-      if( ( $input_fasta_file_contents =~ /RH\|/ ) && ( $input_fasta_file_contents =~ /LH\|/ ) ) {
-        ## SPECIAL CASE: If the input file contains left-half and right-half genomes, separate them into separate input files and do both.
-        if( $VERBOSE ) {
-          print( "Input file contains left- and right- halves of the genome; separating them.\n" );
-        }
-        my @new_input_fasta_files =
-          splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, , "NFLG\|", "LH\|", "RH\|" ); # NOTE THAT THE ORDER MATTERS.  RH last is assumed below.
-        if( $VERBOSE ) {
-          print( "Queueing the new files ( ", join( ", ", @new_input_fasta_files ), " ).\n" );
-        }
-        unshift @input_fasta_files, @new_input_fasta_files;
-        next; # That's all we do with the original input file.
+    }
+    if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
+    unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
+      warn "Unable to open output file \"$input_fasta_file\": $!\n";
+      return 1;
+    }
+    print input_fasta_fileFH $input_fasta_file_contents;
+    close( input_fasta_fileFH );
+    
+    if( ( $input_fasta_file_contents =~ /RH\|/ ) && ( $input_fasta_file_contents =~ /LH\|/ ) ) {
+      ## SPECIAL CASE: If the input file contains left-half and right-half genomes, separate them into separate input files and do both.
+      if( $VERBOSE ) {
+        print( "Input file contains left- and right- halves of the genome; separating them.\n" );
       }
+      my @new_input_fasta_files =
+        splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, , "NFLG\|", "LH\|", "RH\|" ); # NOTE THAT THE ORDER MATTERS.  RH last is assumed below.
+      if( $VERBOSE ) {
+        print( "Queueing the new files ( ", join( ", ", @new_input_fasta_files ), " ).\n" );
+      }
+      unshift @input_fasta_files, @new_input_fasta_files;
+      next; # That's all we do with the original input file.
     }
 
     print "\nInput Fasta file: $input_fasta_file_short\n";
@@ -783,7 +790,7 @@ sub identify_founders {
     print "Number of founders estimated by the Informative Sites method: $in_sites_cluster_call\n";
 
     if( $run_PFitter ) {
-      if( $num_clusters == 1 ) {
+      if( $in_sites_cluster_call == 1 ) {
         ## Avoid NA in the table output.  Multifounder results default to single-founder results.
         print OUTPUT_TABLE_FH "\t", $PFitter_lambda;
         print OUTPUT_TABLE_FH "\t", $PFitter_se;
@@ -861,8 +868,10 @@ sub identify_founders {
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
        my ( $multifounder_DS_PFitter_fitstext ) =
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$/m );
-       my $multifounder_DS_PFitter_fits =
-          ( ( $multifounder_DS_PFitter_fitstext =~ /^FITS.+$/m ) ? "1" : "0" );
+       my $multifounder_DS_PFitter_fits = "0";
+       if( $multifounder_DS_PFitter_fitstext =~ /^FITS.+$/m ) {
+         $multifounder_DS_PFitter_fits = "1";
+       }
        my ( $multifounder_DS_PFitter_assertion_low, $multifounder_DS_PFitter_assertion_high, $multifounder_DS_PFitter_R ) =
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
 
@@ -872,7 +881,7 @@ sub identify_founders {
         # } else {
         #   print "Non-Star-Like Phylogenies within clusters";
        # }
-        print "Multi-Founder Poisson Fit: ";
+        print "Multi-Founder PoissonFitter Poisson Fit: ";
         if( $multifounder_is_poisson ) {
           print "OK\n";
         } else {
@@ -880,7 +889,7 @@ sub identify_founders {
         }
         print "Multi-Founder DS Poisson Fit: $multifounder_DS_PFitter_fitstext (R=$multifounder_DS_PFitter_R).\n";
         print "Multi-Founder Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multifounder_DS_PFitter_distance_mean ($multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high)\n";
-        print "Multi-Founder PFitter Poisson time estimate (95\% CI): $multifounder_PFitter_time_est ($multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high)\n";
+        print "Multi-Founder PoissonFitter Poisson time estimate (95\% CI): $multifounder_PFitter_time_est ($multifounder_PFitter_time_ci_low, $multifounder_PFitter_time_ci_high)\n";
         print "Multi-Founder DS Poisson time estimate (95\% CI): $multifounder_DS_PFitter_days_est ($multifounder_DS_PFitter_days_ci_low, $multifounder_DS_PFitter_days_ci_high)\n";
         print "Multi-Founder Bayesian Poisson time estimate (95\% CI): $multifounder_Bayesian_PFitter_days_est ($multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high)\n";
         #print "\n$multifounder_PFitter_fitter_stats_raw\n";
@@ -1040,9 +1049,9 @@ sub identify_founders {
           print "\nInput fasta file: ${input_fasta_file_very_short}${input_fasta_file_suffix}\n";
           print "Multi-Region Poisson Fit: ";
           if( $multi_region_is_poisson ) {
-            print "OK";
+            print "OK\n";
           } else {
-            print "BAD (p = $multi_region_PFitter_chi_sq_p_value)";
+            print "BAD (p = $multi_region_PFitter_chi_sq_p_value)\n";
           }
         print "Multi-Region DS Poisson Fit: $multi_region_DS_PFitter_fitstext (R=$multi_region_DS_PFitter_R).\n";
         print "Multi-Region Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multi_region_DS_PFitter_distance_mean ($multi_region_DS_PFitter_distance_ci_low, $multi_region_DS_PFitter_distance_ci_high)\n";
