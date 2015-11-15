@@ -5,7 +5,7 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt" ) {
+runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\.cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file.prefix ) ) == 0 ) {
         fasta.file.prefix.path <- ".";
@@ -120,7 +120,14 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     print( paste( "seq.length:", seq.length, "\n" ) );
     
     R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", seq.length, "' PFitter.R" );
-    return( system( R.cmd ) );
+    .rv <- system( R.cmd );
+    
+    if( run.DSPFitter ) {
+        DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
+        .rv <- system( R.cmd );
+    }
+    return( .rv );
 } # runMultiFounderPoissonFitter ( fasta.file.prefix, output.dir )
 
 ## Here is where the action is.
@@ -130,16 +137,24 @@ suffix.pattern <- Sys.getenv( "runMultiFounderPoissonFitter_suffixPattern" );
 if( suffix.pattern == "" ) {
     suffix.pattern <- NULL;
 }
+run.DSPFitter <- Sys.getenv( "runMultiFounderPoissonFitter_runDSPFitter" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
+if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper( run.DSPFitter ) == "FALSE" ) || ( run.DSPFitter == "0" ) ) {
+    run.DSPFitter = FALSE;
+} else {
+    run.DSPFitter = TRUE;
+}
+
 ## TODO: REMOVE
 #  warning( paste( "alignment input file prefix:", fasta.file.prefix ) );
 #  warning( paste( "output dir:", output.dir ) );
 #  warning( paste( "suffix.pattern", suffix.pattern ) );
+# warning( paste( "run DSPFitter:", run.DSPFitter ) );
 
 if( !is.null( suffix.pattern ) ) {
-    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt" ) );
+    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt" ), run.DSPFitter = run.DSPFitter );
 } else {
     if( file.exists( fasta.file.prefix ) ) {
-        print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir ) );
+        print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter ) );
     } else {
         stop( paste( "File does not exist:", fasta.file ) );
     }

@@ -3,7 +3,7 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE ) {
+runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
@@ -86,18 +86,32 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     write.table( pairwise.distances.as.matrix.flat, file = pairwise.distances.as.matrix.file, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE );
 
     R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
-    return( system( R.cmd ) );
+    .rv <- system( R.cmd );
+
+    if( run.DSPFitter ) {
+        DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
+        .rv <- system( R.cmd );
+    }
+    return( .rv );
 } # runPoissonFitter ( fasta.file, output.dir )
 
 ## Here is where the action is.
 fasta.file <- Sys.getenv( "runPoissonFitter_inputFilename" ); # alignment
 output.dir <- Sys.getenv( "runPoissonFitter_outputDir" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
+run.DSPFitter <- Sys.getenv( "runPoissonFitter_runDSPFitter" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
+if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper( run.DSPFitter ) == "FALSE" ) || ( run.DSPFitter == "0" ) ) {
+    run.DSPFitter = FALSE;
+} else {
+    run.DSPFitter = TRUE;
+}
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
+# warning( paste( "run DSPFitter:", run.DSPFitter ) );
 
 if( file.exists( fasta.file ) ) {
-    print( runPoissonFitter( fasta.file, output.dir ) );
+    print( runPoissonFitter( fasta.file, output.dir, run.DSPFitter = run.DSPFitter ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }

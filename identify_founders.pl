@@ -226,6 +226,9 @@ sub identify_founders {
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
 
+  ## TODO: make into an arg
+  my $run_DSPFitter = 1;
+  
   ## TODO: DEHACKIFY MAGIC #s
   my $mean_diversity_threshold = 0.001;
   my $in_sites_ratio_threshold = 0.85; # For Abrahams and RV217
@@ -322,18 +325,37 @@ sub identify_founders {
   if( $run_PFitter ) {
     push @table_column_headers,
     (
-     "poisson.lambda",
-     "poisson.se",
-     "poisson.nseq",
-     "poisson.nbases",
-     "poisson.mean.hd",
-     "poisson.max.hd",
-     "poisson.time.est.and.ci",
-     "poisson.chi.sq.stat",
-     "poisson.chi.sq.df",
-     "poisson.chi.sq.p.value",
+     "PFitter.lambda",
+     "PFitter.se",
+     "PFitter.nseq",
+     "PFitter.nbases",
+     "PFitter.mean.hd",
+     "PFitter.max.hd",
+     "PFitter.time.est.and.ci",
+     "PFitter.chi.sq.stat",
+     "PFitter.chi.sq.df",
+     "PFitter.chi.sq.p.value",
      "is.poisson",
-     "is.starlike"
+     "is.starlike",
+     "Bayesian.PFitter.lambda.est",
+     "Bayesian.PFitter.lambda.ci.low",
+     "Bayesian.PFitter.lambda.ci.high",
+     "Bayesian.PFitter.days.est",
+     "Bayesian.PFitter.days.ci.low",
+     "Bayesian.PFitter.days.ci.high",
+     "DS.PFitter.lambda.est",
+     "DS.PFitter.lambda.ci.low",
+     "DS.PFitter.lambda.ci.high",
+     "DS.PFitter.days.est",
+     "DS.PFitter.days.ci.low",
+     "DS.PFitter.days.ci.high",
+     "DS.PFitter.distance.est",
+     "DS.PFitter.distance.ci.low",
+     "DS.PFitter.distance.ci.high",
+     "DS.PFitter.assertion.low",
+     "DS.PFitter.assertion.high",
+     "DS.PFitter.fits",
+     "DS.PFitter.R"                     
     );
   } # End if $run_PFitter
 
@@ -342,42 +364,43 @@ sub identify_founders {
   if( $run_PFitter ) {
     push @table_column_headers,
     (
-     "multifounder.poisson.lambda",
-     "multifounder.poisson.se",
-     "multifounder.poisson.nseq",
-     "multifounder.poisson.nbases",
-     "multifounder.poisson.mean.hd",
-     "multifounder.poisson.max.hd",
-     "multifounder.poisson.time.est.and.ci",
-     "multifounder.poisson.chi.sq.stat",
-     "multifounder.poisson.chi.sq.df",
-     "multifounder.poisson.chi.sq.p.value",
-     "multifounder.is.poisson"#,
-#     "multifounder.is.starlike"
+     "multifounder.PFitter.lambda",
+     "multifounder.PFitter.se",
+     "multifounder.PFitter.nseq",
+     "multifounder.PFitter.nbases",
+     "multifounder.PFitter.mean.hd",
+     "multifounder.PFitter.max.hd",
+     "multifounder.PFitter.time.est.and.ci",
+     "multifounder.PFitter.chi.sq.stat",
+     "multifounder.PFitter.chi.sq.df",
+     "multifounder.PFitter.chi.sq.p.value",
+     "multifounder.is.poisson",
+#     "multifounder.is.starlike",
+     "multifounder.Bayesian.PFitter.lambda.est",
+     "multifounder.Bayesian.PFitter.lambda.ci.low",
+     "multifounder.Bayesian.PFitter.lambda.ci.high",
+     "multifounder.Bayesian.PFitter.days.est",
+     "multifounder.Bayesian.PFitter.days.ci.low",
+     "multifounder.Bayesian.PFitter.days.ci.high",
+     "multifounder.DS.PFitter.lambda.est",
+     "multifounder.DS.PFitter.lambda.ci.low",
+     "multifounder.DS.PFitter.lambda.ci.high",
+     "multifounder.DS.PFitter.days.est",
+     "multifounder.DS.PFitter.days.ci.low",
+     "multifounder.DS.PFitter.days.ci.high",
+     "multifounder.DS.PFitter.distance.est",
+     "multifounder.DS.PFitter.distance.ci.low",
+     "multifounder.DS.PFitter.distance.ci.high",
+     "multifounder.DS.PFitter.assertion.low",
+     "multifounder.DS.PFitter.assertion.high",
+     "multifounder.DS.PFitter.fits",
+     "multifounder.DS.PFitter.R"                     
     );
   } # End if $run_PFitter
 
   if( $run_profillic ) {
-    push @table_column_headers, "profillic_clusters";
+    push @table_column_headers, "profillic.clusters";
   } # End if $run_profillic
-
-  if( $run_PFitter ) {
-    push @table_column_headers,
-    (
-     "multiregion.poisson.lambda",
-     "multiregion.poisson.se",
-     "multiregion.poisson.nseq",
-     "multiregion.poisson.nbases",
-     "multiregion.poisson.mean.hd",
-     "multiregion.poisson.max.hd",
-     "multiregion.poisson.time.est.and.ci",
-     "multiregion.poisson.chi.sq.stat",
-     "multiregion.poisson.chi.sq.df",
-     "multiregion.poisson.chi.sq.p.value",
-     "multiregion.is.poisson"#,
-#     "multiregion.is.starlike"
-    );
-  } # End if $run_PFitter
 
   my $table_header = join( "\t", @table_column_headers );
   print OUTPUT_TABLE_FH $table_header, "\n";
@@ -556,6 +579,7 @@ sub identify_founders {
     }
     `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
 
     # Run phyML, get stats
     `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
@@ -568,7 +592,7 @@ sub identify_founders {
     }
     print "Number of sequences: $num_seqs\n";
     print "Mean pairwise diversity: $mean_diversity\n";
-    print "Informative sites to private sites ratio: $in_sites_ratio"; # Newline is already on there
+    print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
 
     print OUTPUT_TABLE_FH "\t", $num_seqs;
     print OUTPUT_TABLE_FH "\t", $mean_diversity;
@@ -602,17 +626,27 @@ sub identify_founders {
 
     if( $morgane_calls_one_cluster ) {
       print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: 1\n";
-      print "Number of founders estimated by clustering informative sites: 1\n";
+      print "Number of founders estimated by the Informative Sites method: 1\n";
       $pauls_cluster_call = 1; # go with Morgane's call if it is 1.
     } else {
       print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: greater than 1\n";
     }
 
     ## Now run PoissonFitter.
-    my ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value ) = 0;
-    my $poisson_time_est_and_ci = "0 (0, 0)";
+    my ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value ) = 0;
+    my $PFitter_time_est_and_ci = "0 (0, 0)";
     my $is_poisson = 1;
     my $is_starlike = 1;
+    my ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) = 0;
+    my ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) = 0;
+    my ( $DS_PFitter_lambda_est, $DS_PFitter_lambda_ci_low, $DS_PFitter_lambda_ci_high ) = 0;
+    my ( $DS_PFitter_days_est, $DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high ) = 0;
+    my ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) = 0;
+    my $DS_PFitter_fitstext = "FITS (default)";
+    my $DS_PFitter_fits = 1;
+    my $DS_PFitter_assertion_low = 1.5;
+    my $DS_PFitter_assertion_high = 2.5;
+    my $DS_PFitter_R = "1.0";;
     if( $run_PFitter ) {
       if( $mean_diversity == 0 ) {
         if( $VERBOSE ) {
@@ -625,16 +659,18 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( "\tdone.\n" );
         }
-        my $poisson_fitter_stats_raw =
+        ## TODO: REMOVE
+        # print "GOT: $R_output\n";
+        my $PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        ( $poisson_lambda, $poisson_se, $poisson_nseq, $poisson_nbases, $poisson_mean_hd, $poisson_max_hd, $poisson_time_est_and_ci, $poisson_chi_sq_stat, $poisson_chi_sq_df, $poisson_chi_sq_p_value  ) =
+        ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_time_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
           (
-           $poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-        $is_poisson = defined( $poisson_chi_sq_p_value ) && ( $poisson_chi_sq_p_value > 0.05 );
+           $PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+        $is_poisson = defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 );
         my $starlike_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
@@ -643,6 +679,27 @@ sub identify_founders {
         }
         my ( $starlike_text ) = ( $starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
         $is_starlike = ( $starlike_text eq "FOLLOWS" );
+
+        # DS results
+        my $DSPFitter_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/${input_fasta_file_short_nosuffix}_DSPFitter.out`;
+        ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
+          ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
+          ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        ( $DS_PFitter_lambda_est, $DS_PFitter_lambda_ci_low, $DS_PFitter_lambda_ci_high ) =
+          ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        ( $DS_PFitter_days_est, $DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high ) =
+          ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) =
+          ( $DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+        ( $DS_PFitter_fitstext ) =
+          ( $DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$/m );
+        $DS_PFitter_fits =
+          ( ( $DS_PFitter_fitstext =~ /^FITS.+$/m ) ? "1" : "0" );
+        ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
+          ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+
         print "PoissonFitter Determination: ";
         if( $is_starlike ) {
           print "Star-Like Phylogeny";
@@ -651,25 +708,48 @@ sub identify_founders {
         }
         print "\nPoisson Fit: ";
         if( $is_poisson ) {
-          print "OK";
+          print "OK\n";
         } else {
-          print "BAD (p = $poisson_chi_sq_p_value)";
+          print "BAD (p = $PFitter_chi_sq_p_value)\n";
         }
-        print "\nPoisson time estimate (95\% CI): $poisson_time_est_and_ci\n";
-        #print "\n$poisson_fitter_stats_raw\n";
+        print "DS Poisson Fit: $DS_PFitter_fitstext (R=$DS_PFitter_R).\n";
+        print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_distance_mean ($DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high)\n";
+        print "PFitter Poisson time estimate (95\% CI): $PFitter_time_est_and_ci\n";
+        #print "\n$PFitter_fitter_stats_raw\n";
+        print "DS Poisson time estimate (95\% CI): $DS_PFitter_days_est ($DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high)\n";
+        print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_days_est ($Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high)\n";
       } # End if( $mean_diversity > 0 );
-        print OUTPUT_TABLE_FH "\t", $poisson_lambda;
-        print OUTPUT_TABLE_FH "\t", $poisson_se;
-        print OUTPUT_TABLE_FH "\t", $poisson_nseq;
-        print OUTPUT_TABLE_FH "\t", $poisson_nbases;
-        print OUTPUT_TABLE_FH "\t", $poisson_mean_hd;
-        print OUTPUT_TABLE_FH "\t", $poisson_max_hd;
-        print OUTPUT_TABLE_FH "\t", $poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_p_value;
-        print OUTPUT_TABLE_FH "\t", $is_poisson;
-        print OUTPUT_TABLE_FH "\t", $is_starlike;
+      print OUTPUT_TABLE_FH "\t", $PFitter_lambda;
+      print OUTPUT_TABLE_FH "\t", $PFitter_se;
+      print OUTPUT_TABLE_FH "\t", $PFitter_nseq;
+      print OUTPUT_TABLE_FH "\t", $PFitter_nbases;
+      print OUTPUT_TABLE_FH "\t", $PFitter_mean_hd;
+      print OUTPUT_TABLE_FH "\t", $PFitter_max_hd;
+      print OUTPUT_TABLE_FH "\t", $PFitter_time_est_and_ci;
+      print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
+      print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_df;
+      print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_p_value;
+      print OUTPUT_TABLE_FH "\t", $is_poisson;
+      print OUTPUT_TABLE_FH "\t", $is_starlike;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_est;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_low;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_high;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_est;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_ci_low;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_est;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_est;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_mean;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_assertion_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_assertion_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_fits;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_R;
     } # End if( $run_PFitter )
 
     my $tmp_extra_flags = $extra_flags;
@@ -684,7 +764,7 @@ sub identify_founders {
     # Print out the number of clusters
     print "Number of clusters found when clustering informative sites: $num_clusters\n";
     if( !$morgane_calls_one_cluster ) {
-      print "Number of founders estimated by clustering informative sites: $num_clusters\n";
+      print "Number of founders estimated by the Informative Sites method: $num_clusters\n";
       $pauls_cluster_call = $num_clusters;
     }
 
@@ -693,74 +773,134 @@ sub identify_founders {
     if( $run_PFitter ) {
       if( $num_clusters == 1 ) {
         ## Avoid NA in the table output.  Multifounder results default to single-founder results.
-        print OUTPUT_TABLE_FH "\t", $poisson_lambda;
-        print OUTPUT_TABLE_FH "\t", $poisson_se;
-        print OUTPUT_TABLE_FH "\t", $poisson_nseq;
-        print OUTPUT_TABLE_FH "\t", $poisson_nbases;
-        print OUTPUT_TABLE_FH "\t", $poisson_mean_hd;
-        print OUTPUT_TABLE_FH "\t", $poisson_max_hd;
-        print OUTPUT_TABLE_FH "\t", $poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH "\t", $poisson_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $PFitter_lambda;
+        print OUTPUT_TABLE_FH "\t", $PFitter_se;
+        print OUTPUT_TABLE_FH "\t", $PFitter_nseq;
+        print OUTPUT_TABLE_FH "\t", $PFitter_nbases;
+        print OUTPUT_TABLE_FH "\t", $PFitter_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $PFitter_max_hd;
+        print OUTPUT_TABLE_FH "\t", $PFitter_time_est_and_ci;
+        print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_p_value;
         print OUTPUT_TABLE_FH "\t", $is_poisson;
 #        print OUTPUT_TABLE_FH "\t", $is_starlike;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_est;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_est;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_mean;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_distance_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_assertion_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_assertion_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_fits;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_R;
       } else {
-       stopifnot( $num_clusters > 1 );
+       die unless( $num_clusters > 1 );
         ## Now run PoissonFitter on the clusters.
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="$input_fasta_file"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="$input_fasta_file"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( "\tdone.\n" );
         }
-        my $multi_founder_poisson_fitter_stats_raw =
+        my $multifounder_PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-        my ( $multi_founder_poisson_lambda, $multi_founder_poisson_se, $multi_founder_poisson_nseq, $multi_founder_poisson_nbases, $multi_founder_poisson_mean_hd, $multi_founder_poisson_max_hd, $multi_founder_poisson_time_est_and_ci, $multi_founder_poisson_chi_sq_stat, $multi_founder_poisson_chi_sq_df, $multi_founder_poisson_chi_sq_p_value  ) =
+        my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_time_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
           (
-           $multi_founder_poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+\t([^\t]+))\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-        my $multi_founder_is_poisson = defined( $multi_founder_poisson_chi_sq_p_value ) && ( $multi_founder_poisson_chi_sq_p_value > 0.05 );
+           $multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+        my $multifounder_is_poisson = defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 );
         ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
-        # my $multi_founder_starlike_raw =
+        # my $multifounder_starlike_raw =
         #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
         # if( $DEBUG ) {
         #   ## TODO: REMOVE
-        #   #print "MULTI-FOUNDER PoissonFitter RAW: $multi_founder_starlike_raw\n";
+        #   #print "MULTI-FOUNDER PoissonFitter RAW: $multifounder_starlike_raw\n";
         # }
-        # my ( $multi_founder_starlike_text ) = ( $multi_founder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-        # my $multi_founder_is_starlike = ( $multi_founder_starlike_text eq "FOLLOWS" );
+        # my ( $multifounder_starlike_text ) = ( $multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+        # my $multifounder_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
+
+        # DS results
+        my $multifounder_DSPFitter_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${input_fasta_file_short_nosuffix}_DSPFitter.out`;
+        ( $multifounder_Bayesian_PFitter_lambda_est, $multifounder_Bayesian_PFitter_lambda_ci_low, $multifounder_Bayesian_PFitter_lambda_ci_high ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        ( $multifounder_Bayesian_PFitter_days_est, $multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        ( $multifounder_DS_PFitter_lambda_est, $multifounder_DS_PFitter_lambda_ci_low, $multifounder_DS_PFitter_lambda_ci_high ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        ( $multifounder_DS_PFitter_days_est, $multifounder_DS_PFitter_days_ci_low, $multifounder_DS_PFitter_days_ci_high ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        ( $multifounder_DS_PFitter_distance_mean, $multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+        ( $multifounder_DS_PFitter_fitstext ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$multifounder_/m );
+        $multifounder_DS_PFitter_fits =
+          ( ( $multifounder_DS_PFitter_fitstext =~ /^FITS.+$multifounder_/m ) ? "1" : "0" );
+        ( $multifounder_DS_PFitter_assertion_low, $multifounder_DS_PFitter_assertion_high, $multifounder_DS_PFitter_R ) =
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+
+       
         # print "Multi-Founder PoissonFitter Determination: ";
-        # if( $multi_founder_is_starlike ) {
+        # if( $multifounder_is_starlike ) {
         #   print "Star-Like Phylogenies within clusters";
         # } else {
         #   print "Non-Star-Like Phylogenies within clusters";
-        # }
+       # }
         print "Multi-Founder Poisson Fit: ";
-        if( $multi_founder_is_poisson ) {
+        if( $multifounder_is_poisson ) {
           print "OK";
         } else {
-          print "BAD (p = $multi_founder_poisson_chi_sq_p_value)";
+          print "BAD (p = $multifounder_PFitter_chi_sq_p_value)";
         }
-        print "\nMulti-Founder Poisson time estimate (95\% CI): $multi_founder_poisson_time_est_and_ci\n";
-        #print "\n$multi_founder_poisson_fitter_stats_raw\n";
+        print "\nMulti-Founder PFitter Poisson time estimate (95\% CI): $multifounder_PFitter_time_est_and_ci\n";
+        #print "\n$multifounder_PFitter_fitter_stats_raw\n";
       
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_lambda;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_se;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_nseq;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_nbases;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_mean_hd;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_max_hd;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_time_est_and_ci;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_stat;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_df;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_poisson_chi_sq_p_value;
-        print OUTPUT_TABLE_FH "\t", $multi_founder_is_poisson;
-#        print OUTPUT_TABLE_FH "\t", $multi_founder_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_lambda;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_se;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_nseq;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_nbases;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_max_hd;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_time_est_and_ci;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $multifounder_is_poisson;
+#        print OUTPUT_TABLE_FH "\t", $multifounder_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_days_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_days_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_distance_mean;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_distance_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_distance_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_assertion_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_assertion_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_fits;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_R;
       } # End if $num_clusters > 1
     } # End if $run_PFitter
 
-    ## Now try it the more profillic way.
+    ## Now try it the more profillic way.  This is a hybrid approach that makes profiles only of the informative sites.
     if( $run_profillic ) {
       if( $force_one_cluster ) {
         # Avoid NA in the table output.  Just print that the estimated number of founders is 1.  Which it is.
@@ -781,14 +921,16 @@ sub identify_founders {
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
         if( $morgane_calls_one_cluster ) {
-          print "Number of founders estimated by clustering profillic alignment profiles: 1\n";
+          print "Number of founders estimated by the Informative Sites Profillic method: 1\n";
         } else {
-          print "Number of founders estimated by clustering profillic alignment profiles: $num_profillic_clusters\n";
+          print "Number of founders estimated by the Informative Sites Profillic method: $num_profillic_clusters\n";
         }
         print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
       }
     } # End if $run_profillic
 
+    print OUTPUT_TABLE_FH "\n";
+    
     # If this is a half-genome dataset, should we call
     # runMultiFounderPoissonFitter to put together the two datasets
     # for better Poisson estimation?
@@ -828,12 +970,12 @@ sub identify_founders {
           if( $VERBOSE ) {
             print( "\tdone.\n" );
           }
-          my $multi_region_poisson_fitter_stats_raw =
+          my $multi_region_PFitter_fitter_stats_raw =
             `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
-          my ( $multi_region_poisson_lambda, $multi_region_poisson_se, $multi_region_poisson_nseq, $multi_region_poisson_nbases, $multi_region_poisson_mean_hd, $multi_region_poisson_max_hd, $multi_region_poisson_time_est_and_ci, $multi_region_poisson_chi_sq_stat, $multi_region_poisson_chi_sq_df, $multi_region_poisson_chi_sq_p_value  ) =
+          my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_time_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
             (
-             $multi_region_poisson_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+\t([^\t]+))\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
-          my $multi_region_is_poisson = defined( $multi_region_poisson_chi_sq_p_value ) && ( $multi_region_poisson_chi_sq_p_value > 0.05 );
+             $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+          my $multi_region_is_poisson = defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 );
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
           #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
@@ -854,23 +996,69 @@ sub identify_founders {
           if( $multi_region_is_poisson ) {
             print "OK";
           } else {
-            print "BAD (p = $multi_region_poisson_chi_sq_p_value)";
+            print "BAD (p = $multi_region_PFitter_chi_sq_p_value)";
           }
-          print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_poisson_time_est_and_ci\n";
-          #print "\n$multi_region_poisson_fitter_stats_raw\n";
+          print "\nMulti-Region Poisson time estimate (95\% CI): $multi_region_PFitter_time_est_and_ci\n";
+          #print "\n$multi_region_PFitter_fitter_stats_raw\n";
           
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_lambda;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_se;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_nseq;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_nbases;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_mean_hd;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_max_hd;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_time_est_and_ci;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_stat;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_df;
-          print OUTPUT_TABLE_FH "\t", $multi_region_poisson_chi_sq_p_value;
+          print OUTPUT_TABLE_FH "${input_fasta_file_very_short}${input_fasta_file_suffix}";
+          print OUTPUT_TABLE_FH "\t", "NA"; # fixed-hypermut or removed-hypermut
+          print OUTPUT_TABLE_FH "\t", "NA"; # removed-recomb
+          print OUTPUT_TABLE_FH "\t", "NA"; # file
+          print OUTPUT_TABLE_FH "\t", "NA"; # num.seqs
+          print OUTPUT_TABLE_FH "\t", "NA"; # diversity
+          print OUTPUT_TABLE_FH "\t", "NA"; # inf.to.priv.ratio
+          print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.diversity.threshold
+          print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.ratio.threshold
+          print OUTPUT_TABLE_FH "\t", "NA"; # is.one.founder
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_lambda;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_se;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nseq;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nbases;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_mean_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_max_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_time_est_and_ci;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_stat;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_df;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_p_value;
           print OUTPUT_TABLE_FH "\t", $multi_region_is_poisson;
 #          print OUTPUT_TABLE_FH "\t", $multi_region_is_starlike;
+          print OUTPUT_TABLE_FH "\t", "NA"; # is.starlike
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.lambda.est
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.lambda.ci.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.lambda.ci.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.days.est
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.days.ci.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # Bayesian.PFitter.days.ci.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.lambda.est
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.lambda.ci.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.lambda.ci.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.days.est
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.days.ci.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.days.ci.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.distance.est
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.distance.ci.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.distance.ci.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.assertion.low
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.assertion.high
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.fits
+          print OUTPUT_TABLE_FH "\t", "NA"; # DS.PFitter.R
+          print OUTPUT_TABLE_FH "\t", "NA"; # cluster.call
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.lambda
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.se
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.nseq
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.nbases
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.mean.hd
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.max.hd
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.time.est.and.ci
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.stat
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.df
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.p.value
+          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.is.poisson
+          if( $run_profillic ) {
+            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
+          } # End if $run_profillic
+          print OUTPUT_TABLE_FH "\n";
         } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
       } else {  # if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
         if( $input_fasta_file_short =~ /_LH/ ) {
@@ -885,24 +1073,9 @@ sub identify_founders {
           }
         }
       } # End if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
-      if( !$did_it ) {
-        ## Avoid NA in the table output.
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_lambda
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_se
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_nseq
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_nbases
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_mean_hd
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_max_hd
-        print OUTPUT_TABLE_FH "\t", "0 (0, 0)"; # $poisson_time_est_and_ci
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_stat
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_df
-        print OUTPUT_TABLE_FH "\t", 0; # $poisson_chi_sq_p_value
-        print OUTPUT_TABLE_FH "\t", 1; # $is_poisson
-#        print OUTPUT_TABLE_FH "\t", 1; # $is_starlike
-      }
+
     } # End if $run_PFitter
 
-    print OUTPUT_TABLE_FH "\n";
   } # End foreach $input_fasta_file
   if( $VERBOSE ) { print ".done.\n"; }
 
