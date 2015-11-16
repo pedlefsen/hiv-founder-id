@@ -1016,7 +1016,7 @@ sub identify_founders {
     # If this is a half-genome dataset, should we call
     # runMultiFounderPoissonFitter to put together the two datasets
     # for better Poisson estimation?
-    if( $run_PFitter ) {
+    if( 1 || $run_PFitter ) {
       my $did_it = 0;
       if( $input_fasta_file_short =~ /_RH/ ) {
         my $nflg_version = $input_fasta_file;
@@ -1043,10 +1043,61 @@ sub identify_founders {
             print "[Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "]..";
           }
           
-          my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
+          ## BUT WAIT.  If there are clusters, gather the cluster files instead.
+          my @files_for_regions = @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
+          ## TODO: ONLY DO THIS IF THE (respective) INFORMATIVE_SITES CALL WAS > 1 [for consistent behavior when using -s flag]
+          ## For each one, see if there are cluster files.
+          opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
+          my @all_files = readdir( OUTPUT_DIR );
+          closedir OUTPUT_DIR;
+          ## TODO: REMOVE
+          #print "\nALL: ", join( ", ", @all_files ), "\n";
+              sub foo {
+                my $fileprefix = shift;
+                my $file_name = shift;
+                my $inwithcluster = "^" . $fileprefix . "_cluster\\d+\\.fasta\$";
+                #print "\$inwithcluster is $inwithcluster\n";
+                my $isamatch = ( $file_name =~ m/$inwithcluster/ );
+                if( $isamatch ) {
+                  #print "MATCH: $file_name\n";
+                } else {
+                  #print "MISMATCH: $file_name\n";
+                }
+                return( $isamatch );
+              } # End sub foo
+              sub baz {
+                my $fn = shift;
+                my ( $rv ) = ( $fn =~ /^(.+)\.fasta$/ );
+                #print "stripped: $rv\n";
+                return( $rv );
+              }
+          sub bar {
+            my $fileprefix = shift;
+            #print $fileprefix, "\n";
+            if( ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster0.fasta" ) || ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster1.fasta" ) ) {
+              #print "YES\n";
+              my @cluster_files = grep { foo( $fileprefix, $_ ) } @all_files;
+              # Strip off the .fasta suffix.
+              #print "ok\n";
+              my @stripped_cluster_files = map { baz($_) } @cluster_files;
+              #print "still\n";
+              #print( "\@stripped_cluster_files: ( " . join( ", ", @stripped_cluster_files ) . " )\n" );
+              return( @stripped_cluster_files );
+            } else {
+              #print "NO\n";
+              my @lst;
+              push @lst, $fileprefix;
+              return( @lst );
+            }
+          } # End sub bar
+          my @new_files_for_regions;
+          map { my @lst = bar($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
+          ## TODO: REMOVE
+          #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
+          my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
-          # print "\$suffix_pattern: $suffix_pattern\n";
+          #print "\$suffix_pattern: $suffix_pattern\n";
           $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           # print $R_output;
           if( $VERBOSE ) {
