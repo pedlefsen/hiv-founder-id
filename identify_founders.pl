@@ -1003,7 +1003,7 @@ sub identify_founders {
           print "Clustering..\n";
         }
         $R_output = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
-        my ( $num_profillic_clusters ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
+        my ( $num_profillic_clusters ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
         if( $morgane_calls_one_cluster ) {
