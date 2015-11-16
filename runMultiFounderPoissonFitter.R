@@ -41,7 +41,7 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     ## TODO: REMOVE
     # warning( paste( "MATCHING suffix:", fasta.file.suffix.pattern, sep = "" ) );
     # warning( paste( "and MATCHING prefix:", fasta.file.prefix.short, sep = "" ) );
-    # warning( fasta.files );
+    #warning( fasta.files );
     stopifnot( length( fasta.files ) > 1 );
 
     seq.lengths <- c();
