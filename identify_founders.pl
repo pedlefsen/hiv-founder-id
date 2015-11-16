@@ -1114,7 +1114,7 @@ sub identify_founders {
              $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
          my ( $multi_region_PFitter_days_est, $multi_region_PFitter_days_ci_low, $multi_region_PFitter_days_ci_high ) =
            ( $multi_region_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
-          my $multi_region_is_poisson = defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 );
+          my $multi_region_is_poisson = ( defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
           #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
