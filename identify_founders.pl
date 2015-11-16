@@ -405,12 +405,12 @@ sub identify_founders {
     );
   } # End if $run_PFitter
 
-  push @table_column_headers, "cluster.call";
-  
   if( $run_profillic ) {
-    push @table_column_headers, "profillic.clusters";
+    push @table_column_headers, "profillic.clusters", "profillic.founder.call";
   } # End if $run_profillic
 
+  push @table_column_headers, "founder.call";
+  
   my $table_header = join( "\t", @table_column_headers );
   print OUTPUT_TABLE_FH $table_header, "\n";
 
@@ -984,8 +984,6 @@ sub identify_founders {
       } # End if $num_clusters > 1
     } # End if $run_PFitter
 
-    print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
-
     ## Now try it the more profillic way.  This is a hybrid approach that makes profiles only of the informative sites.
     if( $run_profillic ) {
       if( $force_one_cluster ) {
@@ -1006,15 +1004,18 @@ sub identify_founders {
         my ( $num_profillic_clusters ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
+        print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
         if( $morgane_calls_one_cluster ) {
           print "Number of founders estimated by the Informative Sites Profillic method: 1\n";
+          print OUTPUT_TABLE_FH "\t", 1;
         } else {
           print "Number of founders estimated by the Informative Sites Profillic method: $num_profillic_clusters\n";
+          print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
         }
-        print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
       }
     } # End if $run_profillic
 
+    print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
     print OUTPUT_TABLE_FH "\n";
     
     # If this is a half-genome dataset, should we call
