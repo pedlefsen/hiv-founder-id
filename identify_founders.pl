@@ -703,7 +703,7 @@ sub identify_founders {
     my $DS_PFitter_distance_mean = 0;
     my $DS_PFitter_distance_ci_low = 0;
     my $DS_PFitter_distance_ci_high = 0;
-    my $DS_PFitter_fitstext = "FITS (for very acute infection).";
+    my $DS_PFitter_fitstext = "OK";
     my $DS_PFitter_fits = 1;
     my $DS_PFitter_assertion_low = 1.5;
     my $DS_PFitter_assertion_high = 2.5;
@@ -766,9 +766,9 @@ sub identify_founders {
         ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) =
           ( $DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
         ( $DS_PFitter_fitstext ) =
-          ( $DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$/m );
+          ( $DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
         $DS_PFitter_fits =
-          ( ( $DS_PFitter_fitstext =~ /^FITS.+$/m ) ? "1" : "0" );
+          ( ( $DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
         ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
           ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
 
@@ -921,9 +921,9 @@ sub identify_founders {
        my ( $multifounder_DS_PFitter_distance_mean, $multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high ) =
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
        my ( $multifounder_DS_PFitter_fitstext ) =
-          ( $multifounder_DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$/m );
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
        my $multifounder_DS_PFitter_fits = "0";
-       if( $multifounder_DS_PFitter_fitstext =~ /^FITS.+$/m ) {
+       if( $multifounder_DS_PFitter_fitstext =~ /^OK$/ ) {
          $multifounder_DS_PFitter_fits = "1";
        }
        my ( $multifounder_DS_PFitter_assertion_low, $multifounder_DS_PFitter_assertion_high, $multifounder_DS_PFitter_R ) =
@@ -1057,7 +1057,8 @@ sub identify_founders {
           closedir OUTPUT_DIR;
           ## TODO: REMOVE
           #print "\nALL: ", join( ", ", @all_files ), "\n";
-              sub foo {
+          ## These are anonymous functions because in Perl the rules for scope differ for anonymous functions.  Access to "my" variables defined (lexically) outside the scope of anonymous functions from within them are as expected (changes to the variable are seen by the inner function); access to "my" variables defined in outer functions and accessed within named functions (which in c parlance are static) access their values at first call to the outer function.  See http://stackoverflow.com/questions/4048248/variable-foo-will-not-stay-shared-warning-error-in-perl-while-calling-subrout
+              my $foo = sub {
                 my $fileprefix = shift;
                 my $file_name = shift;
                 my $inwithcluster = "^" . $fileprefix . "_cluster\\d+\\.fasta\$";
@@ -1069,22 +1070,22 @@ sub identify_founders {
                   #print "MISMATCH: $file_name\n";
                 }
                 return( $isamatch );
-              } # End sub foo
-              sub baz {
+              }; # End sub $foo
+              my $baz = sub {
                 my $fn = shift;
                 my ( $rv ) = ( $fn =~ /^(.+)\.fasta$/ );
                 #print "stripped: $rv\n";
                 return( $rv );
-              }
-          sub bar {
+              }; # End sub $baz
+          my $bar = sub  {
             my $fileprefix = shift;
             #print $fileprefix, "\n";
             if( ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster0.fasta" ) || ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster1.fasta" ) ) {
               #print "YES\n";
-              my @cluster_files = grep { foo( $fileprefix, $_ ) } @all_files;
+              my @cluster_files = grep { &$foo( $fileprefix, $_ ) } @all_files;
               # Strip off the .fasta suffix.
               #print "ok\n";
-              my @stripped_cluster_files = map { baz($_) } @cluster_files;
+              my @stripped_cluster_files = map { &$baz($_) } @cluster_files;
               #print "still\n";
               #print( "\@stripped_cluster_files: ( " . join( ", ", @stripped_cluster_files ) . " )\n" );
               return( @stripped_cluster_files );
@@ -1094,9 +1095,9 @@ sub identify_founders {
               push @lst, $fileprefix;
               return( @lst );
             }
-          } # End sub bar
+          }; # End sub $bar
           my @new_files_for_regions;
-          map { my @lst = bar($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
+          map { my @lst = &$bar($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
           ## TODO: REMOVE
           #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
           my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
@@ -1140,9 +1141,9 @@ sub identify_founders {
          my ( $multi_region_DS_PFitter_distance_mean, $multi_region_DS_PFitter_distance_ci_low, $multi_region_DS_PFitter_distance_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
          my ( $multi_region_DS_PFitter_fitstext ) =
-            ( $multi_region_DSPFitter_fitter_stats_raw =~ /^((?:DOES NOT )?FIT.+)$/m );
+            ( $multi_region_DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
          my $multi_region_DS_PFitter_fits =
-            ( ( $multi_region_DS_PFitter_fitstext =~ /^FITS.+$/m ) ? "1" : "0" );
+            ( ( $multi_region_DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
          my ( $multi_region_DS_PFitter_assertion_low, $multi_region_DS_PFitter_assertion_high, $multi_region_DS_PFitter_R ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
           
