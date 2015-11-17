@@ -21,7 +21,7 @@ library( "coin" )
 library( "ggplot2" )
 
 ## for prettyPrintPValuesTo4Digits
-source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
+#source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
 
 # Setup for prettier Sweave output.
 old.continue.option <- options( continue = " " )
