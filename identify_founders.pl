@@ -989,6 +989,7 @@ sub identify_founders {
       if( $force_one_cluster ) {
         # Avoid NA in the table output.  Just print that the estimated number of founders is 1.  Which it is.
         print OUTPUT_TABLE_FH "\t", 1;
+        print OUTPUT_TABLE_FH "\t", 1;
       } else {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         if( $VERBOSE ) {
@@ -1243,10 +1244,11 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.assertion.high
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.fits
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.R
-          print OUTPUT_TABLE_FH "\t", "NA"; # cluster.call
           if( $run_profillic ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.cluster.call"
           } # End if $run_profillic
+          print OUTPUT_TABLE_FH "\t", "NA"; # cluster.call
           print OUTPUT_TABLE_FH "\n";
         } # End if this is the RH one, and if there is also an LH one, run MultiRegionPoissonFitter.
       } else {  # if this is an RH or LH one, consider combining for MultiRegionPoissonFitter. .. else ..
