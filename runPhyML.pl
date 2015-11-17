@@ -236,7 +236,7 @@ sub runPhyML {
             print "Warning: no distance value between $firstName and $secondName\n";
           } else {
             push @diversity, $pwDistHashRef->{ $firstName }->{ $secondName };
-            print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";
+            #print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";
           }
         } # End foreach $j
       } # End if $firstName is in the hash
