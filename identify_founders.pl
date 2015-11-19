@@ -625,6 +625,8 @@ sub identify_founders {
       ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
     unless( defined( $num_phyml_seqs ) ) {
       warn( "UH OH: $input_fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
+      $num_phyml_seqs = 0;
+      $mean_diversity = 0;
     }
     # unless( $num_phyml_seqs == scalar( @seq_headers ) ) {
     #   ## THIS IS BECAUSE phyml apparently only counts unique sequences.
