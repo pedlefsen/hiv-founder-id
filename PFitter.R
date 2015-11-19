@@ -195,91 +195,68 @@ dev.off()
 
 #### FIT THE CONSENSUS ONLY HD DISTRIBUTION
 
-fit.the.consensus.only.hd.distribution <-  function ( yvec0 ) {
-nl0 <- length(yvec0);
-	xvec1 <- c(yvec0, rep(0,nl0))
-	yvec1 <- rep(0,2*nl0)
+create.intersequence.distances.by.convolving.consensus.distances <- function ( yvec0 ) {
+    nl0 <- length(yvec0);
+    xvec1 <- c(yvec0, rep(0,nl0))
     
-	yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
-	mvals <- seq(2,2*nl0,2)
+    yvec1 <- rep(0,2*nl0)
+    for( m in 1:length( yvec1 ) ) {
+        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                xvec1[ k ] * xvec1[ m - k + 1 ]
+            } ) ) );
+        if( m %% 2 == 1 ) {
+            # Odd m.
+            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+        }
+    }
+    # print( "yvec1" );
+    # print( yvec1 );
+    # 
+    # yvec1 <- rep(0,2*nl0)
+    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+    # for( i in 1:nl0 ) {
+    #     m <- i * 2;
+    #     for(k in 1:m){
+    #         .xvec1.k <- xvec1[k];
+    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+    #         if(i != nl0) {
+    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+    #         } 
+    #     }
+    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+    # }
+    # print( "yvec1" );
+    # print( yvec1 );
+    return( yvec1 );
+} # create.intersequence.distances.by.convolving.consensus.distances ( yvec0 )
 
-	for(m in mvals) {
-		delta <- rep(0,m)
-		delta[1+m/2] <- 1
-		for(hj in 1:m){			
-                        yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
-			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
-		}
-		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
-	}
-	
-	dvec2 <- rep(0, yvec1[1])
-	w <- which(yvec1>0)	
-	for(hk in w[-1]) { dvec2 <- c(dvec2, rep((hk-1), yvec1[hk])) }
-	
-	mmax <- 1.5*(max(c(yvec0, yvec1)))			
-
-	cfigure <- paste(dir, sample, ".conv_plot.jpg", sep="")
-	jpeg(file=cfigure, pointsize=14, width=800, height=800)
-	par(mar=c(5,5,4,2))
-
-	layout(matrix(c(1,2,3), nr=1, ncol=3), widths=c(5), heights=c(1), FALSE)
-	hh1 <- hist(dvec1, breaks=seq(-0.5,max(dvec1+0.5),1), freq=TRUE, xlab=sample, labels=ifelse(max(dvec1)<20,TRUE,FALSE), main=paste("Convolution Plot", sep=" "), col="blue",cex.lab=2, cex.axis=2,cex.main=2)
-	lines(seq(0,(2*nl0-1),1), yvec1[1:length(seq(0,(2*nl0-1),1))], col="red", lwd=2)
-	points(seq(0,(2*nl0-1),1), yvec1[1:length(seq(0,(2*nl0-1),1))], pch=23, col="red", lwd=2)
-	legend("topright", legend=c("CONV","OBS"), fill=c("red","blue"), text.width=0.8)
-
-	dev.off()
-			
-	figure <- paste(dir, sample, ".conv_plot.ps", sep="")
-	postscript(file=figure, width=400, height=300)
-	par(mar=c(5,5,4,3))
-	
-	hh1 <- hist(dvec1, breaks=seq(-0.5,max(dvec1+0.5),1), freq=TRUE, xlab=sample, labels=ifelse(max(dvec1)<20,TRUE,FALSE), main=paste("Convolution Plot", sep=" "), col="blue",cex.lab=2, cex.axis=2,cex.main=2)
-	lines(seq(0,(2*nl0-1),1), yvec1[1:length(seq(0,(2*nl0-1),1))], col="red", lwd=2)
-	points(seq(0,(2*nl0-1),1), yvec1[1:length(seq(0,(2*nl0-1),1))], pch=23, col="red", lwd=2)
-	legend("topright", legend=c("CONV","OBS"), fill=c("red","blue"), text.width=0.8)
-
-	dev.off()
-		
-	check <- 0 
-
-	write(sample, file=outfile2, append=TRUE)
-	write(paste("HD", "OBS", "CONV", sep="\t"), file=outfile2, append=TRUE)
-	for(jj in 1:length(yvec1)){ 
-		write(paste(jj-1, hh1$counts[jj], yvec1[jj], sep="\t"), file=outfile2, append=TRUE) 
-		hey <- abs(hh1$counts[jj]-yvec1[jj])
-		if(!is.na(hey)) { check <- check + hey }
-	}
-
-	check <- check/sum(yvec1)
-	ifclause <- ifelse(check <= 0.1, "FOLLOWS", "DOES NOT FOLLOW")
-	astring <- paste(sample, ifclause, "A STAR-PHYLOGENY", sep=" ")
-	write(astring, file=outfile2, append=TRUE)
-	write(" ", file=outfile2, append=TRUE)
-
-        return( check );
-} # fit.the.consensus.only.hd.distribution ( yvec0 )
 if (lambda!=0) {
 			
-	xvec1 <- c(yvec0, rep(0,nl0))
-	yvec1 <- rep(0,2*nl0)
-	yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
-	mvals <- seq(2,2*nl0,2)
-
-	for(m in mvals) {
-		delta <- rep(0,m)
-		delta[1+m/2] <- 1
-		for(hj in 1:m){			
-                        yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
-			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
-		}
-		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
-	}
-	
-	dvec2 <- rep(0, yvec1[1])
-	w <- which(yvec1>0)	
-	for(hk in w[-1]) { dvec2 <- c(dvec2, rep((hk-1), yvec1[hk])) }
+        xvec1 <- c(yvec0, rep(0,nl0))
+    
+# 	yvec1 <- rep(0,2*nl0)
+# 	yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+# 	mvals <- seq(2,2*nl0,2)
+# 
+# 	for(m in mvals) {
+# 		delta <- rep(0,m)
+# 		delta[1+m/2] <- 1
+# 		for(hj in 1:m){			
+#                         yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
+# 			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
+# 		}
+# 		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+# 	}
+#
+    yvec1 <- create.intersequence.distances.by.convolving.consensus.distances( yvec0 );
+ 	dvec2 <- rep(0, yvec1[1])
+ 	w <- which(yvec1>0)	
+ 	for(hk in w[-1]) { dvec2 <- c(dvec2, rep((hk-1), yvec1[hk])) }
 	
 	mmax <- 1.5*(max(c(yvec0, yvec1)))			
 
