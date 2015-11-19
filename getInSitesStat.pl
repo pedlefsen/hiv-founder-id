@@ -121,7 +121,16 @@ sub getInSitesStat {
     print "\$private_no_gaps is $private_no_gaps\n";
   }
   # Named for Morgane Rolland, whose advice lead us to consider this statistic.
-  my $morganes_stat = $informative_no_gaps / $private_no_gaps;
+  my $morganes_stat;
+  if( $private_no_gaps == 0 ) {
+    if( $informative_no_gaps == 0 ) {
+      $morganes_stat = 0;
+    } else {
+      $morganes_stat = $informative_no_gaps; # pretend that $private_no_gaps == 1.
+    }
+  } else {
+    $morganes_stat = $informative_no_gaps / $private_no_gaps;
+  }
   if( $VERBOSE ) {
     print "\$morganes_stat is $morganes_stat\n";
   }

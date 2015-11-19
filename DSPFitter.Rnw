@@ -838,11 +838,11 @@ DSPFitter <- function (
     #print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
     if( be.verbose ) {
       if( DS.Q >= 0.95 ) {
-          cat( "BAD", fill = TRUE );
-          cat( paste( "There is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: BAD", fill = TRUE );
+          cat( paste( "\tThere is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       } else {
-          cat( "OK", fill = TRUE );
-          cat( paste( "There is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK", fill = TRUE );
+          cat( paste( "\tThere is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       }
     }
     dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
@@ -853,6 +853,31 @@ DSPFitter <- function (
 @ 
 
 Note that the other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistical test.  It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
+
+The convolution HD distribution in PFitter $\vec{y^1}$ (to which the HD histogram $\vec{y^0}$
+is compared) is computed like so (after initializing it to have the
+same length as $\vec{y^0}$):
+$$
+y^1_{1} = \frac{1}{2*y^0_{1}*(y^0_{1}-1)}\\
+mvals = (2i) for i in 1 .. length(yvec)
+delta[i] = a vector of length 2i , all zeros
+for( i in 1:length(yvec) {
+  m = 2i
+  j = 1 + m/2 = 1 + i
+  delta[ j ] = 1
+  for( k in 1:m ) {
+    y^1_m += \frac{1}{2*x^1_m*x^1_{m-k+1}}
+    if( i != length(yvec) ) {
+      y^1_m += \frac{1}{2*(x^1_{m-k+2}-\delta_k)}
+    }
+  }
+  if( i != length(yvec) ) {
+    y^1_m += \frac{1}{2*x^1_{m+1}*x^1_{1}}
+  }
+
+}
+$$
+, where $\vec{x^1} <- c(\vec{y^0}, rep(0,nl0))$.
 
 <<echo = FALSE, results = hide>>=
 #.result.ignored <- PFitter( be.verbose = TRUE );

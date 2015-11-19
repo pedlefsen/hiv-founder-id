@@ -33,7 +33,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_H $opt_f $opt_I $opt_s $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_H $opt_f $opt_i $opt_I $opt_s $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 ## NOTE: If there is only one sequence in a group, we don't bother writing out the file.
@@ -208,12 +208,13 @@ sub identify_founders {
   # opt_F means skip (do not run) PFitter
   # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
   # opt_f means fix hypermutated sequences, instead of removing them.
+  # opt_i is the insites threshold to use (default: 0.85).
   # opt_I means run inSites online (instead of offline)
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method. 
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_H, $opt_f, $opt_I, $opt_s, $opt_r ) = ();
-  if( not getopts('DVo:O:PRFHfIsr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_H, $opt_f, $opt_i, $opt_I, $opt_s, $opt_r ) = ();
+  if( not getopts('DVo:O:PRFHfi:Isr') ) {
     identify_founders_usage();
   }
   
@@ -225,6 +226,8 @@ sub identify_founders {
   my $run_PFitter = !$opt_F;
   my $run_Hypermut = !$opt_H;
   my $fix_hypermutated_sequences = $opt_f || 0;
+  my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
+  #my $in_sites_ratio_threshold = 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
   my $recurse_on_clusters = $opt_r || 0;
@@ -234,8 +237,6 @@ sub identify_founders {
   
   ## TODO: DEHACKIFY MAGIC #s
   my $mean_diversity_threshold = 0.001;
-  my $in_sites_ratio_threshold = 0.85; # For Abrahams and RV217
-  #my $in_sites_ratio_threshold = 0.33; # For caprisa002
   my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
   my $hypermut2_pValueThreshold = 0.1; # Matches Abrahams 2009
 
@@ -703,7 +704,7 @@ sub identify_founders {
     my $DS_PFitter_distance_mean = 0;
     my $DS_PFitter_distance_ci_low = 0;
     my $DS_PFitter_distance_ci_high = 0;
-    my $DS_PFitter_fitstext = "OK";
+    my $DS_PFitter_fitstext = "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK";
     my $DS_PFitter_fits = 1;
     my $DS_PFitter_assertion_low = 1.5;
     my $DS_PFitter_assertion_high = 2.5;
@@ -766,7 +767,7 @@ sub identify_founders {
         ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) =
           ( $DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
         ( $DS_PFitter_fitstext ) =
-          ( $DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
+          ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
         $DS_PFitter_fits =
           ( ( $DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
         ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
@@ -921,7 +922,7 @@ sub identify_founders {
        my ( $multifounder_DS_PFitter_distance_mean, $multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high ) =
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
        my ( $multifounder_DS_PFitter_fitstext ) =
-          ( $multifounder_DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
+          ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
        my $multifounder_DS_PFitter_fits = "0";
        if( $multifounder_DS_PFitter_fitstext =~ /^OK$/ ) {
          $multifounder_DS_PFitter_fits = "1";
@@ -1142,7 +1143,7 @@ sub identify_founders {
          my ( $multi_region_DS_PFitter_distance_mean, $multi_region_DS_PFitter_distance_ci_low, $multi_region_DS_PFitter_distance_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
          my ( $multi_region_DS_PFitter_fitstext ) =
-            ( $multi_region_DSPFitter_fitter_stats_raw =~ /^(BAD|OK)$/m );
+            ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
          my $multi_region_DS_PFitter_fits =
             ( ( $multi_region_DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
          my ( $multi_region_DS_PFitter_assertion_low, $multi_region_DS_PFitter_assertion_high, $multi_region_DS_PFitter_R ) =

@@ -809,11 +809,11 @@ DSPFitter <- function (
     #print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
     if( be.verbose ) {
       if( DS.Q >= 0.95 ) {
-          cat( "BAD", fill = TRUE );
-          cat( paste( "There is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: BAD", fill = TRUE );
+          cat( paste( "\tThere is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       } else {
-          cat( "OK", fill = TRUE );
-          cat( paste( "There is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK", fill = TRUE );
+          cat( paste( "\tThere is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       }
     }
     dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
