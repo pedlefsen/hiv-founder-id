@@ -661,54 +661,56 @@ DSPFitter <- function (
     dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
 
     ## TODO: REMOVE?
-    n.seqs <- length( consensus.distances );
-    POISSON.DRAW.REPS <- 100;
-    .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
-      if( be.verbose ) {
-          cat( ".rep.i: ", .rep.i, fill = TRUE );
-      }
-      .consensus.distances <- rpois( n.seqs, 1 );
-      .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
-      .sorted.intersequence.distances <-
-          unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
-      .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
-          return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+    if( FALSE ) {
+      n.seqs <- length( consensus.distances );
+      POISSON.DRAW.REPS <- 100;
+      .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
+        if( be.verbose ) {
+            cat( ".rep.i: ", .rep.i, fill = TRUE );
+        }
+        .consensus.distances <- rpois( n.seqs, 1 );
+        .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+        .sorted.intersequence.distances <-
+            unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+        .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+            return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+        } );
+        .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+        .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+        .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+       # print( .dspfitter.results );
+      
+        return( .dspfitter.results );
       } );
-      .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
-      .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
-      .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
-     # print( .dspfitter.results );
-    
-      return( .dspfitter.results );
-    } );
-    
-    #print( ".ds.rep.results" );
-    #print( .ds.rep.results );
-    .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
-    .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
-    .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
-
-    .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
-    if( be.verbose ) {
-      if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-        ## TODO: REMOVE
-      if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-        ## TODO: REMOVE
-      if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-    } # End if be.verbose
-    dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
+      
+      #print( ".ds.rep.results" );
+      #print( .ds.rep.results );
+      .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+      .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+      .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+  
+      .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+      if( be.verbose ) {
+        if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+      } # End if be.verbose
+      dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
+    } # END IF FALSE
     
     sorted.consensus.distances <- sort( consensus.distances );
     sorted.intersequence.distances <- sort( intersequence.distances );
