@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{tabularx,ragged2e,booktabs,caption}
+\usepackage{amsmath}
 \newcolumntype{C}[1]{>{\Centering}m{#1}}
 \renewcommand\tabularxcolumn[1]{C{#1}}
 
@@ -29,6 +30,11 @@ old.continue.option <- options( continue = " " )
 
 <<echo = FALSE, results = hide>>=
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
+
+    # MAGIC N: DS.NDRAWS
+    EPSILON.NDRAWS <- 1000;
+    DS.NDRAWS <- 1000;
+    
 
   # The trick for subtracting small logged doubles in log space, with logX > logY
   logSubtract <- Vectorize( function (logX, logY) { # modified from: https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations
@@ -186,10 +192,11 @@ library(tools)
 args <- commandArgs(trailingOnly=TRUE);
 if( length( args ) == 0 ) {
   args <- 
-    c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+    #c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+      c( "rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/rv217_anon_1w_01_fixHypermutatedSequences_PoissonFitterDir/rv217_anon_1w_01_fixHypermutatedSequences_pairwiseHammingDistances.txt",
 #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
   #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
-     "2.16e-05", "2517" );
+     "2.16e-05", "8814" );#"2517" );
 }
 
 
@@ -217,8 +224,11 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 #}
 @ 
 
-\section{Goodness of fit}
-The PFitter code does not actually perform a Poisson Goodness-of-fit test, though it seems a good idea.  Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
+\section{Estimate of days since infection, with confidence interval}
+More on this to come.  Basically they fit the intersequence Hamming distances to a Poisson distribution and use a formula to convert the rate of that Poisson to days since infection.  The key is that they use for the confidence interval width a Normal approximation with an estimated standard error that accounts for the small sample size (see \cite{Giorgi:2012aa}).
+
+\section{Goodness of fit}  
+The PFitter code does not actually perform a standard Poisson Goodness-of-fit test, though they call their test that.
 
 %% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
 %% \begin{equation}
@@ -239,73 +249,43 @@ The PFitter code does not actually perform a Poisson Goodness-of-fit test, thoug
 %% \end{equation}
 %% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
 
-It turns out that the PFitter ``Goodness of fit'' test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
+It turns out that the PFitter ``Goodness of fit'' test is actually comparing the Poisson rate estimated from the pairwise distances among the sequence to the rate estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
 
-The chi-squared statistic is calculated using the fact that the HD
+The chi-squared statistic is calculated accounting for the fact that the HD
 values are not independent.  The formula is
-$\Xi^2 = ( t(\abs(\vec{y}-\vec{E_y})) \Sigma^{-1} \abs(\vec{y}-\vec{E_y}) )$, where $\vec{y}$ is the vector of counts of observed intersequence Hamming Distances, where the first element counts the number of HD values that are zero, the second counts the number that are 1, and the $k$^{th} element $y_k$ is the number of observed HDs equal to $k-1$; $\vec{E_y}$ is the expected value of $\vec{y}$ under a model in which intersequence distances are independent and distributed according to a Poisson model with twice the MLE rate estimate $\lambda$ from the consensus sequence distances; and $\Sigma^{-1}$ is the inverse of the covariance matrix $\Sigma$, which can be computed as a function of $\lambda$.
-$$
-c = n^3 \exp{(-3 \lambda )} \\
-\Sigma[i,j] = 
-$$
-sigma.dim <- (2*nl0)
-mui <- function(x) nseq*dpois(x, lambda=clambda)
-      	sigmaij <- matrix(nrow=sigma.dim, ncol=sigma.dim)
-      	coeff <- (nseq^3)*exp(-3*clambda)
-      	
-      	#### RICORDATI!!!! EYVEC[K] == E(Y_{K-1}) !!!!!!
-      	
-      	for(k in 0:(sigma.dim-1)){  
-        
-      		for(l in 0:(sigma.dim-1)){   
-      			
-      			if(k>=l){ 
-      				c1 <- ((clambda^k)/factorial(k))*sum(choose(k,l:0)*((clambda^(0:l))/factorial(0:l)))
-      				c2 <- ((clambda^l)/factorial(l))*sum(choose(l,l:0)*((clambda^((k-l):k))/factorial((k-l):k))) 
-      			}
-      			if(k<l){
-      				c1 <- ((clambda^l)/factorial(l))*sum(choose(l,k:0)*((clambda^(0:k))/factorial(0:k)))
-      				c2 <- ((clambda^k)/factorial(k))*sum(choose(k,k:0)*((clambda^((l-k):l))/factorial((l-k):l))) 
-      			}
-                          if( is.na( c1 ) ) {
-                              c1 <- 0;
-                          }
-                          if( is.na( c2 ) ) {
-                              c2 <- 0;
-                          }
-      			sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2)
-      
-      			
-      			if(k==l){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) }
-      			if((k==l)&(iseven(k))){ sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2) }
-      		}
-      	}
-          
-              #print( "about to run La.svd" );
-      	sdec <- La.svd(sigmaij)
-              #print( "ran La.svd" );
-      	diag <- ifelse(sdec$d>1e-4,sdec$d,0)
-      	diagmat <- matrix(rep(0,sigma.dim^2), ncol=sigma.dim)
-      	for(ii in 1:sigma.dim){diagmat[ii,ii]<-ifelse(diag[ii]==0,0,1/diag[ii])}
-      	sigmainv <- sdec$u%*%diagmat%*%sdec$vt
-      	
-      	h <- hist(dvec1[ dvec1 <= sigma.dim ], breaks=seq(-1,(sigma.dim-1),1), plot=FALSE)
-      	xvec <- h$breaks
-      	yvec <- h$counts
-      	#nl1 <- length(yvec)
-      	#aplambda <- sum((1:(nl1-1))*yvec[-1])/sum(yvec)
-      			
-      	#pesce <- 0.5*nseq*(nseq-1)*dpois(0:(nl1-1), lambda=aplambda)
-      
-      	if (length(yvec)<sigma.dim) { 
-      		ccvv <- sigma.dim - length(yvec) 
-      		yvec <- c(yvec, rep(0,ccvv)) 
-      	}
-      	
+$\chi^2 = ( t(\left|\vec{y}-\vec{E_y}\right|) \Sigma^{-1} \left|\vec{y}-\vec{E_y}\right| )$, where $\vec{y}$ is the vector of counts of observed intersequence Hamming Distances, where the first element counts the number of HD values that are zero, the second counts the number that are 1, and the $k^{th}$ element $y_k$ is the number of observed HDs equal to $k-1$; $\vec{E_y}$ is the expected value of $\vec{y}$ under a model in which intersequence distances are independent and distributed according to a Poisson model with twice the MLE rate estimate $\lambda$ from the consensus sequence distances; and $\Sigma^{-1}$ is the inverse of the covariance matrix $\Sigma$, which can be computed as a function of $\lambda$.
+\begin{equation}
+  \begin{aligned}
+\Sigma[k,l] = \frac{1}{2} \Biggl( &n^3 \, e^{-3 \lambda} \Bigl( V[k,l] + W[k,l] \Bigr) \\
+&+ \mathbf{1}_{\{k=l\}} n^2 \, \phi(k-1) \\
+&- \mathbf{1}_{\{k=l,\hbox{k even}\}}\frac{n}{2} \mu(k/2) \Biggr)
+  \end{aligned}
+\end{equation}
+where
+\begin{equation}
+\begin{aligned}
+\phi( k ) &= d\hbox{Poisson}_{( 2 \lambda )}( k )  \\
+\mu( k ) &= d\hbox{Poisson}_{\lambda}( k )
+\end{aligned}
+\end{equation}
+and (for k>= l):
+\begin{equation}
+\begin{aligned}
+V[k,l] &= \frac{\lambda^k}{k!}\sum_{i = 0}^{l}{{k \choose i}\frac{\lambda^i}{i!}} \\
+W[k,l] &= \frac{\lambda^l}{l!}\sum_{i = 0}^{l}{{l \choose i}\frac{\lambda^{k-i}}{(k-i)!}}
+\end{aligned}
+\end{equation} 
+for k < l:
+\begin{equation}
+\begin{aligned}
+V[k,l] &= \frac{\lambda^l}{l!}\sum_{i = 0}^{k}{{l \choose i}\frac{\lambda^i}{i!}} \\
+W[k,l] &= \frac{\lambda^k}{k!}\sum_{i = 0}^{k}{{k \choose i}\frac{\lambda^{l-i}}{(l-i)!}} \hbox{.}
+\end{aligned}
+\end{equation}
 
+Note that $E_y(k) = \frac{n^2}{2}*\phi(k)$.
 
-
-So we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.
+For our DS solution, we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.  I have not yet figured out if it is possible to account for the non-independence within the intersequence HDs and between the two HD distributions.
 
 <<echo = FALSE, results = hide>>=
 PFitter <- function (
@@ -748,9 +728,12 @@ DSPFitter <- function (
     dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
 
     ## TODO: REMOVE?
-    POISSON.DRAW.REPS <- 100;#1000;
+    n.seqs <- length( consensus.distances );
+    POISSON.DRAW.REPS <- 100;
     .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
-      cat( ".rep.i: ", .rep.i, fill = TRUE );
+      if( be.verbose ) {
+          cat( ".rep.i: ", .rep.i, fill = TRUE );
+      }
       .consensus.distances <- rpois( n.seqs, 1 );
       .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
       .sorted.intersequence.distances <-
@@ -935,10 +918,6 @@ create.intersequence.distances.by.convolving.consensus.distances <- function ( t
 } # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
 
     # GET A BUNCH OF DRAWS
-    # MAGIC N: DS.NDRAWS
-    EPSILON.NDRAWS <- 1000;
-    DS.NDRAWS <- 1000;
-    
     .result <- sapply( 1:DS.NDRAWS, function( .i ) { draw.once.from.each.and.evaluate.assertion() } );
     rownames( .result ) <- c( "P", "Q", "R" );
     DS.P <- mean( unlist( .result[ "P", ] ) );
@@ -976,7 +955,7 @@ create.intersequence.distances.by.convolving.consensus.distances <- function ( t
     # #DS.DECISION.Q.THRESH <- 0.95;
     # DS.DECISION.Q.THRESH <- NA;
     # #n.seqs <- c( 10, 100, 500 );
-    # n.seqs <- sum( consensus.distances );
+    # n.seqs <- length( consensus.distances );
     # weakening.type <- NA;
     # #weakening.type <- "complete";
     # results.by.n.seqs <- 
@@ -1036,15 +1015,14 @@ create.intersequence.distances.by.convolving.consensus.distances <- function ( t
 
 @ 
 
-Note that the other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistical test.  It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
+\section{Convolution Test}
+The other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistically interpretable test.  %It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
 
-The convolution HD distribution in PFitter $\vec{y^1}$ (to which the HD histogram $\vec{y^0}$
-is compared) is computed like so (after initializing it to have the
-same length as $l = \vec{y^0}$):
+The convolution HD distribution in PFitter $\vec{y^1}$ (to which the observed intersequence HD histogram $\vec{y}$ is compared) is computed like so (after initializing it to have the same length as $l = \vec{y}$):
 $$
   y^1_{m} =  \frac{1}{2} \left( \left( \sum_{k=1}^{m}{ x^1_k x^1_{m-k+1}}  \right) - x^1_{1+((m-1)/2)}\mathbf{1}_{\{\hbox{$m$ is odd}\}} \right)
 $$
-, where $\vec{x^1} = \vec{y^0}$ padded with an additional $l$ zeroes.
+, where $\vec{x^1} = \vec{y}$ padded with an additional $l$ zeroes.
 
 <<echo = FALSE, results = hide>>=
 #.result.ignored <- PFitter( be.verbose = TRUE );
@@ -1052,6 +1030,9 @@ $$
 .result.ignored <- DSPFitter( be.verbose = TRUE );
 @ 
 
+\hspace{.2in}
+\bibliographystyle{plain}
+\bibliography{HIVFoundersAndTiming}
 
 <<echo = FALSE>>=
 # (un)Setup for prettier Sweave output.

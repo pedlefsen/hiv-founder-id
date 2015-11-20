@@ -31,9 +31,9 @@ epsilon <- c(as.numeric(args[2]))
 nbases <- c(as.numeric(args[3]))
 
 sample <- basename(file_path_sans_ext(infile))
-dir <- paste(dirname(infile), '/', sep='')
-outfile <- paste(dir, "LOG_LIKELIHOOD.results.txt", sep="")
-outfile2 <- paste(dir, "CONVOLUTION.results.txt", sep="")
+.dir <- paste(dirname(infile), '/', sep='')
+outfile <- paste(.dir, "LOG_LIKELIHOOD.results.txt", sep="")
+outfile2 <- paste(.dir, "CONVOLUTION.results.txt", sep="")
 
 cat( "PFitter.." );
 
@@ -170,7 +170,7 @@ dvec1 <- dvec1[-1]
 meanhd <- mean(dvec1)
 maxhd <- max(dvec1)
 
-figure <- paste(dir, sample, ".hd_freq_dist.jpg", sep="")
+figure <- paste(.dir, sample, ".hd_freq_dist.jpg", sep="")
 jpeg(file=figure, pointsize=14, width=800, height=800)
 par(mar=c(5,5,4,2))
 
@@ -181,7 +181,7 @@ lines(seq(0,max(dvec1)+1,1), 0.5*nseq*(nseq-1)*dpois(seq(0,1+max(dvec1),1), lamb
 
 dev.off()	
 	
-figure <- paste(dir, sample, ".hd_freq_dist.ps", sep="")
+figure <- paste(.dir, sample, ".hd_freq_dist.ps", sep="")
 postscript(file=figure, width=400, height=300)
 par(mar=c(5,5,4,3))
 
@@ -260,7 +260,7 @@ if (lambda!=0) {
 	
 	mmax <- 1.5*(max(c(yvec0, yvec1)))			
 
-	cfigure <- paste(dir, sample, ".conv_plot.jpg", sep="")
+	cfigure <- paste(.dir, sample, ".conv_plot.jpg", sep="")
 	jpeg(file=cfigure, pointsize=14, width=800, height=800)
 	par(mar=c(5,5,4,2))
 
@@ -272,7 +272,7 @@ if (lambda!=0) {
 
 	dev.off()
 			
-	figure <- paste(dir, sample, ".conv_plot.ps", sep="")
+	figure <- paste(.dir, sample, ".conv_plot.ps", sep="")
 	postscript(file=figure, width=400, height=300)
 	par(mar=c(5,5,4,3))
 	
@@ -304,6 +304,8 @@ if (lambda!=0) {
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
 #pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
 pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda)*x)-lfactorial(x) ) ) # PAUL CHANGED log( clambda^x ) to log(clambda)*x
+# pk.unsafe <- function(x) ( nseq**2 * (2*clambda)**x * exp( -2*clambda ) / factorial( x ) )
+# pk.unsafe2 <- function(x) ( nseq**2 * dpois( x, (2*clambda) ) );
 mui <- function(x) nseq*dpois(x, lambda=clambda)
 SIGMA.DIM.MAX <- 170; # Beyond this value, factorial stops working in R.
 sigma.dim <- min( SIGMA.DIM.MAX, (2*nl0) );
