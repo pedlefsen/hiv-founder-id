@@ -1,8 +1,8 @@
-### R code from vignette source '/Users/pedlefsen/src/from-git/hiv-founder-id/DSPFitter.Rnw'
+### R code from vignette source '/Users/Paul/src/from-git/hiv-founder-id/DSPFitter.Rnw'
 ### Encoding: ASCII
 
 ###################################################
-### code chunk number 1: DSPFitter.Rnw:17-27
+### code chunk number 1: DSPFitter.Rnw:18-28
 ###################################################
 ## R packages needed
 library( "xtable" )
@@ -10,16 +10,21 @@ library( "coin" )
 library( "ggplot2" )
 
 ## for prettyPrintPValuesTo4Digits
-source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
+#source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
 
 # Setup for prettier Sweave output.
 old.continue.option <- options( continue = " " )
 
 
 ###################################################
-### code chunk number 2: DSPFitter.Rnw:30-153
+### code chunk number 2: DSPFitter.Rnw:31-159
 ###################################################
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
+
+    # MAGIC N: DS.NDRAWS
+    EPSILON.NDRAWS <- 1000;
+    DS.NDRAWS <- 1000;
+    
 
   # The trick for subtracting small logged doubles in log space, with logX > logY
   logSubtract <- Vectorize( function (logX, logY) { # modified from: https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations
@@ -145,7 +150,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 3: DSPFitter.Rnw:156-179
+### code chunk number 3: DSPFitter.Rnw:162-185
 ###################################################
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
@@ -173,7 +178,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 4: DSPFitter.Rnw:182-217
+### code chunk number 4: DSPFitter.Rnw:188-224
 ###################################################
 ####==== From PFitter.R
 
@@ -181,10 +186,11 @@ library(tools)
 args <- commandArgs(trailingOnly=TRUE);
 if( length( args ) == 0 ) {
   args <- 
-    c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+    #c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+      c( "rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/rv217_anon_1w_01_fixHypermutatedSequences_PoissonFitterDir/rv217_anon_1w_01_fixHypermutatedSequences_pairwiseHammingDistances.txt",
 #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
   #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
-     "2.16e-05", "2517" );
+     "2.16e-05", "8814" );#"2517" );
 }
 
 
@@ -213,7 +219,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:246-852
+### code chunk number 5: DSPFitter.Rnw:290-1015
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -501,6 +507,21 @@ makeDList <- function ( consensus.distances, intersequence.distances ) {
     return( as.data.frame( dlist ) );
 } # makeDList (..)
 
+# Calculate and return the approximate one-sided (upper) p-value using the given null statistics (usually computed through permutation).
+calculateUpperSidedPValue <- function ( the.stat, null.stats, add.one.for.observed.test.statistic = TRUE ) {
+    if( is.na( the.stat ) ) {
+        return( NA );
+    } else {
+        .nulls.more.extreme.than.the.stat <-
+            sum( null.stats >= the.stat, na.rm=T )
+            + as.numeric( add.one.for.observed.test.statistic );
+        .total.nulls <-
+            sum( !is.na( null.stats ) ) +
+                as.numeric( add.one.for.observed.test.statistic );
+        return( .nulls.more.extreme.than.the.stat / .total.nulls );
+    }
+} # calculateUpperSidedPValue (..)
+
 DSPFitter <- function (
   infile = args[1],
   dlist = read.table( file=infile, sep="\t", stringsAsFactors=F ),
@@ -508,7 +529,6 @@ DSPFitter <- function (
   nbases = c(as.numeric(args[3])),
   be.verbose = TRUE
 ) {
-    
     consensus.distances <- dlist[ which(dlist[,1]==dlist[1,1]), 3 ];
     names( consensus.distances ) <- dlist[ which(dlist[,1]==dlist[1,1]), 2 ];
     intersequence.distances <- dlist[ -which(dlist[,1]==dlist[1,1]), 3 ];
@@ -629,7 +649,7 @@ DSPFitter <- function (
         }
         return( the.results );
     } # PoissonDSM.getSmallestEpsilonAndLambda ( observed.data, pepr.variates )
-    .sampled.epsilons.and.lambdas <- sapply( 1:1000, function( .x ) {
+    .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
         #print( .x ); 
         return( PoissonDSM.getSmallestEpsilonAndLambda( intersequence.distances ) ); } );
     ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
@@ -638,7 +658,59 @@ DSPFitter <- function (
         cat( paste( "It seems that the CDF of the closest Poisson distribution is roughly ", sprintf( "%2.1f", ( 100 * median( ds.posterior.epsilons ) ) ), "% away from the pepr-sampled empirical CDFs (middle 95% ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .025 ) ) ), " to ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .975 ) ) ), ").", sep = "" ), fill = TRUE );
     }
     
-    dspfitter.results <- c( dspfitter.results, list( espilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
+    dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
+
+    ## TODO: REMOVE?
+    if( FALSE ) {
+      n.seqs <- length( consensus.distances );
+      POISSON.DRAW.REPS <- 100;
+      .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
+        if( be.verbose ) {
+            cat( ".rep.i: ", .rep.i, fill = TRUE );
+        }
+        .consensus.distances <- rpois( n.seqs, 1 );
+        .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+        .sorted.intersequence.distances <-
+            unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+        .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+            return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+        } );
+        .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+        .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+        .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+       # print( .dspfitter.results );
+      
+        return( .dspfitter.results );
+      } );
+      
+      #print( ".ds.rep.results" );
+      #print( .ds.rep.results );
+      .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+      .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+      .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+  
+      .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+      if( be.verbose ) {
+        if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+        } else {
+            cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+        }
+      } # End if be.verbose
+      dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
+    } # END IF FALSE
     
     sorted.consensus.distances <- sort( consensus.distances );
     sorted.intersequence.distances <- sort( intersequence.distances );
@@ -737,55 +809,50 @@ DSPFitter <- function (
         return( .rv );
     } # draw.once.from.each.and.evaluate.assertion (..)
     
+create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
+    nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
+    yvec0 <- rep( 0, nl0 );
+    yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
+    #print( yvec0 );
+    xvec1 <- c(yvec0, rep(0,nl0))
+    
+    yvec1 <- rep(0,2*nl0)
+    for( m in 1:length( yvec1 ) ) {
+        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                xvec1[ k ] * xvec1[ m - k + 1 ]
+            } ) ) );
+        if( m %% 2 == 1 ) {
+            # Odd m.
+            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+        }
+    }
+    # print( "yvec1" );
+    # print( yvec1 );
+    # 
+    # yvec1 <- rep(0,2*nl0)
+    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+    # for( i in 1:nl0 ) {
+    #     m <- i * 2;
+    #     for(k in 1:m){
+    #         .xvec1.k <- xvec1[k];
+    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+    #         if(i != nl0) {
+    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+    #         } 
+    #     }
+    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+    # }
+    # print( "yvec1" );
+    # print( yvec1 );
+    return( yvec1 );
+} # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
+
     # GET A BUNCH OF DRAWS
-    # MAGIC N: DS.NDRAWS
-    DS.NDRAWS <- 1000;
-    
-    ## TODO: REMOVE. TESTING.
-    # DS.DECISION.REPS <- 1000;
-    # DS.DECISION.Q.THRESH <- 0.95;
-    # n.seqs <- c( 10, 100, 500 );
-    # weakening.type <- NA;
-    # #weakening.type <- "complete";
-    # results.matrices.complete <- 
-    # lapply( n.seqs, function( .n.seqs ) {
-    #     cat( "\n.n.seqs: ", .n.seqs, fill = TRUE );
-    #     .diffs <- 2:10;
-    #     .rv <- 
-    #       sapply( .diffs, function( .diff ) {
-    #           cat( ".diff: ", .diff, fill = TRUE );
-    #           .assertion.widths <- c( seq( 0, .05, by = .01 ), seq( .10, .25, by = .05 ), seq( .5, 2, by = .25 ) );
-    #           .ds.qs <- sapply( 1:DS.DECISION.REPS, function( .rep.i ) {
-    #             cat( ".rep.i: ", .rep.i, fill = TRUE );
-    #             .sorted.consensus.distances <- sort( rpois( .n.seqs, 1 ) );
-    #             .sorted.intersequence.distances <- sort( rpois( choose( .n.seqs, 2 ), .diff ) );
-    #             .result <- lapply( 1:DS.NDRAWS, function( .i ) { cat( ".", fill = F ); draw.once.from.each.and.evaluate.assertion( 2 - .assertion.widths, 2 + .assertion.widths, .sorted.consensus.distances, .sorted.intersequence.distances, weakening.type = weakening.type ) } );
-    #             DS.P <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "P", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.P ) <- .assertion.widths;
-    #             DS.Q <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "Q", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.Q ) <- .assertion.widths;
-    #             DS.R <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "R", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.R ) <- .assertion.widths;
-    #             ## ERE I AM.  Just changed so calc an allow DS.P > 0 (since assertion has width).  Next things are to a) run PFitter(..) with these same data to evaluate decision properties, just with "estimate.lambda.and.days = FALSE, do.chisq.gof = TRUE". b) try weakening to see if that addresses the overconfidence against exact assertions.  c) draw from a "convolution" distribution to simulate the non-independence.
-    #             ## TODO: REMOVE.  ERE I AM. TESTING.
-    #             if( any( DS.P > 0 ) ) {
-    #                 print( "DS.P:" );
-    #                 print( DS.P );
-    #             }
-    #             #stopifnot( all( unlist( DS.Q ) + unlist( DS.R ) == 1 ) );
-    #             stopifnot( all( unlist( DS.Q ) + unlist( DS.P ) + unlist( DS.R ) == 1 ) );
-    #             return( DS.Q );
-    #           } );
-    #           ## Dichotomize based on decision threshold Q > DS.DECISION.Q.THRESH.
-    #           .decisions <- ( .ds.qs > DS.DECISION.Q.THRESH );
-    #           ## Return the fraction of reps in which the decision is made, for each assertion width.
-    #           return( apply( .decisions, 1, mean ) );
-    #         } );
-    #       colnames( .rv ) <- .diffs;
-    #       return( .rv );
-    # } );
-    # names( results.matrices ) <- n.seqs;
-    
     .result <- sapply( 1:DS.NDRAWS, function( .i ) { draw.once.from.each.and.evaluate.assertion() } );
     rownames( .result ) <- c( "P", "Q", "R" );
     DS.P <- mean( unlist( .result[ "P", ] ) );
@@ -809,22 +876,82 @@ DSPFitter <- function (
     #print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
     if( be.verbose ) {
       if( DS.Q >= 0.95 ) {
-          cat( "BAD", fill = TRUE );
-          cat( paste( "There is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: BAD", fill = TRUE );
+          cat( paste( "\tThere is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       } else {
-          cat( "OK", fill = TRUE );
-          cat( paste( "There is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK", fill = TRUE );
+          cat( paste( "\tThere is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       }
     }
     dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
-    
+
+    ## TODO: REMOVE. TESTING.
+    # POISSON.DRAW.REPS <- 100;#1000;
+    # #DS.DECISION.Q.THRESH <- 0.95;
+    # DS.DECISION.Q.THRESH <- NA;
+    # #n.seqs <- c( 10, 100, 500 );
+    # n.seqs <- length( consensus.distances );
+    # weakening.type <- NA;
+    # #weakening.type <- "complete";
+    # results.by.n.seqs <- 
+    # lapply( n.seqs, function( .n.seqs ) {
+    #     cat( "\n.n.seqs: ", .n.seqs, fill = TRUE );
+    #     .diffs <- 2;#c( 1.5, 2, 2.5 );
+    #     .rv <- 
+    #       lapply( .diffs, function( .diff ) {
+    #           cat( ".diff: ", .diff, fill = TRUE );
+    #           .assertion.widths <- 1;#c( seq( 0, .05, by = .01 ), seq( .10, .25, by = .05 ), seq( .5, 2, by = .25 ) );
+    #           .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
+    #             cat( ".rep.i: ", .rep.i, fill = TRUE );
+    #             .consensus.distances <- rpois( .n.seqs, 1 );
+    #             .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+    #             .sorted.intersequence.distances <- unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+    #             #.sorted.intersequence.distances <- sort( rpois( choose( .n.seqs, 2 ), .diff ) );
+    #            .rv.list <- list();
+    #            .sorted.consensus.distances <- sort( .consensus.distances );
+    #            .result <- lapply( 1:DS.NDRAWS, function( .i ) { cat( ".", fill = F ); draw.once.from.each.and.evaluate.assertion( 2 - .assertion.widths, 2 + .assertion.widths, .sorted.consensus.distances, .sorted.intersequence.distances, weakening.type = weakening.type ) } );
+    #            DS.P <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "P", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.P ) <- .assertion.widths;
+    #            DS.Q <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "Q", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.Q ) <- .assertion.widths;
+    #            DS.R <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "R", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.R ) <- .assertion.widths;
+    #             ## ERE I AM.  Just changed so calc an allow DS.P > 0 (since assertion has width).  Next things are to a) run PFitter(..) with these same data to evaluate decision properties, just with "estimate.lambda.and.days = FALSE, do.chisq.gof = TRUE". b) try weakening to see if that addresses the overconfidence against exact assertions.  c) draw from a "convolution" distribution to simulate the non-independence.
+    #             ## TODO: REMOVE.  ERE I AM. TESTING.
+    #             if( any( DS.P > 0 ) ) {
+    #                 print( "DS.P:" );
+    #                 print( DS.P );
+    #             }
+    #             #stopifnot( all( unlist( DS.Q ) + unlist( DS.R ) == 1 ) );
+    #             stopifnot( all( unlist( DS.Q ) + unlist( DS.P ) + unlist( DS.R ) == 1 ) );
+    #             .rv.list <- list( "assertion.PQR" = list( "P" = DS.P, "Q" = DS.Q, "R" = DS.R ) );
+    #             return( .rv.list );
+    #           } );
+    #           .rv.list.for.diff <- list();
+    #           .ds.qs <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "Q" ]] } );
+    #           .ds.ps <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "P" ]] } );
+    #           .ds.rs <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "R" ]] } );
+    #           .rv.list.for.diff <- list( "DS.Ps" = .ds.ps, "DS.Qs" = .ds.qs, "DS.Rs" = .ds.rs );
+    #           ## Dichotomize based on decision threshold Q > DS.DECISION.Q.THRESH.
+    #           ## Return the fraction of reps in which the decision is made.
+    #           if( !is.na( DS.DECISION.Q.THRESH ) ) {
+    #               .decisions <- ( .ds.qs > DS.DECISION.Q.THRESH );
+    #               .rv.list.for.diff <- c( .rv.list.for.diff, decision.fraction = apply( .decisions, 1, mean ) );
+    #           }
+    #           return( .rv.list.for.diff );
+    #         } );
+    #       names( .rv ) <- .diffs;
+    #       return( .rv );
+    # } );
+    # names( results.by.n.seqs ) <- n.seqs;
+
     return( dspfitter.results );
 } # DSPFitter (..)
 
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:857-860
+### code chunk number 6: DSPFitter.Rnw:1027-1030
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -832,7 +959,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:864-866
+### code chunk number 7: DSPFitter.Rnw:1037-1039
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )

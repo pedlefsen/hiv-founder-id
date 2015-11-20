@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{tabularx,ragged2e,booktabs,caption}
+\usepackage{amsmath}
 \newcolumntype{C}[1]{>{\Centering}m{#1}}
 \renewcommand\tabularxcolumn[1]{C{#1}}
 
@@ -21,7 +22,7 @@ library( "coin" )
 library( "ggplot2" )
 
 ## for prettyPrintPValuesTo4Digits
-source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
+#source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
 
 # Setup for prettier Sweave output.
 old.continue.option <- options( continue = " " )
@@ -29,6 +30,11 @@ old.continue.option <- options( continue = " " )
 
 <<echo = FALSE, results = hide>>=
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
+
+    # MAGIC N: DS.NDRAWS
+    EPSILON.NDRAWS <- 1000;
+    DS.NDRAWS <- 1000;
+    
 
   # The trick for subtracting small logged doubles in log space, with logX > logY
   logSubtract <- Vectorize( function (logX, logY) { # modified from: https://facwiki.cs.byu.edu/nlp/index.php/Log_Domain_Computations
@@ -186,10 +192,11 @@ library(tools)
 args <- commandArgs(trailingOnly=TRUE);
 if( length( args ) == 0 ) {
   args <- 
-    c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+    #c( "newest-Abrahams-2009aa-hiv-founder-id_resultDir/1172_removeHypermutatedSequences_PoissonFitterDir/1172_removeHypermutatedSequences_pairwiseHammingDistances.txt",
+      c( "rv217_1W_gold_standard-hiv-founder-id_-fs_resultDir/rv217_anon_1w_01_fixHypermutatedSequences_PoissonFitterDir/rv217_anon_1w_01_fixHypermutatedSequences_pairwiseHammingDistances.txt",
 #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0334_fixHypermutatedSequences_PoissonFitterDir/0334_fixHypermutatedSequences_pairwiseHammingDistances.txt",
   #    c( "~/src/from-git/hiv-founder-id/Abrahams-2009aa-hiv-founder-id_resultDir/0478_fixHypermutatedSequences_removeRecombinedSequences_PoissonFitterDir/0478_fixHypermutatedSequences_removeRecombinedSequences_pairwiseHammingDistances.txt",
-     "2.16e-05", "2517" );
+     "2.16e-05", "8814" );#"2517" );
 }
 
 
@@ -217,8 +224,11 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 #}
 @ 
 
-\section{Goodness of fit}
-The PFitter code does not actually perform a Poisson Goodness-of-fit test, though it seems a good idea.  Here we use the General Univariate DSM, which consists of the DS combination of a Univariate Nonparametric DSM with the constraint that the CDF pass within some region of height $\epsilon$ around a Poisson CDF.  In any random sample of pepr Uniform variables, there is a smallest value $\epsilon$ such that the true CDF evaluated at any value is at most $\epsilon$ (cumulative probability) different from a Poisson CDF.
+\section{Estimate of days since infection, with confidence interval}
+More on this to come.  Basically they fit the intersequence Hamming distances to a Poisson distribution and use a formula to convert the rate of that Poisson to days since infection.  The key is that they use for the confidence interval width a Normal approximation with an estimated standard error that accounts for the small sample size (see \cite{Giorgi:2012aa}).
+
+\section{Goodness of fit}  
+The PFitter code does not actually perform a standard Poisson Goodness-of-fit test, though they call their test that.
 
 %% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
 %% \begin{equation}
@@ -239,9 +249,43 @@ The PFitter code does not actually perform a Poisson Goodness-of-fit test, thoug
 %% \end{equation}
 %% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
 
-It turns out that the PFitter ``Goodness of fit'' test is actually comparing the lambda estimated from the pairwise distances among the sequence to the lambda estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
+It turns out that the PFitter ``Goodness of fit'' test is actually comparing the Poisson rate estimated from the pairwise distances among the sequences to the rate estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
 
-So we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.
+The chi-squared statistic is calculated accounting for the fact that the HD
+values are not independent.  The formula is
+$\chi^2 = ( t(\left|\vec{y}-\vec{E_y}\right|) \Sigma^{-1} \left|\vec{y}-\vec{E_y}\right| )$, where $\vec{y}$ is the vector of counts of observed intersequence Hamming Distances, where the first element counts the number of HD values that are zero, the second counts the number that are 1, and the $k^{th}$ element $y_k$ is the number of observed HDs equal to $k-1$; $\vec{E_y}$ is the expected value of $\vec{y}$ under a model in which intersequence distances are independent and distributed according to a Poisson model with twice the MLE rate estimate $\lambda$ from the consensus sequence distances; and $\Sigma^{-1}$ is the inverse of the covariance matrix $\Sigma$, which can be computed as a function of $\lambda$.
+\begin{equation}
+  \begin{aligned}
+\Sigma[k,l] = \frac{1}{2} \Biggl( &n^3 \, e^{-3 \lambda} \Bigl( V[k,l] + W[k,l] \Bigr) \\
+&+ \mathbf{1}_{\{k=l\}} n^2 \, \phi(k-1) \\
+&- \mathbf{1}_{\{k=l,\hbox{k even}\}}\frac{n}{2} \mu(k/2) \Biggr)
+  \end{aligned}
+\end{equation}
+where
+\begin{equation}
+\begin{aligned}
+\phi( k ) &= d\hbox{Poisson}_{( 2 \lambda )}( k )  \\
+\mu( k ) &= d\hbox{Poisson}_{\lambda}( k )
+\end{aligned}
+\end{equation}
+and (for k>= l):
+\begin{equation}
+\begin{aligned}
+V[k,l] &= \frac{\lambda^k}{k!}\sum_{i = 0}^{l}{{k \choose i}\frac{\lambda^i}{i!}} \\
+W[k,l] &= \frac{\lambda^l}{l!}\sum_{i = 0}^{l}{{l \choose i}\frac{\lambda^{k-i}}{(k-i)!}}
+\end{aligned}
+\end{equation} 
+for k < l:
+\begin{equation}
+\begin{aligned}
+V[k,l] &= \frac{\lambda^l}{l!}\sum_{i = 0}^{k}{{l \choose i}\frac{\lambda^i}{i!}} \\
+W[k,l] &= \frac{\lambda^k}{k!}\sum_{i = 0}^{k}{{k \choose i}\frac{\lambda^{l-i}}{(l-i)!}} \hbox{.}
+\end{aligned}
+\end{equation}
+
+Note that $E_y(k) = \frac{n^2}{2}*\phi(k)$.
+
+For our DS solution, we want to know the evidence about two Poisson distributions having the same rate.  In DS terms, we want a P,Q,R for the assertion that the HD to the consensus is half the HD among the sequences, via a Poisson assumption.  That is, we assume that they are Poisson distributed (and that the evidence is independent, though it is not), and we ask whether the evidence supports this ``2x'' assertion.  This should be doable analytically, but here we use a numerical approach.  I have not yet figured out if it is possible to account for the non-independence within the intersequence HDs and between the two HD distributions.
 
 <<echo = FALSE, results = hide>>=
 PFitter <- function (
@@ -530,6 +574,21 @@ makeDList <- function ( consensus.distances, intersequence.distances ) {
     return( as.data.frame( dlist ) );
 } # makeDList (..)
 
+# Calculate and return the approximate one-sided (upper) p-value using the given null statistics (usually computed through permutation).
+calculateUpperSidedPValue <- function ( the.stat, null.stats, add.one.for.observed.test.statistic = TRUE ) {
+    if( is.na( the.stat ) ) {
+        return( NA );
+    } else {
+        .nulls.more.extreme.than.the.stat <-
+            sum( null.stats >= the.stat, na.rm=T )
+            + as.numeric( add.one.for.observed.test.statistic );
+        .total.nulls <-
+            sum( !is.na( null.stats ) ) +
+                as.numeric( add.one.for.observed.test.statistic );
+        return( .nulls.more.extreme.than.the.stat / .total.nulls );
+    }
+} # calculateUpperSidedPValue (..)
+
 DSPFitter <- function (
   infile = args[1],
   dlist = read.table( file=infile, sep="\t", stringsAsFactors=F ),
@@ -537,7 +596,6 @@ DSPFitter <- function (
   nbases = c(as.numeric(args[3])),
   be.verbose = TRUE
 ) {
-    
     consensus.distances <- dlist[ which(dlist[,1]==dlist[1,1]), 3 ];
     names( consensus.distances ) <- dlist[ which(dlist[,1]==dlist[1,1]), 2 ];
     intersequence.distances <- dlist[ -which(dlist[,1]==dlist[1,1]), 3 ];
@@ -658,7 +716,7 @@ DSPFitter <- function (
         }
         return( the.results );
     } # PoissonDSM.getSmallestEpsilonAndLambda ( observed.data, pepr.variates )
-    .sampled.epsilons.and.lambdas <- sapply( 1:1000, function( .x ) {
+    .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
         #print( .x ); 
         return( PoissonDSM.getSmallestEpsilonAndLambda( intersequence.distances ) ); } );
     ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
@@ -667,7 +725,57 @@ DSPFitter <- function (
         cat( paste( "It seems that the CDF of the closest Poisson distribution is roughly ", sprintf( "%2.1f", ( 100 * median( ds.posterior.epsilons ) ) ), "% away from the pepr-sampled empirical CDFs (middle 95% ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .025 ) ) ), " to ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .975 ) ) ), ").", sep = "" ), fill = TRUE );
     }
     
-    dspfitter.results <- c( dspfitter.results, list( espilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
+    dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
+
+    ## TODO: REMOVE?
+    n.seqs <- length( consensus.distances );
+    POISSON.DRAW.REPS <- 100;
+    .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
+      if( be.verbose ) {
+          cat( ".rep.i: ", .rep.i, fill = TRUE );
+      }
+      .consensus.distances <- rpois( n.seqs, 1 );
+      .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+      .sorted.intersequence.distances <-
+          unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+      .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+          return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+      } );
+      .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+      .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+      .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+     # print( .dspfitter.results );
+    
+      return( .dspfitter.results );
+    } );
+    
+    #print( ".ds.rep.results" );
+    #print( .ds.rep.results );
+    .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+    .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+    .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+
+    .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+    if( be.verbose ) {
+      if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
+          cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+      } else {
+          cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+      }
+        ## TODO: REMOVE
+      if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
+          cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+      } else {
+          cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+      }
+        ## TODO: REMOVE
+      if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
+          cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
+      } else {
+          cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
+      }
+    } # End if be.verbose
+    dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
     
     sorted.consensus.distances <- sort( consensus.distances );
     sorted.intersequence.distances <- sort( intersequence.distances );
@@ -766,55 +874,50 @@ DSPFitter <- function (
         return( .rv );
     } # draw.once.from.each.and.evaluate.assertion (..)
     
+create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
+    nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
+    yvec0 <- rep( 0, nl0 );
+    yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
+    #print( yvec0 );
+    xvec1 <- c(yvec0, rep(0,nl0))
+    
+    yvec1 <- rep(0,2*nl0)
+    for( m in 1:length( yvec1 ) ) {
+        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                xvec1[ k ] * xvec1[ m - k + 1 ]
+            } ) ) );
+        if( m %% 2 == 1 ) {
+            # Odd m.
+            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+        }
+    }
+    # print( "yvec1" );
+    # print( yvec1 );
+    # 
+    # yvec1 <- rep(0,2*nl0)
+    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+    # for( i in 1:nl0 ) {
+    #     m <- i * 2;
+    #     for(k in 1:m){
+    #         .xvec1.k <- xvec1[k];
+    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+    #         if(i != nl0) {
+    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+    #         } 
+    #     }
+    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+    # }
+    # print( "yvec1" );
+    # print( yvec1 );
+    return( yvec1 );
+} # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
+
     # GET A BUNCH OF DRAWS
-    # MAGIC N: DS.NDRAWS
-    DS.NDRAWS <- 1000;
-    
-    ## TODO: REMOVE. TESTING.
-    # DS.DECISION.REPS <- 1000;
-    # DS.DECISION.Q.THRESH <- 0.95;
-    # n.seqs <- c( 10, 100, 500 );
-    # weakening.type <- NA;
-    # #weakening.type <- "complete";
-    # results.matrices.complete <- 
-    # lapply( n.seqs, function( .n.seqs ) {
-    #     cat( "\n.n.seqs: ", .n.seqs, fill = TRUE );
-    #     .diffs <- 2:10;
-    #     .rv <- 
-    #       sapply( .diffs, function( .diff ) {
-    #           cat( ".diff: ", .diff, fill = TRUE );
-    #           .assertion.widths <- c( seq( 0, .05, by = .01 ), seq( .10, .25, by = .05 ), seq( .5, 2, by = .25 ) );
-    #           .ds.qs <- sapply( 1:DS.DECISION.REPS, function( .rep.i ) {
-    #             cat( ".rep.i: ", .rep.i, fill = TRUE );
-    #             .sorted.consensus.distances <- sort( rpois( .n.seqs, 1 ) );
-    #             .sorted.intersequence.distances <- sort( rpois( choose( .n.seqs, 2 ), .diff ) );
-    #             .result <- lapply( 1:DS.NDRAWS, function( .i ) { cat( ".", fill = F ); draw.once.from.each.and.evaluate.assertion( 2 - .assertion.widths, 2 + .assertion.widths, .sorted.consensus.distances, .sorted.intersequence.distances, weakening.type = weakening.type ) } );
-    #             DS.P <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "P", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.P ) <- .assertion.widths;
-    #             DS.Q <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "Q", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.Q ) <- .assertion.widths;
-    #             DS.R <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "R", .assertion.width.i ] } ) ) ) } );
-    #             names( DS.R ) <- .assertion.widths;
-    #             ## ERE I AM.  Just changed so calc an allow DS.P > 0 (since assertion has width).  Next things are to a) run PFitter(..) with these same data to evaluate decision properties, just with "estimate.lambda.and.days = FALSE, do.chisq.gof = TRUE". b) try weakening to see if that addresses the overconfidence against exact assertions.  c) draw from a "convolution" distribution to simulate the non-independence.
-    #             ## TODO: REMOVE.  ERE I AM. TESTING.
-    #             if( any( DS.P > 0 ) ) {
-    #                 print( "DS.P:" );
-    #                 print( DS.P );
-    #             }
-    #             #stopifnot( all( unlist( DS.Q ) + unlist( DS.R ) == 1 ) );
-    #             stopifnot( all( unlist( DS.Q ) + unlist( DS.P ) + unlist( DS.R ) == 1 ) );
-    #             return( DS.Q );
-    #           } );
-    #           ## Dichotomize based on decision threshold Q > DS.DECISION.Q.THRESH.
-    #           .decisions <- ( .ds.qs > DS.DECISION.Q.THRESH );
-    #           ## Return the fraction of reps in which the decision is made, for each assertion width.
-    #           return( apply( .decisions, 1, mean ) );
-    #         } );
-    #       colnames( .rv ) <- .diffs;
-    #       return( .rv );
-    # } );
-    # names( results.matrices ) <- n.seqs;
-    
     .result <- sapply( 1:DS.NDRAWS, function( .i ) { draw.once.from.each.and.evaluate.assertion() } );
     rownames( .result ) <- c( "P", "Q", "R" );
     DS.P <- mean( unlist( .result[ "P", ] ) );
@@ -838,21 +941,88 @@ DSPFitter <- function (
     #print( paste( "The DS evidence against the assertion that the Poisson rate between sequences is twice the rate of sequences to the consensus is Q ", DS.Qtext, ". The remaining evidence (", sprintf( paste( "%0.", ceiling( log10( DS.NDRAWS ) ), "f", sep = "" ), DS.R ), ") neither supports nor contradicts the assertion.", sep = "" ) );
     if( be.verbose ) {
       if( DS.Q >= 0.95 ) {
-          cat( "BAD", fill = TRUE );
-          cat( paste( "There is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: BAD", fill = TRUE );
+          cat( paste( "\tThere is evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       } else {
-          cat( "OK", fill = TRUE );
-          cat( paste( "There is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
+          cat( "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK", fill = TRUE );
+          cat( paste( "\tThere is not sufficient evidence against the assertion that the Poisson rate between sequences is between 1.5 and 2.5 times the rate of sequences to the consensus (R ", DS.Rtext, ").", sep = "" ), fill = TRUE );
       }
     }
     dspfitter.results <- c( dspfitter.results, list( twox = list( "R" = DS.R ) ) );
-    
+
+    ## TODO: REMOVE. TESTING.
+    # POISSON.DRAW.REPS <- 100;#1000;
+    # #DS.DECISION.Q.THRESH <- 0.95;
+    # DS.DECISION.Q.THRESH <- NA;
+    # #n.seqs <- c( 10, 100, 500 );
+    # n.seqs <- length( consensus.distances );
+    # weakening.type <- NA;
+    # #weakening.type <- "complete";
+    # results.by.n.seqs <- 
+    # lapply( n.seqs, function( .n.seqs ) {
+    #     cat( "\n.n.seqs: ", .n.seqs, fill = TRUE );
+    #     .diffs <- 2;#c( 1.5, 2, 2.5 );
+    #     .rv <- 
+    #       lapply( .diffs, function( .diff ) {
+    #           cat( ".diff: ", .diff, fill = TRUE );
+    #           .assertion.widths <- 1;#c( seq( 0, .05, by = .01 ), seq( .10, .25, by = .05 ), seq( .5, 2, by = .25 ) );
+    #           .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
+    #             cat( ".rep.i: ", .rep.i, fill = TRUE );
+    #             .consensus.distances <- rpois( .n.seqs, 1 );
+    #             .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+    #             .sorted.intersequence.distances <- unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+    #             #.sorted.intersequence.distances <- sort( rpois( choose( .n.seqs, 2 ), .diff ) );
+    #            .rv.list <- list();
+    #            .sorted.consensus.distances <- sort( .consensus.distances );
+    #            .result <- lapply( 1:DS.NDRAWS, function( .i ) { cat( ".", fill = F ); draw.once.from.each.and.evaluate.assertion( 2 - .assertion.widths, 2 + .assertion.widths, .sorted.consensus.distances, .sorted.intersequence.distances, weakening.type = weakening.type ) } );
+    #            DS.P <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "P", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.P ) <- .assertion.widths;
+    #            DS.Q <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "Q", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.Q ) <- .assertion.widths;
+    #            DS.R <- lapply( 1:length( .assertion.widths ), function( .assertion.width.i ) { mean( unlist( sapply( .result, function( .mat ) { .mat[ "R", .assertion.width.i ] } ) ) ) } );
+    #            names( DS.R ) <- .assertion.widths;
+    #             ## ERE I AM.  Just changed so calc an allow DS.P > 0 (since assertion has width).  Next things are to a) run PFitter(..) with these same data to evaluate decision properties, just with "estimate.lambda.and.days = FALSE, do.chisq.gof = TRUE". b) try weakening to see if that addresses the overconfidence against exact assertions.  c) draw from a "convolution" distribution to simulate the non-independence.
+    #             ## TODO: REMOVE.  ERE I AM. TESTING.
+    #             if( any( DS.P > 0 ) ) {
+    #                 print( "DS.P:" );
+    #                 print( DS.P );
+    #             }
+    #             #stopifnot( all( unlist( DS.Q ) + unlist( DS.R ) == 1 ) );
+    #             stopifnot( all( unlist( DS.Q ) + unlist( DS.P ) + unlist( DS.R ) == 1 ) );
+    #             .rv.list <- list( "assertion.PQR" = list( "P" = DS.P, "Q" = DS.Q, "R" = DS.R ) );
+    #             return( .rv.list );
+    #           } );
+    #           .rv.list.for.diff <- list();
+    #           .ds.qs <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "Q" ]] } );
+    #           .ds.ps <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "P" ]] } );
+    #           .ds.rs <- sapply( .ds.rep.results, function( .lst ) { .lst[[ "assertion.PQR" ]][[ "R" ]] } );
+    #           .rv.list.for.diff <- list( "DS.Ps" = .ds.ps, "DS.Qs" = .ds.qs, "DS.Rs" = .ds.rs );
+    #           ## Dichotomize based on decision threshold Q > DS.DECISION.Q.THRESH.
+    #           ## Return the fraction of reps in which the decision is made.
+    #           if( !is.na( DS.DECISION.Q.THRESH ) ) {
+    #               .decisions <- ( .ds.qs > DS.DECISION.Q.THRESH );
+    #               .rv.list.for.diff <- c( .rv.list.for.diff, decision.fraction = apply( .decisions, 1, mean ) );
+    #           }
+    #           return( .rv.list.for.diff );
+    #         } );
+    #       names( .rv ) <- .diffs;
+    #       return( .rv );
+    # } );
+    # names( results.by.n.seqs ) <- n.seqs;
+
     return( dspfitter.results );
 } # DSPFitter (..)
 
 @ 
 
-Note that the other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistical test.  It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
+\section{Convolution Test}
+The other thing that the PFitter code does is compute a ``convolution'' which is what would be expected of the pairwise distances, based only on the distances to consensus, under a star-like phylogeny.  The actual comparison just computes whether on average more than 10\% of the HD counts differ (that is, take the sum over bins of the absolute difference in the number of counts in each bin, and then divide by the number of total counts). It's an odd way to do the comparison, it seems to me, as for instance it seems that it would be just as sensitive to off-by-1 (bin) as off by a lot.  If the consensus is one off from the correct center of the star, that could cause such a difference, no?  In any event it is not a statistically interpretable test.  %It seems to be an analogy to the ``fit'' test, but instead of using the Poisson directly, it is (maybe?) introducing some of the nuance that makes a ``convolution'' HD distribution unique (perhaps this includes the non-independence? - except the ``test'' is just a comparison to a fixed number, calculated once, so it's not about accounting for variability.
+
+The convolution HD distribution in PFitter $\vec{y^1}$ (to which the observed intersequence HD histogram $\vec{y}$ is compared) is computed like so (after initializing it to have the same length as $l = \vec{y}$):
+$$
+  y^1_{m} =  \frac{1}{2} \left( \left( \sum_{k=1}^{m}{ x^1_k x^1_{m-k+1}}  \right) - x^1_{1+((m-1)/2)}\mathbf{1}_{\{\hbox{$m$ is odd}\}} \right)
+$$
+, where $\vec{x^1} = \vec{y}$ padded with an additional $l$ zeroes.
 
 <<echo = FALSE, results = hide>>=
 #.result.ignored <- PFitter( be.verbose = TRUE );
@@ -860,6 +1030,9 @@ Note that the other thing that the PFitter code does is compute a ``convolution'
 .result.ignored <- DSPFitter( be.verbose = TRUE );
 @ 
 
+\hspace{.2in}
+\bibliographystyle{plain}
+\bibliography{HIVFoundersAndTiming}
 
 <<echo = FALSE>>=
 # (un)Setup for prettier Sweave output.

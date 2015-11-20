@@ -31,9 +31,9 @@ epsilon <- c(as.numeric(args[2]))
 nbases <- c(as.numeric(args[3]))
 
 sample <- basename(file_path_sans_ext(infile))
-dir <- paste(dirname(infile), '/', sep='')
-outfile <- paste(dir, "LOG_LIKELIHOOD.results.txt", sep="")
-outfile2 <- paste(dir, "CONVOLUTION.results.txt", sep="")
+.dir <- paste(dirname(infile), '/', sep='')
+outfile <- paste(.dir, "LOG_LIKELIHOOD.results.txt", sep="")
+outfile2 <- paste(.dir, "CONVOLUTION.results.txt", sep="")
 
 cat( "PFitter.." );
 
@@ -170,7 +170,7 @@ dvec1 <- dvec1[-1]
 meanhd <- mean(dvec1)
 maxhd <- max(dvec1)
 
-figure <- paste(dir, sample, ".hd_freq_dist.jpg", sep="")
+figure <- paste(.dir, sample, ".hd_freq_dist.jpg", sep="")
 jpeg(file=figure, pointsize=14, width=800, height=800)
 par(mar=c(5,5,4,2))
 
@@ -181,7 +181,7 @@ lines(seq(0,max(dvec1)+1,1), 0.5*nseq*(nseq-1)*dpois(seq(0,1+max(dvec1),1), lamb
 
 dev.off()	
 	
-figure <- paste(dir, sample, ".hd_freq_dist.ps", sep="")
+figure <- paste(.dir, sample, ".hd_freq_dist.ps", sep="")
 postscript(file=figure, width=400, height=300)
 par(mar=c(5,5,4,3))
 
@@ -194,31 +194,73 @@ dev.off()
 
 
 #### FIT THE CONSENSUS ONLY HD DISTRIBUTION
-	
+
+create.intersequence.distances.by.convolving.consensus.distances <- function ( yvec0 ) {
+    nl0 <- length(yvec0);
+    xvec1 <- c(yvec0, rep(0,nl0))
+    
+    yvec1 <- rep(0,2*nl0)
+    for( m in 1:length( yvec1 ) ) {
+        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                xvec1[ k ] * xvec1[ m - k + 1 ]
+            } ) ) );
+        if( m %% 2 == 1 ) {
+            # Odd m.
+            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+        }
+    }
+    # print( "yvec1" );
+    # print( yvec1 );
+    # 
+    # yvec1 <- rep(0,2*nl0)
+    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+    # for( i in 1:nl0 ) {
+    #     m <- i * 2;
+    #     for(k in 1:m){
+    #         .xvec1.k <- xvec1[k];
+    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+    #         if(i != nl0) {
+    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+    #         } 
+    #     }
+    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+    # }
+    # print( "yvec1" );
+    # print( yvec1 );
+    return( yvec1 );
+} # create.intersequence.distances.by.convolving.consensus.distances ( yvec0 )
+
 if (lambda!=0) {
 			
-	xvec1 <- c(yvec0, rep(0,nl0))
-	yvec1 <- rep(0,2*nl0)
-	yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
-	mvals <- seq(2,2*nl0,2)
-
-	for(m in mvals) {
-		delta <- rep(0,m)
-		delta[1+m/2] <- 1
-		for(hj in 1:m){			
-                        yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
-			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
-		}
-		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
-	}
-	
-	dvec2 <- rep(0, yvec1[1])
-	w <- which(yvec1>0)	
-	for(hk in w[-1]) { dvec2 <- c(dvec2, rep((hk-1), yvec1[hk])) }
+        xvec1 <- c(yvec0, rep(0,nl0))
+    
+# 	yvec1 <- rep(0,2*nl0)
+# 	yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+# 	mvals <- seq(2,2*nl0,2)
+# 
+# 	for(m in mvals) {
+# 		delta <- rep(0,m)
+# 		delta[1+m/2] <- 1
+# 		for(hj in 1:m){			
+#                         yvec1[m] <- yvec1[m] + 1/2*xvec1[hj]*xvec1[m-hj+1]
+# 			if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[hj]*(xvec1[m-hj+2] - delta[hj]) } 
+# 		}
+# 		if(m<2*nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+# 	}
+#
+    yvec1 <- create.intersequence.distances.by.convolving.consensus.distances( yvec0 );
+ 	dvec2 <- rep(0, yvec1[1])
+ 	w <- which(yvec1>0)	
+ 	for(hk in w[-1]) { dvec2 <- c(dvec2, rep((hk-1), yvec1[hk])) }
 	
 	mmax <- 1.5*(max(c(yvec0, yvec1)))			
 
-	cfigure <- paste(dir, sample, ".conv_plot.jpg", sep="")
+	cfigure <- paste(.dir, sample, ".conv_plot.jpg", sep="")
 	jpeg(file=cfigure, pointsize=14, width=800, height=800)
 	par(mar=c(5,5,4,2))
 
@@ -230,7 +272,7 @@ if (lambda!=0) {
 
 	dev.off()
 			
-	figure <- paste(dir, sample, ".conv_plot.ps", sep="")
+	figure <- paste(.dir, sample, ".conv_plot.ps", sep="")
 	postscript(file=figure, width=400, height=300)
 	par(mar=c(5,5,4,3))
 	
@@ -262,6 +304,8 @@ if (lambda!=0) {
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
 #pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
 pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda)*x)-lfactorial(x) ) ) # PAUL CHANGED log( clambda^x ) to log(clambda)*x
+# pk.unsafe <- function(x) ( nseq**2 * (2*clambda)**x * exp( -2*clambda ) / factorial( x ) )
+# pk.unsafe2 <- function(x) ( nseq**2 * dpois( x, (2*clambda) ) );
 mui <- function(x) nseq*dpois(x, lambda=clambda)
 SIGMA.DIM.MAX <- 170; # Beyond this value, factorial stops working in R.
 sigma.dim <- min( SIGMA.DIM.MAX, (2*nl0) );
