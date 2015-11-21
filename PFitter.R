@@ -340,7 +340,9 @@ if (lambda!=0) {
                     if( is.na( c2 ) ) {
                         c2 <- 0;
                     }
-                        sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2);
+                    ## PAUL IS INVESTIGATING A THEORY.
+                    #sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2);
+                    sigmaij[k+1,l+1] <- 0.5*coeff*(c1*c2);
 			if(k==l){
                           if( iseven(k) ) {
                             sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2);

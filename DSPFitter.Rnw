@@ -575,7 +575,7 @@ makeDList <- function ( consensus.distances, intersequence.distances ) {
 } # makeDList (..)
 
 # Calculate and return the approximate one-sided (upper) p-value using the given null statistics (usually computed through permutation).
-calculateUpperSidedPValue <- function ( the.stat, null.stats, add.one.for.observed.test.statistic = TRUE ) {
+calculateUpperSidedPValue <- function ( the.stat, null.stats, add.one.for.observed.test.statistic = TRUE, use.ci = TRUE ) {
     if( is.na( the.stat ) ) {
         return( NA );
     } else {
@@ -585,7 +585,17 @@ calculateUpperSidedPValue <- function ( the.stat, null.stats, add.one.for.observ
         .total.nulls <-
             sum( !is.na( null.stats ) ) +
                 as.numeric( add.one.for.observed.test.statistic );
-        return( .nulls.more.extreme.than.the.stat / .total.nulls );
+        if( use.ci ) {
+            if( !require( "binom" ) ) {
+                install.packages( "binom", dependencies = TRUE );
+                if( !require( "binom" ) ) {
+                    stop( "ERROR LOADING \"binom\" package" );
+                }
+            }
+            return( binom.confint( .nulls.more.extreme.than.the.stat, .total.nulls, conf.level = 0.95, methods = "wilson" )$upper );
+        } else {
+            return( .nulls.more.extreme.than.the.stat / .total.nulls );
+        }
     }
 } # calculateUpperSidedPValue (..)
 
@@ -727,55 +737,168 @@ DSPFitter <- function (
     
     dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
 
-    ## TODO: REMOVE?
-    n.seqs <- length( consensus.distances );
-    POISSON.DRAW.REPS <- 100;
-    .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS, function( .rep.i ) {
-      if( be.verbose ) {
-          cat( ".rep.i: ", .rep.i, fill = TRUE );
-      }
-      .consensus.distances <- rpois( n.seqs, 1 );
-      .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
-      .sorted.intersequence.distances <-
-          unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
-      .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
-          return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
-      } );
-      .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
-      .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
-      .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
-     # print( .dspfitter.results );
+create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
+    nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
+    yvec0 <- rep( 0, nl0 );
+    yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
+    #print( yvec0 );
+    xvec1 <- c(yvec0, rep(0,nl0))
     
-      return( .dspfitter.results );
-    } );
-    
-    #print( ".ds.rep.results" );
-    #print( .ds.rep.results );
-    .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
-    .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
-    .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+    yvec1 <- rep(0,2*nl0)
+    for( m in 1:length( yvec1 ) ) {
+        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                xvec1[ k ] * xvec1[ m - k + 1 ]
+            } ) ) );
+        if( m %% 2 == 1 ) {
+            # Odd m.
+            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+        }
+    }
+    # print( "yvec1" );
+    # print( yvec1 );
+    # 
+    # yvec1 <- rep(0,2*nl0)
+    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+    # for( i in 1:nl0 ) {
+    #     m <- i * 2;
+    #     for(k in 1:m){
+    #         .xvec1.k <- xvec1[k];
+    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+    #         if(i != nl0) {
+    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+    #         } 
+    #     }
+    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+    # }
+    # print( "yvec1" );
+    # print( yvec1 );
+    return( yvec1 );
+} # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
 
-    .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
-    if( be.verbose ) {
-      if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-        ## TODO: REMOVE
-      if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-        ## TODO: REMOVE
-      if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
-          cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY", fill = TRUE );
-      } else {
-          cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY", fill = TRUE );
-      }
-    } # End if be.verbose
-    dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
+    if( TRUE ) {
+      n.seqs <- length( consensus.distances );
+      ## The strategy here is to try 10, if at least half are higher than the test stat, do another 90, and if of those 100 the crude p-value is <= 0.10, get a precise p-value by doing a total of 500.  We threshold for further refinement based on a per-test probabilty of failing to refine (when we should refine ie p = 0.05) of 1E-5.
+      POISSON.DRAW.REPS.DABBLE <- 10;
+      POISSON.DRAW.REPS.INITIAL <- 100;
+      POISSON.DRAW.REPS.TOTAL <- 500;
+      .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS.DABBLE, function( .rep.i ) {
+        if( be.verbose ) {
+            cat( ".rep.i: ", .rep.i, fill = TRUE );
+        }
+        .consensus.distances <- rpois( n.seqs, 1 );
+        .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+        .sorted.intersequence.distances <-
+            unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+        .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+            return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+        } );
+        .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+        .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+        .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+       # print( .dspfitter.results );
+      
+        return( .dspfitter.results );
+      } );
+      
+      #print( ".ds.rep.results" );
+      #print( .ds.rep.results );
+      .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+      .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+      .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+  
+      .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+      if( ( any( .p.values <= ( qbinom( 1-1E-5, POISSON.DRAW.REPS.DABBLE, .05 ) / POISSON.DRAW.REPS.DABBLE ) ) ) && !( all( .p.values <= 0.05 ) ) ) {
+        if( be.verbose ) {
+          cat( "Running ", POISSON.DRAW.REPS.INITIAL - POISSON.DRAW.REPS.DABBLE, " more reps, because p-value after ", POISSON.DRAW.REPS.DABBLE, " reps the p-values are: ", sep = "", fill = TRUE );
+          print( .p.values );
+          print( paste( "Estimate:", dspfitter.results[[ "epsilon" ]][[ "estimate" ]] ) );
+          print( "summary of null epsilon medians:" );
+          print( summary( .epsilon.medians ) );
+        }
+        .ds.rep.results <- c( .ds.rep.results, lapply( ( POISSON.DRAW.REPS.DABBLE + 1):POISSON.DRAW.REPS.INITIAL, function( .rep.i ) {
+          if( be.verbose ) {
+              cat( ".rep.i: ", .rep.i, fill = TRUE );
+          }
+          .consensus.distances <- rpois( n.seqs, 1 );
+          .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+          .sorted.intersequence.distances <-
+              unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+          .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+              return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+          } );
+          .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+          .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+          .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+         # print( .dspfitter.results );
+        
+          return( .dspfitter.results );
+        } ) );
+          
+        #print( ".ds.rep.results" );
+        #print( .ds.rep.results );
+        .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+        .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+        .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+        .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+
+        if( any( .p.values <= ( qbinom( 1-1E-5, POISSON.DRAW.REPS.INITIAL, .05 ) / POISSON.DRAW.REPS.INITIAL ) ) && !( all( .p.values <= 0.05 ) ) ) {
+          if( be.verbose ) {
+            cat( "Running ", POISSON.DRAW.REPS.TOTAL - POISSON.DRAW.REPS.INITIAL, " more reps, because p-value after ", POISSON.DRAW.REPS.INITIAL, " reps the p-values are: ", sep = "", fill = TRUE );
+            print( .p.values );
+          }
+          .ds.rep.results <- c( .ds.rep.results, lapply( ( POISSON.DRAW.REPS.INITIAL + 1):POISSON.DRAW.REPS.TOTAL, function( .rep.i ) {
+            if( be.verbose ) {
+                cat( ".rep.i: ", .rep.i, fill = TRUE );
+            }
+            .consensus.distances <- rpois( n.seqs, 1 );
+            .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+            .sorted.intersequence.distances <-
+                unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
+            .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
+                return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+            } );
+            .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+            .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
+            .dspfitter.results <- list( epsilon = list( "estimate" = .quantiles.of.interest[ 2 ], "2.5%" = .quantiles.of.interest[ 1 ], "97.5%" = .quantiles.of.interest[ 3 ] ) );
+           # print( .dspfitter.results );
+          
+            return( .dspfitter.results );
+          } ) );
+            
+          #print( ".ds.rep.results" );
+          #print( .ds.rep.results );
+          .epsilon.medians <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "estimate" ]] ) } );
+          .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
+          .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
+          .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
+        } # End if we should refine the p values further.
+      } # End if we should bother doing reps for the p values 
+      if( be.verbose ) {
+        if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "estimate.p.value" ]], ")", sep = "", fill = TRUE );
+        } else {
+            cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "estimate.p.value" ]], ")", sep = "", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "lower.p.value" ]], ")", sep = "", fill = TRUE );
+        } else {
+            cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "lower.p.value" ]], ")", sep = "", fill = TRUE );
+        }
+          ## TODO: REMOVE
+        if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
+            cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "upper.p.value" ]], ")", sep = "", fill = TRUE );
+        } else {
+            cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "upper.p.value" ]], ")", sep = "", fill = TRUE );
+        }
+      } # End if be.verbose
+      dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
+    } # END IF we should do sampling to p-values for the epsilon distances.
     
     sorted.consensus.distances <- sort( consensus.distances );
     sorted.intersequence.distances <- sort( intersequence.distances );
@@ -874,48 +997,6 @@ DSPFitter <- function (
         return( .rv );
     } # draw.once.from.each.and.evaluate.assertion (..)
     
-create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
-    nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
-    yvec0 <- rep( 0, nl0 );
-    yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
-    #print( yvec0 );
-    xvec1 <- c(yvec0, rep(0,nl0))
-    
-    yvec1 <- rep(0,2*nl0)
-    for( m in 1:length( yvec1 ) ) {
-        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
-                xvec1[ k ] * xvec1[ m - k + 1 ]
-            } ) ) );
-        if( m %% 2 == 1 ) {
-            # Odd m.
-            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
-        }
-    }
-    # print( "yvec1" );
-    # print( yvec1 );
-    # 
-    # yvec1 <- rep(0,2*nl0)
-    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
-    # for( i in 1:nl0 ) {
-    #     m <- i * 2;
-    #     for(k in 1:m){
-    #         .xvec1.k <- xvec1[k];
-    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
-    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
-    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
-    #         if(i != nl0) {
-    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
-    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
-    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
-    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
-    #         } 
-    #     }
-    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
-    # }
-    # print( "yvec1" );
-    # print( yvec1 );
-    return( yvec1 );
-} # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
 
     # GET A BUNCH OF DRAWS
     .result <- sapply( 1:DS.NDRAWS, function( .i ) { draw.once.from.each.and.evaluate.assertion() } );
