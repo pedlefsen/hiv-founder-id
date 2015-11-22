@@ -603,6 +603,9 @@ sub identify_founders {
         print $RAP_result_stdout;
       }
       my ( $removeDuplicateSequencesFromAlignedFasta_output_file ) = ( $RAP_result_stdout =~ /^Table of duplicates removed: (.+)\s*$/m );
+      if( !defined( $removeDuplicateSequencesFromAlignedFasta_output_file ) ) { # Do duplicates.
+        $removeDuplicateSequencesFromAlignedFasta_output_file = "";
+      }
       ## TODO: REMOVE
       #print( "\$removeDuplicateSequencesFromAlignedFasta_output_file is $removeDuplicateSequencesFromAlignedFasta_output_file" );
       if( $RAP_result_stdout =~ /Recombinants identified/ ) {
@@ -1082,6 +1085,7 @@ sub identify_founders {
          #   print "Non-Star-Like Phylogenies within clusters";
         # }
         print "Multi-Founder Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multifounder_DS_PFitter_distance_mean ($multifounder_DS_PFitter_distance_ci_low, $multifounder_DS_PFitter_distance_ci_high)\n";
+        print "Multi-Founder DS PoissonFitter Determination: ";
         if( $multifounder_DS_PFitter_is_starlike ) {
           print "Star-Like Phylogeny (p = $multifounder_DS_PFitter_starlike_pvalue)\n";
         } else {

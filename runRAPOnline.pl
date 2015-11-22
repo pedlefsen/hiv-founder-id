@@ -121,13 +121,15 @@ sub runRAPOnline {
   }
   # Parse it to get the output fasta filename.
   my ( $fasta_file_no_duplicates ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  print "Fasta file with duplicates removed: $fasta_file_no_duplicates\n";
+
   my ( $table_file_no_duplicates ) =
     ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
   $table_file_no_duplicates .= ".tbl";
-  #if( $DEBUG ) {
-    print "Fasta file with duplicates removed: $fasta_file_no_duplicates\n";
+  
+  if( -e $table_file_no_duplicates ) {
     print "Table of duplicates removed: $table_file_no_duplicates\n";
-  #}
+  }
 
   # RAP has a problem with certain characters in fasta headers. 
   ## STEP 2: Rename the seqs to just their numbers.
