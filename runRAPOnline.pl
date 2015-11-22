@@ -122,19 +122,23 @@ sub runRAPOnline {
   # Parse it to get the output fasta filename.
   my ( $fasta_file_no_duplicates ) = ( $R_output =~ /\"([^\"]+)\"/ );
   my ( $table_file_no_duplicates ) =
-    ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ ) . ".tbl";
-  if( $DEBUG ) {
+    ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
+  $table_file_no_duplicates .= ".tbl";
+  #if( $DEBUG ) {
     print "Fasta file with duplicates removed: $fasta_file_no_duplicates\n";
     print "Table of duplicates removed: $table_file_no_duplicates\n";
-  }
+  #}
 
   # RAP has a problem with certain characters in fasta headers. 
   ## STEP 2: Rename the seqs to just their numbers.
   if( $VERBOSE ) {
     print "Calling R to create a version of the fasta file in which seqs are numbered instead of named..";
   }
-  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputDir="$output_path_dir"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
-  # The output has the file name of the consensus file.
+  my ( $fasta_file_no_duplicates_numbered ) =
+    ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
+  $fasta_file_no_duplicates_numbered .= "_numbered$input_fasta_file_suffix";
+  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputFilename="$fasta_file_no_duplicates_numbered"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
+  # The output has the file name of the "consensus file" which is not in fact the consensus but the fasta with renamed seqs.
   if( $DEBUG ) {
     print( "GOT: $R_output\n" );
   }
@@ -144,7 +148,7 @@ sub runRAPOnline {
   # Parse it to get the filename.
   my ( $fasta_file_readyForRAP ) = ( $R_output =~ /\"([^\"]+)\"/ );
   if( $DEBUG ) {
-    print "Fasta file with consensus: $fasta_file_readyForRAP\n";
+    print "Fasta file ready for RAP: $fasta_file_readyForRAP\n";
   }
 
   ## Set up the table mapping sequence names to numbers.
@@ -171,7 +175,7 @@ sub runRAPOnline {
   
   my $content = $mech->content();
   if( $DEBUG ) {
-    print "OK\n";#, \$content is $content\n";
+    print "OK\n"# \$content is $content\n";
   }
   my ( $no_recombinants ) = ( $content =~ /No recombinants found/ );
   my ( $format_error ) = ( $content =~ /'Format Conversion' probably did not recognize the format of your input alignment/ );
@@ -181,7 +185,7 @@ sub runRAPOnline {
         print "ERROR: File format of $fasta_file_readyForRAP not recognized by RAP!\n";
       }
       if( $no_recombinants ) {
-        print "No recombinants identified.\n";
+          print "No recombinants identified.\n";
       }
       select STDOUT;
       $| = $old_autoflush;
@@ -234,10 +238,11 @@ sub runRAPOnline {
             return 1;
           }
         print RAP_output_fileFH $RAP_output_file_contents;
-        close( RAP_output_fileFH );
+  close( RAP_output_fileFH );
+  
+  print "Recombinants identified ($RAP_output_file)\n";
 
   if( $VERBOSE ) {
-    print "Recombinants identified ($RAP_output_file)\n";
     select STDOUT;
     $| = $old_autoflush;
   }

@@ -553,6 +553,9 @@ sub identify_founders {
           }
       }
       $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      if( $VERBOSE ) {
+        print( $R_output );
+      }
       ## extract the number fixed/removed from the output
       my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
   #    if( $VERBOSE ) {
@@ -596,11 +599,20 @@ sub identify_founders {
       }
       my $removed_recombined_sequences = 0;
       my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
+      if( $VERBOSE ) {
+        print $RAP_result_stdout;
+      }
+      my ( $removeDuplicateSequencesFromAlignedFasta_output_file ) = ( $RAP_result_stdout =~ /^Table of duplicates removed: (.+)\s*$/m );
+      ## TODO: REMOVE
+      #print( "\$removeDuplicateSequencesFromAlignedFasta_output_file is $removeDuplicateSequencesFromAlignedFasta_output_file" );
       if( $RAP_result_stdout =~ /Recombinants identified/ ) {
         my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
-        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_removeDuplicateSequencesFromAlignedFastaOutputFile="$removeDuplicateSequencesFromAlignedFasta_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print $R_output;
+        }
         ## extract the number fixed/removed from the output
-        ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
+        ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/m );
         if( $VERBOSE ) {
           print( ".done." );
         }
@@ -636,12 +648,19 @@ sub identify_founders {
       $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $fasta_file_short_nosuffix ];
     }
 
+    my $runInSites_output;
     if( $runInSites_online ) {
-      `perl runInSitesOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
+      $runInSites_output = `perl runInSitesOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
     } else {
-      `perl runInSitesOffline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
+      $runInSites_output = `perl runInSitesOffline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
     }
-    `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    if( $VERBOSE ) {
+      print $runInSites_output;
+    }
+    my $getInSitesStat_output = `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    if( $VERBOSE ) {
+      print $getInSitesStat_output;
+    }
     my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
 
@@ -707,6 +726,9 @@ sub identify_founders {
 
     if( $run_entropy ) {
       $R_output = `export computeEntropyFromAlignedFasta_inputFilename="$fasta_file"; export computeEntropyFromAlignedFasta_outputDir="$output_path_dir_for_input_fasta_file"; R -f computeEntropyFromAlignedFasta.R --vanilla --slave`;
+      if( $VERBOSE ) {
+        print( $R_output );
+      }
       my ( $entropy_stats_filename ) = ( $R_output =~ /^\[1\]\s*\"(.+)\"\s*$/m );
       if( !-e $entropy_stats_filename ) {
         warning( "UH OH: MISSING ENTROPY RESULT FILE \"$entropy_stats_filename\"\n" );
@@ -787,10 +809,9 @@ sub identify_founders {
         }
         $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
-          print( "\tdone.\n" );
+          print( $R_output );
+          print( "done.\n" );
         }
-        ## TODO: REMOVE
-        # print "GOT: $R_output\n";
         my $PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_days_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
@@ -930,10 +951,12 @@ sub identify_founders {
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
     }
-    my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    if( $VERBOSE ) {
+      print $clusterInformativeSites_output;
+    }
     # There might be extra text in there.  Look for the telltale "[1]" output
-    #warn "GOT $num_clusters\n";
-    ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
+    my ( $num_clusters ) = ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
     if( !$morgane_calls_one_cluster ) {
       $in_sites_founders_call = $num_clusters;
     }
@@ -992,7 +1015,8 @@ sub identify_founders {
         }
         $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
-          print( "\tdone.\n" );
+          print( $R_output );
+          print( "done.\n" );
         }
         my $multifounder_PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
@@ -1135,12 +1159,18 @@ sub identify_founders {
           print "Running Profillic..\n";
         }
         my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-        `perl runProfillic.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my $runProfillic_output = `perl runProfillic.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        if( $VERBOSE ) {
+          print( $runProfillic_output );
+        }
 
         if( $VERBOSE ) {
           print "Clustering..\n";
         }
         $R_output = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        if( $VERBOSE ) {
+          print( $R_output );
+        }
         my ( $num_profillic_clusters ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
@@ -1258,9 +1288,9 @@ sub identify_founders {
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           #print "\$suffix_pattern: $suffix_pattern\n";
           $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
-          # print $R_output;
           if( $VERBOSE ) {
-            print( "\tdone.\n" );
+            print $R_output;
+            print( "done.\n" );
           }
           my $multi_region_PFitter_fitter_stats_raw =
             `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;

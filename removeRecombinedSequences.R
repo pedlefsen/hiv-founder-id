@@ -2,8 +2,11 @@ library( "ade4", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # needed by some
 library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
 library( "seqinr", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # for "as.alignment", "consensus"
 
+### TODO: ADD input of the removeDuplicateSequencesFromAlignedFasta .tbl output file, and remove all duplicates of removed input seqs.
+
 # This parses the summaryTable output of the RAP tool; see runRAPOnline.pl.
-removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, output.dir = NULL, p.value.threshold = 0.0007 ) {
+# This also optionally parses the .tbl output of the removeDuplicateSequencesFromAlignedFasta.R script.
+removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, duplicate.sequences.tbl.file = NULL, output.dir = NULL, p.value.threshold = 0.0007 ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
@@ -58,13 +61,43 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
         seq.parents <- gsub( "-x-DOT-x-", ".", seq.parents );
         seq.parents <- gsub( "-x-DOTDOT-x-", "..", seq.parents );
         ## TODO: REMOVE
-        warning( paste( "Excluding '", seq.name, "' because the RAP p-value is ", p.value, ". It is a combination of: ", seq.parents, ".", sep = "" ) );
+        cat( paste( "Excluding '", seq.name, "' because the RAP p-value is ", p.value, ". It is a combination of: ", seq.parents, ".", sep = "" ), fill = TRUE );
         exclude.sequence[ seq.name ] <- TRUE;
 #    } else {
-#        warning( paste( "NOT Excluding because the RAP p-value is ", p.value, ":", ( p.value < p.value.threshold ), "\n" ) );
+#        cat( paste( "NOT Excluding because the RAP p-value is ", p.value, ":", ( p.value < p.value.threshold ), "\n" ), fill = TRUE );
     }
   } # End foreach line.i
 
+  if( !is.null( duplicate.sequences.tbl.file ) ) {
+    stopifnot( file.exists( duplicate.sequences.tbl.file ) );
+    duplicate.sequences.tbl.in <- read.table( file = duplicate.sequences.tbl.file, sep = "\t", header = TRUE );
+    duplicate.sequences.tbl <- apply( duplicate.sequences.tbl.in, 1:2, function( .seq.name ) {
+        # Fix our "escape" of the BAR and SLASH.
+        .seq.name <- gsub( "-x-BAR-x-", "|", .seq.name );
+        .seq.name <- gsub( "-x-SLASH-x-", "/", .seq.name );
+        .seq.name <- gsub( "-x-BACKSLASH-x-", "\\", .seq.name );
+        .seq.name <- gsub( "-x-DOT-x-", ".", .seq.name );
+        .seq.name <- gsub( "-x-DOTDOT-x-", "..", .seq.name );
+        return( .seq.name );
+    } );
+    excluded.sequences.with.duplicates <- intersect( names( exclude.sequence )[ exclude.sequence ], duplicate.sequences.tbl[ , "retained" ] );
+    if( length( excluded.sequences.with.duplicates ) > 0 ) {
+        rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
+        .duplicates.strings <- duplicate.sequences.tbl[ excluded.sequences.with.duplicates, "removed" ];
+        .duplicates.list <- strsplit( .duplicates.strings, "," );
+        names( .duplicates.list ) <- excluded.sequences.with.duplicates;
+        .result.ignored <- 
+        lapply( excluded.sequences.with.duplicates, function( .retained.sequence ) {
+            if( length( .duplicates.list[[ .retained.sequence ]] ) > 0 ) {
+                ## TODO: REMOVE
+                cat( paste( "Excluding '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
+                exclude.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
+            }
+            return( NULL );
+        } );
+    }
+  } # End if( !is.null( duplicate.sequences.tbl.file ) )
+    
   out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
 
   # Write the subalignment as a fasta file
@@ -78,6 +111,10 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, outpu
 ## Here is where the action is.
 fasta.file <- Sys.getenv( "removeRecombinedSequences_inputFilename" );
 RAP.summaryTable.file <- Sys.getenv( "removeRecombinedSequences_RAPOutputFile" );
+duplicate.sequences.tbl.file <- Sys.getenv( "removeRecombinedSequences_removeDuplicateSequencesFromAlignedFastaOutputFile" );
+if( duplicate.sequences.tbl.file == "" ) {
+    duplicate.sequences.tbl.file <- NULL;
+}
 output.dir <- Sys.getenv( "removeRecombinedSequences_outputDir" );
 if( output.dir == "" ) {
     output.dir <- NULL;
@@ -91,7 +128,7 @@ if( p.value.threshold == "" ) {
 #warning( paste( "alignment input file:", fasta.file ) );
 #warning( paste( "output dir:", output.dir ) );
 if( file.exists( fasta.file ) ) {
-    print( removeRecombinedSequences( fasta.file, RAP.summaryTable.file, output.dir, p.value.threshold = p.value.threshold ) );
+    print( removeRecombinedSequences( fasta.file, RAP.summaryTable.file, duplicate.sequences.tbl.file, output.dir, p.value.threshold = p.value.threshold ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }
