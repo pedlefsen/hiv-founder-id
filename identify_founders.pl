@@ -386,7 +386,8 @@ sub identify_founders {
      "DS.PFitter.lower.is.starlike",
      "DS.PFitter.lower.starlike.pvalue",
      "DS.PFitter.upper.is.starlike",
-     "DS.PFitter.upper.starlike.pvalue"
+     "DS.PFitter.upper.starlike.pvalue",
+     "is.one.founder.alt"
     );
     
     push @table_column_headers,
@@ -438,6 +439,9 @@ sub identify_founders {
   } # End if $run_profillic
 
   push @table_column_headers, "founder.call";
+  if( $run_PFitter ) {
+    push @table_column_headers, "founder.call.alt";
+  }
   
   my $table_header = join( "\t", @table_column_headers );
   print OUTPUT_TABLE_FH $table_header, "\n";
@@ -700,6 +704,7 @@ sub identify_founders {
     my $diversity_threshold_exceeded = 0;
     my $in_sites_ratio_threshold_exceeded = 0;
     my $in_sites_founders_call = 1;
+    my $ds_pfitter_founders_call = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       $diversity_threshold_exceeded = 1;
       if( $in_sites_ratio > $in_sites_ratio_threshold ) {
@@ -717,7 +722,7 @@ sub identify_founders {
     }
     print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
     print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
-    ## "is.one.cluster":
+    ## "is.one.founder":
     print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
 
     if( $morgane_calls_one_cluster ) {
@@ -793,6 +798,7 @@ sub identify_founders {
     my $DS_PFitter_assertion_high = 2.5;
     my $DS_PFitter_R = "1.0";
     my ( $DS_starlike_text, $DS_lower_starlike_text, $DS_upper_starlike_text );
+    my $paul_calls_one_cluster = 1;
     if( $run_PFitter ) {
       #if( $mean_diversity == 0 ) {
       #  if( $VERBOSE ) {
@@ -948,11 +954,27 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_lower_starlike_pvalue;
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_is_starlike;
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_starlike_pvalue;
+
+      ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests.
+      if( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) && ( $mean_diversity > 0 ) ) ) {
+        $paul_calls_one_cluster = 0;
+        $force_one_cluster = 0;
+      }
+      if( $paul_calls_one_cluster ) {
+        print "Number of founders estimated using p-values from DSPfitter is: 1\n";
+      } else {
+        print "Number of founders estimated using p-values from DSPfitter is: greater than 1\n";
+      }
+
+      ## "is.one.founder.alt":
+      print OUTPUT_TABLE_FH "\t", $paul_calls_one_cluster;
     } # End if( $run_PFitter )
 
     my $tmp_extra_flags = $extra_flags;
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
+      ## TODO: REMOVE
+      print "FORCE ONE CLUSTER!!\n";
     }
     my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     if( $VERBOSE ) {
@@ -963,10 +985,18 @@ sub identify_founders {
     if( !$morgane_calls_one_cluster ) {
       $in_sites_founders_call = $num_clusters;
     }
+    if( !$paul_calls_one_cluster ) {
+      $ds_pfitter_founders_call = $num_clusters;
+    }
 
     # Print out the number of clusters
-    print "Number of clusters found when clustering informative sites: $num_clusters\n";
+    if( !$force_one_cluster ) {
+      print "Number of clusters found when clustering informative sites: $num_clusters\n";
+    }
     print "Number of founders estimated by the Informative Sites method: $in_sites_founders_call\n";
+    if( $run_PFitter ) {
+      print "Number of founders estimated by the Informative Sites method using DS PFitter thresholding: $ds_pfitter_founders_call\n";
+    }
 
     if( $run_PFitter ) {
       if( $num_clusters == 1 ) {
@@ -1179,7 +1209,7 @@ sub identify_founders {
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
         print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
-        if( $morgane_calls_one_cluster ) {
+        if( $paul_calls_one_cluster ) {
           print "Number of founders estimated by the Informative Sites Profillic method: 1\n";
           print OUTPUT_TABLE_FH "\t", 1;
         } else {
@@ -1190,6 +1220,9 @@ sub identify_founders {
     } # End if $run_profillic
 
     print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
+    if( $run_PFitter ) {
+      print OUTPUT_TABLE_FH "\t", $ds_pfitter_founders_call;
+    }
     print OUTPUT_TABLE_FH "\n";
     
     # If this is a half-genome dataset, should we call
@@ -1390,6 +1423,17 @@ sub identify_founders {
           print "Multi-Region Bayesian Poisson time estimate (95\% CI): $multi_region_Bayesian_PFitter_days_est ($multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high)\n";
           #print "\n$multi_region_PFitter_fitter_stats_raw\n";
           
+          ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests.
+          my $multi_region_paul_calls_one_cluster = 1;
+          if( ( $multi_region_DS_PFitter_fits eq "0" ) || ( $multi_region_DS_PFitter_is_starlike eq "0" ) ) {
+            $multi_region_paul_calls_one_cluster = 0;
+          }
+          if( $multi_region_paul_calls_one_cluster ) {
+            print "Multi-Region Number of founders estimated using p-values from DSPfitter is: 1\n";
+          } else {
+            print "Multi-Region Number of founders estimated using p-values from DSPfitter is: greater than 1\n";
+          }
+
           print OUTPUT_TABLE_FH "${fasta_file_very_short}${fasta_file_suffix}";
           if( $run_Hypermut ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # fixed-hypermut or removed-hypermut
@@ -1448,6 +1492,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lower_starlike_pvalue;
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_is_starlike;
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_paul_calls_one_cluster; # "is.one.founder.alt"
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.lambda
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.se
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.nseq
@@ -1488,9 +1533,10 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.upper.starlike.pvalue
           if( $run_profillic ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
-            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.cluster.call"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founder.call"
           } # End if $run_profillic
-          print OUTPUT_TABLE_FH "\t", "NA"; # cluster.call
+          print OUTPUT_TABLE_FH "\t", "NA"; # founder.call
+          print OUTPUT_TABLE_FH "\t", "NA"; # founder.call.alt
           print OUTPUT_TABLE_FH "\n";
 
       } # End if this is the last region, consider combining for MultiRegionPoissonFitter. .. else ..
