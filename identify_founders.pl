@@ -16,10 +16,12 @@
 ##      R packages you'll need:
 ##      ade4
 ##      ape
-##      seqinr (from bioconductor)
 ##      dynamicTreeCut
 ##      entropy
 ##      ggplot2
+## source("https://bioconductor.org/biocLite.R")
+##      biocLite("Biostrings")
+##      biocLite("seqinr")
 ##
 ##      Try: rm -r rv217_1W_gold_standard-hiv-founder-id_-fr_resultDir/; mkdir rv217_1W_gold_standard-hiv-founder-id_-fr_resultDir/; perl -w ./identify_founders.pl -fr -O rv217_1W_gold_standard-hiv-founder-id_-fr_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/rv217_1W_gold_standard.list > rv217_1W_gold_standard-hiv-founder-id_-fr_resultDir/identify-founders.out
 ##      Or: rm -r caprisa002_1W_gold_standard-hiv-founder-id_-fr_resultDir/; mkdir caprisa002_1W_gold_standard-hiv-founder-id_-fr_resultDir/; perl ./identify_founders.pl -fr -O caprisa002_1W_gold_standard-hiv-founder-id_-fr_resultDir/ caprisa002_1W_gold_standard.list  > caprisa002_1W_gold_standard-hiv-founder-id_-fr_resultDir/identify-founders.out
