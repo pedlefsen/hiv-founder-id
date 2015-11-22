@@ -128,9 +128,9 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
         # Uh oh.  PFitter doesn't handle this case very well.  Instead of running PFitter, write out files communicating that this is a degenerate situation.
         outfile <- paste( output.dir, "/", "LOG_LIKELIHOOD.results.txt", sep="" );
         write( paste("Sample", "Lambda", "St.Dev", "NSeq", "NBases", "MeanHD", "MaxHD","Days(CI)", "Chi2","DF","Goodness_of_pval", sep="\t"), file=outfile, append=FALSE );
-        write( paste( fasta.file.short.nosuffix, format( 0, digits=4 ), format( 0, digits=4 ), sum( seq.counts[ .weight.num > 0 ] ), seq.length, format(0, digits=2), 0, "0 (0, 1)", format(0, digits=4), 0, format(1, digits=4), sep="\t"), file=outfile, append=TRUE );
+        write( paste( fasta.file.prefix.short.nosuffix, format( 0, digits=4 ), format( 0, digits=4 ), sum( seq.counts[ .weight.num > 0 ] ), seq.length, format(0, digits=2), 0, "0 (0, 1)", format(0, digits=4), 0, format(1, digits=4), sep="\t"), file=outfile, append=TRUE );
         outfile2 <- paste( output.dir, "/", "CONVOLUTION.results.txt", sep="" );
-        write( paste( fasta.file.short.nosuffix, "FOLLOWS A STAR-PHYLOGENY", sep = " " ), file=outfile2, append=FALSE );
+        write( paste( fasta.file.prefix.short.nosuffix, "FOLLOWS A STAR-PHYLOGENY", sep = " " ), file=outfile2, append=FALSE );
         .rv <- "0";
     } else {
       R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", seq.length, "' PFitter.R" );
