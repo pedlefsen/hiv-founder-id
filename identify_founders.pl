@@ -13,12 +13,13 @@
 ##      Note that this creates output files in subdirectories named
 ##      after the input fasta file name (unless you specify an output dir).
 ##
-##      R packages you'll need:
+##      R packages you'll need: (see installRPackages.R).
 ##      ade4
 ##      ape
 ##      dynamicTreeCut
 ##      entropy
 ##      ggplot2
+##      binom
 ## source("https://bioconductor.org/biocLite.R")
 ##      biocLite("Biostrings")
 ##      biocLite("seqinr")
