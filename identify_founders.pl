@@ -252,27 +252,28 @@ sub identify_founders {
     $| = 1; # Autoflush.
   }
   
-  my @input_fasta_files = @ARGV;
-  my @all_input_fasta_files = @input_fasta_files;
-  unless( scalar @input_fasta_files ) { identify_founders_usage(); }
+  my @fasta_files_remaining_to_process = @ARGV;
+  my @all_input_fasta_files = @fasta_files_remaining_to_process;
+  unless( scalar @fasta_files_remaining_to_process ) { identify_founders_usage(); }
 
   # Special case: if there is only one file, it might be a textfile
   # containing names of files.
-  if( scalar( @input_fasta_files ) == 1 ) {
-    #print $input_fasta_files[ 0 ], "\n";
-    unless( ( $input_fasta_files[ 0 ] ) =~ /\.fast?a?$/ ) {
+  if( scalar( @fasta_files_remaining_to_process ) == 1 ) {
+    #print $fasta_files_remaining_to_process[ 0 ], "\n";
+    unless( ( $fasta_files_remaining_to_process[ 0 ] ) =~ /\.fast?a?$/ ) {
       # Try opening it, see if it's a list of files.
       if( $VERBOSE ) {
-        print "Reading file names from file \"", $input_fasta_files[ 0 ], "\"..";
+        print "Reading file names from file \"", $fasta_files_remaining_to_process[ 0 ], "\"..";
       }
-      my $input_fasta_file_contents = path( $input_fasta_files[ 0 ] )->slurp();
+      my $input_fasta_file_contents = path( $fasta_files_remaining_to_process[ 0 ] )->slurp();
       if( $VERBOSE ) {
         print ".done\n";
       }
       if( $DEBUG ) {
         print $input_fasta_file_contents;
       }
-      @input_fasta_files = split( "\n", $input_fasta_file_contents );
+      @fasta_files_remaining_to_process = split( "\n", $input_fasta_file_contents );
+      @all_input_fasta_files = @fasta_files_remaining_to_process;
     }
   }
 
@@ -445,100 +446,102 @@ sub identify_founders {
   my $output_path_dir_for_input_fasta_file;
   my $R_output;
   my $input_fasta_file;
+  my $fasta_file;
   my $original_short_name_nosuffix_stripped;
   my %final_input_fasta_file_short_names_by_original_short_name_stripped;
-  while ( scalar( @input_fasta_files ) > 0 ) {
-    $input_fasta_file = shift @input_fasta_files;
+  while ( scalar( @fasta_files_remaining_to_process ) > 0 ) {
+    $input_fasta_file = shift @fasta_files_remaining_to_process;
+    $fasta_file = $input_fasta_file;
     if( $VERBOSE ) {
-      print $input_fasta_file, "\n";
+      print $fasta_file, "\n";
     }
-    my ( $input_fasta_file_path, $input_fasta_file_short ) =
-      ( $input_fasta_file =~ /^(.*?)\/([^\/]+)$/ );
-    unless( $input_fasta_file_short ) {
-      $input_fasta_file_short = $input_fasta_file;
-      $input_fasta_file_path = ".";
+    my ( $fasta_file_path, $fasta_file_short ) =
+      ( $fasta_file =~ /^(.*?)\/([^\/]+)$/ );
+    unless( $fasta_file_short ) {
+      $fasta_file_short = $fasta_file;
+      $fasta_file_path = ".";
     }
-    my ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-      ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+    my ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
+      ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
 
     if( defined $output_path_dir ) {
       $output_path_dir_for_input_fasta_file = $output_path_dir;
     } else {
       $output_path_dir_for_input_fasta_file =
-        $input_fasta_file_path . "/" . $input_fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
+        $fasta_file_path . "/" . $fasta_file_short_nosuffix . "_hiv-founder-id_resultsDir";
     }
     # remove trailing "/"
     ( $output_path_dir_for_input_fasta_file ) = ( $output_path_dir_for_input_fasta_file =~ /^(.*[^\/])\/*$/ );
 
-    if( $input_fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG)|(?:_env))$/ ) {
+    if( $fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG)|(?:_env))/ ) {
       ( $original_short_name_nosuffix_stripped ) =
-        ( $input_fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG)|(?:_env))$/ );
+        ( $fasta_file_short_nosuffix =~ /^(.+)(?:(?:_[LR]H)|(?:_NFLG)|(?:_env))/ );
     } else {
       $original_short_name_nosuffix_stripped =
-        $input_fasta_file_short_nosuffix;
+        $fasta_file_short_nosuffix;
     }
 
     # Duplicate the input file, possibly modifying it.
-    my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-    my ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
+    my $fasta_file_contents = path( $fasta_file )->slurp();
+    my ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
     if( scalar( @seq_headers ) == 1 ) {
       # THE INPUT FASTA FILE CONTAINS ONLY ONE SEQUENCE.  SKIP IT.
       #if( $VERBOSE ) {
-        print( "\nThere's only one sequence in input file \"$input_fasta_file\".  Skipping it.\n" );
+        print( "\nThere's only one sequence in input file \"$fasta_file\".  Skipping it.\n" );
       #}
       next;
     }
     ## HACK: make sure there are no bangs in the input file (since sometimes there are, right now).
-    if( $input_fasta_file_contents =~ /\!/ ) {
+    if( $fasta_file_contents =~ /\!/ ) {
       if( $VERBOSE ) {
-        print( "Input file \"$input_fasta_file\" contains illegal characters \"!\"; changing them to gaps, saving to output directory.\n" );
+        print( "Input file \"$fasta_file\" contains illegal characters \"!\"; changing them to gaps, saving to output directory.\n" );
         ## TODOL REMOVE
         #print( $output_path_dir_for_input_fasta_file );
       }
-      $input_fasta_file_contents =~ s/\!/-/g;
+      $fasta_file_contents =~ s/\!/-/g;
     } else {
       if( $VERBOSE ) {
-        print( "Copying input file \"$input_fasta_file\" to output directory.\n" );
+        print( "Copying input file \"$fasta_file\" to output directory.\n" );
       }
     }
     # Now write it out to a temporary location in the output dir.
-    $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-    $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+    $fasta_file_path = $output_path_dir_for_input_fasta_file;
+    $fasta_file = "${fasta_file_path}/${fasta_file_short}";
     if( $VERBOSE ) {
-      if( $input_fasta_file_contents =~ /\!/ ) {
-        print( "Writing out fixed input file \"$input_fasta_file\".." );
+      if( $fasta_file_contents =~ /\!/ ) {
+        print( "Writing out fixed input file \"$fasta_file\".." );
       } else {
-        print( "Writing out copy of input file to \"$input_fasta_file\".." );
+        print( "Writing out copy of input file to \"$fasta_file\".." );
       }
     }
-    if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
-    unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
-      warn "Unable to open output file \"$input_fasta_file\": $!\n";
+    if( $VERBOSE ) { print "Opening file \"$fasta_file\" for writing..\n"; }
+    unless( open input_fasta_fileFH, ">$fasta_file" ) {
+      warn "Unable to open output file \"$fasta_file\": $!\n";
       return 1;
     }
     ( @seq_headers ) = map { s/\!/-/g } @seq_headers;
-    print input_fasta_fileFH $input_fasta_file_contents;
+    print input_fasta_fileFH $fasta_file_contents;
     close( input_fasta_fileFH );
     
-    if( ( $input_fasta_file_contents =~ /RH\|/ ) && ( $input_fasta_file_contents =~ /LH\|/ ) ) {
+    if( ( $fasta_file_contents =~ /RH\|/ ) && ( $fasta_file_contents =~ /LH\|/ ) ) {
       ## SPECIAL CASE: If the input file contains left-half and right-half genomes, separate them into separate input files and do both.
       if( $VERBOSE ) {
         print( "Input file contains left- and right- halves of the genome; separating them.\n" );
       }
       my @new_input_fasta_files =
-        splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $input_fasta_file, , "NFLG\|", "LH\|", "RH\|" ); # NOTE THAT THE ORDER MATTERS.  RH last is assumed below.
+        splitFastaFileOnHeaderPatterns( $output_path_dir_for_input_fasta_file, $fasta_file, , "env\|", "NFLG\|", "LH\|", "RH\|" );
       if( $VERBOSE ) {
         print( "Queueing the new files ( ", join( ", ", @new_input_fasta_files ), " ).\n" );
       }
       push @all_input_fasta_files, @new_input_fasta_files;
-      unshift @input_fasta_files, @new_input_fasta_files;
+      unshift @fasta_files_remaining_to_process, @new_input_fasta_files;
       next; # That's all we do with the original input file.
     }
 
     # This is the original unaltered fasta file (path removed), printed to the table out:
-    print OUTPUT_TABLE_FH $input_fasta_file_short;
+    print OUTPUT_TABLE_FH $fasta_file_short;
   
-    print "\nInput Fasta file: $input_fasta_file_short\n";
+    print "\nInput Fasta file: $fasta_file_short\n";
     # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $run_Hypermut ) {
       if( $VERBOSE ) {
@@ -548,7 +551,7 @@ sub identify_founders {
             print "Calling R to remove hypermutated sequences..";
           }
       }
-      $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$input_fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
       ## extract the number fixed/removed from the output
       my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
   #    if( $VERBOSE ) {
@@ -563,18 +566,18 @@ sub identify_founders {
 
       # Now use the output from that..
       if( $num_hypermut_sequences > 0 ) {
-        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
+        $fasta_file_path = $output_path_dir_for_input_fasta_file;
         if( $fix_hypermutated_sequences ) {
-          $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_fixHypermutatedSequences${input_fasta_file_suffix}";
+          $fasta_file_short = "${fasta_file_short_nosuffix}_fixHypermutatedSequences${fasta_file_suffix}";
         } else {
-          $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeHypermutatedSequences${input_fasta_file_suffix}";
+          $fasta_file_short = "${fasta_file_short_nosuffix}_removeHypermutatedSequences${fasta_file_suffix}";
           # Recompute the seq_headers.
-          $input_fasta_file_contents = path( "${input_fasta_file_path}/${input_fasta_file_short}" )->slurp();
-          ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
+          $fasta_file_contents = path( "${fasta_file_path}/${fasta_file_short}" )->slurp();
+          ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
         }
-        ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-          ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
+          ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+        $fasta_file = "${fasta_file_path}/${fasta_file_short}";
       } # End if we need to change files..
       
       if( $VERBOSE ) {
@@ -591,24 +594,24 @@ sub identify_founders {
         print "Running RAP at LANL to compute recombined sequences..";
       }
       my $removed_recombined_sequences = 0;
-      my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+      my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
       if( $RAP_result_stdout =~ /Recombinants identified/ ) {
         my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
-        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$input_fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
         ## extract the number fixed/removed from the output
         ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/ );
         if( $VERBOSE ) {
           print( ".done." );
         }
         # Now use the output from that..
-        $input_fasta_file_path = $output_path_dir_for_input_fasta_file;
-        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}_removeRecombinedSequences${input_fasta_file_suffix}";
-        ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
-          ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
+        $fasta_file_path = $output_path_dir_for_input_fasta_file;
+        $fasta_file_short = "${fasta_file_short_nosuffix}_removeRecombinedSequences${fasta_file_suffix}";
+        ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
+          ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+        $fasta_file = "${fasta_file_path}/${fasta_file_short}";
         # Recompute the seq_headers.
-        $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-        ( @seq_headers ) = ( $input_fasta_file_contents =~ /^>(.*)$/mg );
+        $fasta_file_contents = path( $fasta_file )->slurp();
+        ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
       } else {
         if( $VERBOSE ) {
           print( ".done." );
@@ -620,37 +623,37 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $removed_recombined_sequences;
     } # End if $run_RAP
 
-    print "Fasta file for analysis: $input_fasta_file_short\n";
+    print "Fasta file for analysis: $fasta_file_short\n";
     # This is the file for analysis (again, path stripped); maybe altered from the original input file.
-    print OUTPUT_TABLE_FH "\t", $input_fasta_file_short;
+    print OUTPUT_TABLE_FH "\t", $fasta_file_short;
 
     ## TODO: REMOVE
-    #print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $input_fasta_file_short_nosuffix\n" );
+    #print( "SETTING \$final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = $fasta_file_short_nosuffix\n" );
     if( exists( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } ) ) {
-      push @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } }, $input_fasta_file_short_nosuffix;
+      push @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } }, $fasta_file_short_nosuffix;
     } else {
-      $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $input_fasta_file_short_nosuffix ];
+      $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $fasta_file_short_nosuffix ];
     }
 
     if( $runInSites_online ) {
-      `perl runInSitesOnline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+      `perl runInSitesOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
     } else {
-      `perl runInSitesOffline.pl $extra_flags $input_fasta_file $output_path_dir_for_input_fasta_file`;
+      `perl runInSitesOffline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
     }
-    `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+    my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
     ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
 
     # Run phyML, get stats
-    my $phyml_out = `perl runPhyML.pl $extra_flags ${input_fasta_file} ${output_path_dir_for_input_fasta_file}`;
+    my $phyml_out = `perl runPhyML.pl $extra_flags ${fasta_file} ${output_path_dir_for_input_fasta_file}`;
     if( $VERBOSE ) {
       print $phyml_out;
     }
-    my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
+    my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
     my ( $num_phyml_seqs, $mean_diversity ) =
       ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
     unless( defined( $num_phyml_seqs ) ) {
-      warn( "UH OH: $input_fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
+      warn( "UH OH: $fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
       $num_phyml_seqs = 0;
       $mean_diversity = 0;
     }
@@ -702,7 +705,7 @@ sub identify_founders {
     }
 
     if( $run_entropy ) {
-      $R_output = `export computeEntropyFromAlignedFasta_inputFilename="$input_fasta_file"; export computeEntropyFromAlignedFasta_outputDir="$output_path_dir_for_input_fasta_file"; R -f computeEntropyFromAlignedFasta.R --vanilla --slave`;
+      $R_output = `export computeEntropyFromAlignedFasta_inputFilename="$fasta_file"; export computeEntropyFromAlignedFasta_outputDir="$output_path_dir_for_input_fasta_file"; R -f computeEntropyFromAlignedFasta.R --vanilla --slave`;
       my ( $entropy_stats_filename ) = ( $R_output =~ /^\[1\]\s*\"(.+)\"\s*$/m );
       if( !-e $entropy_stats_filename ) {
         warning( "UH OH: MISSING ENTROPY RESULT FILE \"$entropy_stats_filename\"\n" );
@@ -781,14 +784,14 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$input_fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( "\tdone.\n" );
         }
         ## TODO: REMOVE
         # print "GOT: $R_output\n";
         my $PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_days_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
           (
            $PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -797,7 +800,7 @@ sub identify_founders {
 
         $is_poisson = ( defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 ) ) || 0;
         my $starlike_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
           ## TODO: REMOVE
           # print "PoissonFitter RAW: $starlike_raw\n";
@@ -810,7 +813,7 @@ sub identify_founders {
 
         # DS results
         my $DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_PoissonFitterDir/${input_fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
         ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
           ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
@@ -828,17 +831,17 @@ sub identify_founders {
         ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
           ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
   
-        ( $DS_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+        ( $DS_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         $DS_PFitter_is_starlike = "0";
         if( $DS_starlike_text eq "FOLLOWS" ) {
           $DS_PFitter_is_starlike = "1";
         }
-        ( $DS_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+        ( $DS_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         $DS_PFitter_lower_is_starlike = "0";
         if( $DS_lower_starlike_text eq "FOLLOWS" ) {
           $DS_PFitter_lower_is_starlike = "1";
         }
-        ( $DS_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+        ( $DS_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         $DS_PFitter_upper_is_starlike = "0";
         if( $DS_upper_starlike_text eq "FOLLOWS" ) {
           $DS_PFitter_upper_is_starlike = "1";
@@ -926,7 +929,7 @@ sub identify_founders {
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
     }
-    my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $input_fasta_file ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+    my $num_clusters = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     # There might be extra text in there.  Look for the telltale "[1]" output
     #warn "GOT $num_clusters\n";
     ( $num_clusters ) = ( $num_clusters =~ /\[1\] (\d+?)\s*/ );
@@ -986,12 +989,12 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( "\tdone.\n" );
         }
         my $multifounder_PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         #print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
         my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_days_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
           (
@@ -1001,7 +1004,7 @@ sub identify_founders {
         my $multifounder_is_poisson = ( defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
          ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
          # my $multifounder_starlike_raw =
-         #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
          # if( $DEBUG ) {
          #   ## TODO: REMOVE
          #   #print "MULTI-FOUNDER PoissonFitter RAW: $multifounder_starlike_raw\n";
@@ -1011,7 +1014,7 @@ sub identify_founders {
  
         # DS results
         my $multifounder_DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${input_fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
         my ( $multifounder_Bayesian_PFitter_lambda_est, $multifounder_Bayesian_PFitter_lambda_ci_low, $multifounder_Bayesian_PFitter_lambda_ci_high ) =
            ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         my ( $multifounder_Bayesian_PFitter_days_est, $multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high ) =
@@ -1031,17 +1034,17 @@ sub identify_founders {
         my ( $multifounder_DS_PFitter_assertion_low, $multifounder_DS_PFitter_assertion_high, $multifounder_DS_PFitter_R ) =
           ( $multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
 
-          my ( $multifounder_DS_starlike_text, $multifounder_DS_PFitter_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+          my ( $multifounder_DS_starlike_text, $multifounder_DS_PFitter_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multifounder_DS_PFitter_is_starlike = "0";
         if( $multifounder_DS_starlike_text eq "FOLLOWS" ) {
           $multifounder_DS_PFitter_is_starlike = "1";
         }
-          my ( $multifounder_DS_lower_starlike_text, $multifounder_DS_PFitter_lower_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+          my ( $multifounder_DS_lower_starlike_text, $multifounder_DS_PFitter_lower_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multifounder_DS_PFitter_lower_is_starlike = "0";
         if( $multifounder_DS_lower_starlike_text eq "FOLLOWS" ) {
           $multifounder_DS_PFitter_lower_is_starlike = "1";
         }
-        my ( $multifounder_DS_upper_starlike_text, $multifounder_DS_PFitter_upper_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+        my ( $multifounder_DS_upper_starlike_text, $multifounder_DS_PFitter_upper_starlike_pvalue ) = ( $multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multifounder_DS_PFitter_upper_is_starlike = "0";
         if( $multifounder_DS_upper_starlike_text eq "FOLLOWS" ) {
           $multifounder_DS_PFitter_upper_is_starlike = "1";
@@ -1126,17 +1129,17 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", 1;
         print OUTPUT_TABLE_FH "\t", 1;
       } else {
-        my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
+        my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         if( $VERBOSE ) {
           print "Running Profillic..\n";
         }
-        my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-        `perl runProfillic.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
+        `perl runProfillic.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
 
         if( $VERBOSE ) {
           print "Clustering..\n";
         }
-        $R_output = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $input_fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        $R_output = `perl clusterProfillicAlignmentProfiles.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         my ( $num_profillic_clusters ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
         # Print out the number of clusters
         print "Number of clusters found using profillic: $num_profillic_clusters\n";
@@ -1158,45 +1161,47 @@ sub identify_founders {
     # runMultiFounderPoissonFitter to put together the two datasets
     # for better Poisson estimation?
     if( $run_PFitter ) {
-      # Is this the last one in the order of the input list?
-      my $input_fasta_file_is_last_alternate_region_in_list = 0;
       # NOTE that this strips off any modifiers like remove/fix HypermutatedSequences and removeRecombinedSequences: (this is dealt with in runMultiFounderPoissonFitter.R)
-      my ( $input_fasta_file_very_short, $input_fasta_file_region ) =
-         ( $input_fasta_file_short =~ /^(.+)(_LH|_NFLG|_RH|_env)/ );
-      ## TODO: REMOVE
-      #print "\$input_fasta_file_very_short is $input_fasta_file_very_short\n";
-      ## TODO: REMOVE
-      # print "\@all_input_fasta_files: ( ", join( ", ", @all_input_fasta_files ), " )\n";
-      # print "GREP: /$input_fasta_file_very_short(_LH|_NFLG|_RH|_env)/\n";
+      my ( $fasta_file_very_short, $fasta_file_region ) =
+         ( $fasta_file_short =~ /^(.+)(_LH|_NFLG|_RH|_env)/ );
       my @region_fasta_files = ();
-      if( defined( $input_fasta_file_very_short ) ) {
-        @region_fasta_files = grep( /$input_fasta_file_very_short(_LH|_NFLG|_RH|_env)/, @all_input_fasta_files );
+      # Is this the last one in the order of the input list?
+      my $fasta_file_is_last_alternate_region_in_list = 0;
+      if( defined( $fasta_file_very_short ) ) {
+        ## TODO: REMOVE
+        #print "\$fasta_file_very_short is $fasta_file_very_short\n";
+        ## TODO: REMOVE
+        #print "\$input_fasta_file is $input_fasta_file\n";
+        ## TODO: REMOVE
+        #print "\@all_input_fasta_files: ( ", join( ", ", @all_input_fasta_files ), " )\n";
+        #print "GREP: /$fasta_file_very_short(_LH|_NFLG|_RH|_env)/\n";
+        @region_fasta_files = grep( /$fasta_file_very_short(_LH|_NFLG|_RH|_env)/, @all_input_fasta_files );
         @region_fasta_files = map { if( $_ !~ /\// ) { "./$_" } else { $_ } } @region_fasta_files;
       }
       ## TODO: REMOVE
       #print "\@region_fasta_files: ( ", join( ", ", @region_fasta_files ), " )\n";
       if( scalar( @region_fasta_files ) >= 2 ) {
-        $input_fasta_file_is_last_alternate_region_in_list =
+        $fasta_file_is_last_alternate_region_in_list =
           ( $input_fasta_file eq $region_fasta_files[ $#region_fasta_files ] );
       }
-      #print "\$input_fasta_file: $input_fasta_file\n";
-      #print "\$input_fasta_file_is_last_alternate_region_in_list: $input_fasta_file_is_last_alternate_region_in_list\n";
-      if( $input_fasta_file_is_last_alternate_region_in_list ) {
+      #print "\$fasta_file: $fasta_file\n";
+      #print "\$fasta_file_is_last_alternate_region_in_list: $fasta_file_is_last_alternate_region_in_list\n";
+      if( $fasta_file_is_last_alternate_region_in_list ) {
           # OK, do it.
           ## Now run PoissonFitter on the regions.
           if( $VERBOSE ) {
             print "Calling R to run MultiRegionPoissonFitter..";
           }
-          #print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n"; 
-          if( !exists ( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } ) ) {
-            die( "\$final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } doesn't exist!" );
+          #print "\$fasta_file_very_short: $fasta_file_very_short\n"; 
+          if( !exists ( $final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } ) ) {
+            die( "\$final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } doesn't exist!" );
           }
           if( $VERBOSE ) {
-            print "[Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } } ), "]..";
+            print "[Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } } ), "]..";
           }
           
           ## BUT WAIT.  If there are clusters, gather the cluster files instead.
-          my @files_for_regions = @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $input_fasta_file_very_short } };
+          my @files_for_regions = @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } };
           ## TODO: ONLY DO THIS IF THE (respective) INFORMATIVE_SITES CALL WAS > 1 [for consistent behavior when using -s flag]
           ## For each one, see if there are cluster files.
           opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
@@ -1247,17 +1252,17 @@ sub identify_founders {
           map { my @lst = &$bar($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
           ## TODO: REMOVE
           #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
-          my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$input_fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
+          my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
-          # print "\$input_fasta_file_very_short: $input_fasta_file_very_short\n";
+          # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           #print "\$suffix_pattern: $suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           # print $R_output;
           if( $VERBOSE ) {
             print( "\tdone.\n" );
           }
           my $multi_region_PFitter_fitter_stats_raw =
-            `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
           my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_days_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
             (
              $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -1266,7 +1271,7 @@ sub identify_founders {
           my $multi_region_is_poisson = ( defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
-          #   `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
           # if( $DEBUG ) {
           #   ## TODO: REMOVE
           #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
@@ -1276,7 +1281,7 @@ sub identify_founders {
 
          # DS results
          my $multi_region_DSPFitter_fitter_stats_raw =
-           `cat ${output_path_dir_for_input_fasta_file}/${input_fasta_file_very_short}_MultiRegionPoissonFitterDir/${input_fasta_file_very_short}_DSPFitter.out`;
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
          my ( $multi_region_Bayesian_PFitter_lambda_est, $multi_region_Bayesian_PFitter_lambda_ci_low, $multi_region_Bayesian_PFitter_lambda_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
          my ( $multi_region_Bayesian_PFitter_days_est, $multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high ) =
@@ -1294,19 +1299,19 @@ sub identify_founders {
          my ( $multi_region_DS_PFitter_assertion_low, $multi_region_DS_PFitter_assertion_high, $multi_region_DS_PFitter_R ) =
            ( $multi_region_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
 
-          print "\nInput fasta file: ${input_fasta_file_very_short}${input_fasta_file_suffix}\n";
+          print "\nInput fasta file: ${fasta_file_very_short}${fasta_file_suffix}\n";
           
-          my ( $multi_region_DS_starlike_text, $multi_region_DS_PFitter_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+          my ( $multi_region_DS_starlike_text, $multi_region_DS_PFitter_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multi_region_DS_PFitter_is_starlike = "0";
         if( $multi_region_DS_starlike_text eq "FOLLOWS" ) {
           $multi_region_DS_PFitter_is_starlike = "1";
         }
-          my ( $multi_region_DS_lower_starlike_text, $multi_region_DS_PFitter_lower_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+          my ( $multi_region_DS_lower_starlike_text, $multi_region_DS_PFitter_lower_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multi_region_DS_PFitter_lower_is_starlike = "0";
         if( $multi_region_DS_lower_starlike_text eq "FOLLOWS" ) {
           $multi_region_DS_PFitter_lower_is_starlike = "1";
         }
-          my ( $multi_region_DS_upper_starlike_text, $multi_region_DS_PFitter_upper_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(([^\(]+)\)\s*$/m );
+          my ( $multi_region_DS_upper_starlike_text, $multi_region_DS_PFitter_upper_starlike_pvalue ) = ( $multi_region_DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
         my $multi_region_DS_PFitter_upper_is_starlike = "0";
         if( $multi_region_DS_upper_starlike_text eq "FOLLOWS" ) {
           $multi_region_DS_PFitter_upper_is_starlike = "1";
@@ -1350,7 +1355,7 @@ sub identify_founders {
           print "Multi-Region Bayesian Poisson time estimate (95\% CI): $multi_region_Bayesian_PFitter_days_est ($multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high)\n";
           #print "\n$multi_region_PFitter_fitter_stats_raw\n";
           
-          print OUTPUT_TABLE_FH "${input_fasta_file_very_short}${input_fasta_file_suffix}";
+          print OUTPUT_TABLE_FH "${fasta_file_very_short}${fasta_file_suffix}";
           if( $run_Hypermut ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # fixed-hypermut or removed-hypermut
           }
@@ -1460,15 +1465,15 @@ sub identify_founders {
     if( $recurse_on_clusters && ( $num_clusters > 1 ) ) {
       # Add them.
       opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
-      my @cluster_files = grep { /^${input_fasta_file_short_nosuffix}_cluster\d+\.fasta$/ } readdir( OUTPUT_DIR );
+      my @cluster_files = grep { /^${fasta_file_short_nosuffix}_cluster\d+\.fasta$/ } readdir( OUTPUT_DIR );
       closedir OUTPUT_DIR;
       # print "CLUSTER FILES: ", join( ", ", @cluster_files ), "\n";
       my @new_input_fasta_files = map { $output_path_dir_for_input_fasta_file . "/" . $_ } @cluster_files;
       # print "NEW INPUT FILES: ", join( ", ", @new_input_fasta_files ), "\n";
-      unshift @input_fasta_files, @new_input_fasta_files;
+      unshift @fasta_files_remaining_to_process, @new_input_fasta_files;
     } # End if( $recurse_on_clusters )
     
-  } # End foreach $input_fasta_file
+  } # End foreach $fasta_file @fasta_files_remaining_to_process
   if( $VERBOSE ) { print ".done.\n"; }
 
   if( $VERBOSE && $output_table_file ) { print "Closing file \"$output_table_file\".."; }

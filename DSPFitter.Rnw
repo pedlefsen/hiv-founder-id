@@ -780,6 +780,35 @@ create.intersequence.distances.by.convolving.consensus.distances <- function ( t
     return( yvec1 );
 } # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
 
+createPrettyPrintPValuesToXDigits <- function( X ) {
+  stopifnot( X > 0 );
+  return( function( p.value, equalsText = "", lessThanText = "<"  ) { # Note that there's two chars for "0." in "0.05"...
+      if( is.na( p.value ) | !is.finite( as.numeric( p.value ) ) ) { # Could be -Inf if from say max( c( NA, NA ) )
+        return( "" );
+      }
+      p.value <- as.numeric( p.value );
+      ## TODO: REMOVE
+      if( p.value < 0 ) {
+          print( paste( "UH OH <0", p.value ) );
+      }
+      stopifnot( p.value >= 0 );
+      stopifnot( p.value <= 1 );
+      p.value <- sprintf( paste( "%1.", X, "f", sep = "" ), p.value );
+      if( p.value == sprintf( paste( "%1.", X, "f", sep = "" ), 0 ) ) {
+          if( X > 1 ) {
+              p.value <- paste( lessThanText, "0.", paste( rep( "0", X-1 ), collapse = "" ), "1", sep = "" );
+          } else {
+              p.value <- paste( lessThanText, "0.1", sep = "" );
+          }
+      } else if( equalsText != "" ) {
+          p.value <- paste( equalsText, p.value, sep = "" );
+      }
+      return( p.value );
+     } # <anonymous fn>( p.value )
+    ); # return(..)
+} # createPrettyPrintPValuesToXDigits ( X )( p.value )
+prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
+    
     if( TRUE ) {
       n.seqs <- length( consensus.distances );
       ## The strategy here is to try 10, if at least half are higher than the test stat, do another 90, and if of those 100 the crude p-value is <= 0.10, get a precise p-value by doing a total of 500.  We threshold for further refinement based on a per-test probabilty of failing to refine (when we should refine ie p = 0.05) of 1E-5.
@@ -880,21 +909,21 @@ create.intersequence.distances.by.convolving.consensus.distances <- function ( t
       } # End if we should bother doing reps for the p values 
       if( be.verbose ) {
         if( .p.values[[ "estimate.p.value" ]] <= 0.05 ) {
-            cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "estimate.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "estimate.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         } else {
-            cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "estimate.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter convolution test: FOLLOWS A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "estimate.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         }
           ## TODO: REMOVE
         if( .p.values[[ "lower.p.value" ]] <= 0.05 ) {
-            cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "lower.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter lower convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "lower.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         } else {
-            cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "lower.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter lower convolution test: FOLLOWS A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "lower.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         }
           ## TODO: REMOVE
         if( .p.values[[ "upper.p.value" ]] <= 0.05 ) {
-            cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (", .p.values[[ "upper.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter upper convolution test: DOES NOT FOLLOW A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "upper.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         } else {
-            cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY (", .p.values[[ "upper.p.value" ]], ")", sep = "", fill = TRUE );
+            cat( "DSPFitter upper convolution test: FOLLOWS A STAR-PHYLOGENY (P", prettyPrintPValuesTo4Digits( .p.values[[ "upper.p.value" ]], equalsText = " = ", lessThanText = " < " ), ")", sep = "", fill = TRUE );
         }
       } # End if be.verbose
       dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );

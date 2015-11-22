@@ -67,7 +67,8 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
 
     pairwise.distances.as.matrix <- as.matrix( fasta.with.consensus.dist );
 
-    pairwise.distances.as.matrix.flat <- matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
+    pairwise.distances.as.matrix.flat <-
+        matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
     line.i <- 1;
     for( row.i in 1:( nrow( pairwise.distances.as.matrix ) - 1 ) ) {
         for( col.i in ( row.i + 1 ):ncol( pairwise.distances.as.matrix ) ) {
