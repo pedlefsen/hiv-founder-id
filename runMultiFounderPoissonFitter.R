@@ -2,6 +2,9 @@ library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
 library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
+# for maskSynonymousCodonsInAlignedFasta(..)
+source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" );
+
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
@@ -27,6 +30,13 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
   output.dir <-
       gsub( "^(.*?)\\/+$", "\\1", output.dir );
 
+  if( maskOutNonsynonymousCodons ) {
+    fasta.file.prefix.short.nosuffix <-
+        paste( fasta.file.prefix.short.nosuffix, "_maskNonsynonymousCodons", sep = "" );
+    ## TODO: REMOVE
+    #cat( "maskOutNonsynonymousCodons. fasta.file.prefix.short.nosuffix is ", fasta.file.prefix.short.nosuffix, fill = T );
+  }
+    
     output.dir <- paste( output.dir, "/", fasta.file.prefix.short.nosuffix, output.dir.suffix, sep = "" );
     
     unlink( output.dir, recursive = TRUE );
@@ -176,6 +186,7 @@ if( ( maskOutNonsynonymousCodons == "" ) || ( toupper( maskOutNonsynonymousCodon
 #  warning( paste( "output dir:", output.dir ) );
 #  warning( paste( "suffix.pattern", suffix.pattern ) );
 # warning( paste( "run DSPFitter:", run.DSPFitter ) );
+# warning( paste( "maskOutNonsynonymousCodons:", maskOutNonsynonymousCodons ) );
 
 if( !is.null( suffix.pattern ) ) {
     print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt", run.DSPFitter = run.DSPFitter, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );

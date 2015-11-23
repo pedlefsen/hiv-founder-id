@@ -8,6 +8,10 @@ source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" );
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
 runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
 
+    if( maskOutNonsynonymousCodons ) {
+        fasta.file <-
+            maskSynonymousCodonsInAlignedFasta( fasta.file, mask.nonsynonymous = TRUE );
+    }
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
     } else {
@@ -33,10 +37,6 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
 
-    if( maskOutNonsynonymousCodons ) {
-        fasta.file <-
-            maskSynonymousCodonsInAlignedFasta( fasta.file, mask.nonsynonymous = TRUE );
-    }
     in.fasta <- read.dna( fasta.file, format = "fasta" );
 
     # Add the consensus.

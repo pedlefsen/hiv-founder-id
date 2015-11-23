@@ -802,6 +802,7 @@ sub identify_founders {
     my $DS_PFitter_R = "1.0";
     my ( $DS_starlike_text, $DS_lower_starlike_text, $DS_upper_starlike_text );
     my $paul_calls_one_cluster = 1;
+    my $maybe_masked = "";
     if( $run_PFitter ) {
       #if( $mean_diversity == 0 ) {
       #  if( $VERBOSE ) {
@@ -824,9 +825,8 @@ sub identify_founders {
           print( $R_output );
           print( "done.\n" );
         }
-        my $maybe_masked = "";
         if( $mask_out_nonsynonymous_codons_in_PFitter ) {
-          $maybe_masked = "Nonsynonymous_";
+          $maybe_masked = "maskNonsynonymousCodons_";
         }
         my $PFitter_fitter_stats_raw =
           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
@@ -851,7 +851,7 @@ sub identify_founders {
 
         # DS results
         my $DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out`;
         ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
           ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
@@ -962,8 +962,8 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_is_starlike;
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_starlike_pvalue;
 
-      ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests.
-      if( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) && ( $mean_diversity > 0 ) ) ) {
+      ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests, and its diversity is sufficiently high.
+      if( ( $mean_diversity > $mean_diversity_threshold ) && ( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) && ( $mean_diversity > 0 ) ) ) ) {
         $paul_calls_one_cluster = 0;
         $force_one_cluster = 0;
       }
@@ -1079,7 +1079,7 @@ sub identify_founders {
  
         # DS results
         my $multifounder_DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out`;
         my ( $multifounder_Bayesian_PFitter_lambda_est, $multifounder_Bayesian_PFitter_lambda_ci_low, $multifounder_Bayesian_PFitter_lambda_ci_high ) =
            ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         my ( $multifounder_Bayesian_PFitter_days_est, $multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high ) =
@@ -1356,7 +1356,7 @@ sub identify_founders {
 
          # DS results
          my $multi_region_DSPFitter_fitter_stats_raw =
-           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_${maybe_masked}DSPFitter.out`;
          my ( $multi_region_Bayesian_PFitter_lambda_est, $multi_region_Bayesian_PFitter_lambda_ci_low, $multi_region_Bayesian_PFitter_lambda_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
          my ( $multi_region_Bayesian_PFitter_days_est, $multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high ) =
