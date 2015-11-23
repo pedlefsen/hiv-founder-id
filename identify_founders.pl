@@ -38,11 +38,11 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_i $opt_I $opt_s $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_n $opt_i $opt_I $opt_s $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
-## NOTE: If there is only one sequence in a group, we don't bother writing out the file.
 sub splitFastaFileOnHeaderPatterns {
+## NOTE: If there is only one sequence in a group, we don't bother writing out the file.
   my $output_path_dir  = shift @_;
   my $input_fasta_file = shift @_;
   my @header_patterns  = @_;
@@ -214,13 +214,14 @@ sub identify_founders {
   # opt_E means skip (do not run) entropy statistics calculation
   # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
   # opt_f means fix hypermutated sequences, instead of removing them.
+  # opt_n means mask out nonsynonymous codons (compared to input file consensus) when running PFitter.
   # opt_i is the insites threshold to use (default: 0.85).
   # opt_I means run inSites online (instead of offline)
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method. 
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_i, $opt_I, $opt_s, $opt_r ) = ();
-  if( not getopts('DVo:O:PRFEHfi:Isr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_n, $opt_i, $opt_I, $opt_s, $opt_r ) = ();
+  if( not getopts('DVo:O:PRFEHfni:Isr') ) {
     identify_founders_usage();
   }
   
@@ -233,6 +234,7 @@ sub identify_founders {
   my $run_entropy = !$opt_E;
   my $run_Hypermut = !$opt_H;
   my $fix_hypermutated_sequences = $opt_f || 0;
+  my $mask_out_nonsynonymous_codons_in_PFitter = $opt_n || 0;
   my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
   #my $in_sites_ratio_threshold = 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
@@ -817,13 +819,17 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
         }
+        my $maybe_masked = "";
+        if( $mask_out_nonsynonymous_codons_in_PFitter ) {
+          $maybe_masked = "Nonsynonymous_";
+        }
         my $PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_days_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
           (
            $PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -832,7 +838,7 @@ sub identify_founders {
 
         $is_poisson = ( defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 ) ) || 0;
         my $starlike_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
           ## TODO: REMOVE
           # print "PoissonFitter RAW: $starlike_raw\n";
@@ -845,7 +851,7 @@ sub identify_founders {
 
         # DS results
         my $DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
         ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
           ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
@@ -1047,13 +1053,13 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
         }
         my $multifounder_PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         #print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
         my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_days_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
           (
@@ -1063,7 +1069,7 @@ sub identify_founders {
         my $multifounder_is_poisson = ( defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
          ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
          # my $multifounder_starlike_raw =
-         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
          # if( $DEBUG ) {
          #   ## TODO: REMOVE
          #   #print "MULTI-FOUNDER PoissonFitter RAW: $multifounder_starlike_raw\n";
@@ -1073,7 +1079,7 @@ sub identify_founders {
  
         # DS results
         my $multifounder_DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
         my ( $multifounder_Bayesian_PFitter_lambda_est, $multifounder_Bayesian_PFitter_lambda_ci_low, $multifounder_Bayesian_PFitter_lambda_ci_high ) =
            ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         my ( $multifounder_Bayesian_PFitter_days_est, $multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high ) =
@@ -1325,13 +1331,13 @@ sub identify_founders {
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           #print "\$suffix_pattern: $suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
             print( "done.\n" );
           }
           my $multi_region_PFitter_fitter_stats_raw =
-            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
           my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_days_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
             (
              $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -1340,7 +1346,7 @@ sub identify_founders {
           my $multi_region_is_poisson = ( defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
-          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
           # if( $DEBUG ) {
           #   ## TODO: REMOVE
           #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
@@ -1350,7 +1356,7 @@ sub identify_founders {
 
          # DS results
          my $multi_region_DSPFitter_fitter_stats_raw =
-           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
          my ( $multi_region_Bayesian_PFitter_lambda_est, $multi_region_Bayesian_PFitter_lambda_ci_low, $multi_region_Bayesian_PFitter_lambda_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
          my ( $multi_region_Bayesian_PFitter_days_est, $multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high ) =

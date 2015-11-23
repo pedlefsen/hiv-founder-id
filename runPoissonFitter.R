@@ -2,8 +2,11 @@ library( "ade4", warn.conflicts = FALSE ) # needed by something.  ape?
 library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
+# for maskSynonymousCodonsInAlignedFasta(..)
+source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" );
+
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE ) {
+runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
@@ -29,7 +32,11 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
-    
+
+    if( maskOutNonsynonymousCodons ) {
+        fasta.file <-
+            maskSynonymousCodonsInAlignedFasta( fasta.file, mask.nonsynonymous = TRUE );
+    }
     in.fasta <- read.dna( fasta.file, format = "fasta" );
 
     # Add the consensus.
@@ -118,13 +125,19 @@ if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper(
 } else {
     run.DSPFitter = TRUE;
 }
+maskOutNonsynonymousCodons <- Sys.getenv( "runPoissonFitter_maskOutNonsynonymousCodons" );
+if( ( maskOutNonsynonymousCodons == "" ) || ( toupper( maskOutNonsynonymousCodons ) == "F" ) || ( toupper( maskOutNonsynonymousCodons ) == "FALSE" ) || ( maskOutNonsynonymousCodons == "0" ) ) {
+    maskOutNonsynonymousCodons = FALSE;
+} else {
+    maskOutNonsynonymousCodons = TRUE;
+}
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
 # warning( paste( "run DSPFitter:", run.DSPFitter ) );
 
 if( file.exists( fasta.file ) ) {
-    print( runPoissonFitter( fasta.file, output.dir, run.DSPFitter = run.DSPFitter ) );
+    print( runPoissonFitter( fasta.file, output.dir, run.DSPFitter = run.DSPFitter, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }

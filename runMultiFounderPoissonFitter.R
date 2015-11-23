@@ -5,7 +5,7 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\_cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE ) {
+runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL, include.gaps.in.Hamming = FALSE, fasta.file.suffix.pattern = "\\_cluster\\d+\\.fasta", output.dir.suffix = "_MultiFounderPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiFounderPairwiseHammingDistances.txt", run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file.prefix ) ) == 0 ) {
         fasta.file.prefix.path <- ".";
@@ -47,7 +47,12 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
     seq.lengths <- c();
     seq.counts <- c();
     pairwise.distances.as.matrix.flat.by.fasta.file <- lapply( fasta.files, function ( fasta.file ) {
-      in.fasta <- read.dna( paste( fasta.file.prefix.path, fasta.file, sep = "/" ), format = "fasta" );
+      fasta.file <- paste( fasta.file.prefix.path, fasta.file, sep = "/" );
+      if( maskOutNonsynonymousCodons ) {
+          fasta.file <-
+              maskSynonymousCodonsInAlignedFasta( fasta.file, mask.nonsynonymous = TRUE );
+      }
+      in.fasta <- read.dna( fasta.file, format = "fasta" );
   
       # Add the consensus.
       .consensus.mat <- matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
@@ -159,6 +164,12 @@ if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper(
 } else {
     run.DSPFitter = TRUE;
 }
+maskOutNonsynonymousCodons <- Sys.getenv( "runMultiFounderPoissonFitter_maskOutNonsynonymousCodons" );
+if( ( maskOutNonsynonymousCodons == "" ) || ( toupper( maskOutNonsynonymousCodons ) == "F" ) || ( toupper( maskOutNonsynonymousCodons ) == "FALSE" ) || ( maskOutNonsynonymousCodons == "0" ) ) {
+    maskOutNonsynonymousCodons = FALSE;
+} else {
+    maskOutNonsynonymousCodons = TRUE;
+}
 
 ## TODO: REMOVE
 #  warning( paste( "alignment input file prefix:", fasta.file.prefix ) );
@@ -167,7 +178,7 @@ if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper(
 # warning( paste( "run DSPFitter:", run.DSPFitter ) );
 
 if( !is.null( suffix.pattern ) ) {
-    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt", run.DSPFitter = run.DSPFitter ) );
+    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, fasta.file.suffix.pattern = suffix.pattern, output.dir.suffix = "_MultiRegionPoissonFitterDir", pairwise.hamming.distances.file.suffix = "_multiRegionPairwiseHammingDistances.txt", run.DSPFitter = run.DSPFitter, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );
 } else {
-    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter ) );
+    print( runMultiFounderPoissonFitter( fasta.file.prefix, output.dir, run.DSPFitter = run.DSPFitter, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );
 }
