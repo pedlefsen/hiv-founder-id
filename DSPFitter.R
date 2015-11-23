@@ -1,4 +1,4 @@
-### R code from vignette source '/Users/pedlefsen/src/from-git/hiv-founder-id/DSPFitter.Rnw'
+### R code from vignette source '/Users/Paul/src/from-git/hiv-founder-id/DSPFitter.Rnw'
 ### Encoding: ASCII
 
 ###################################################
@@ -17,12 +17,13 @@ old.continue.option <- options( continue = " " )
 
 
 ###################################################
-### code chunk number 2: DSPFitter.Rnw:31-159
+### code chunk number 2: DSPFitter.Rnw:31-160
 ###################################################
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
 
     # MAGIC N: DS.NDRAWS
-    EPSILON.NDRAWS <- 1000;
+    #EPSILON.NDRAWS <- 1000;
+    EPSILON.NDRAWS <- 100;
     DS.NDRAWS <- 1000;
     
 
@@ -150,7 +151,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 3: DSPFitter.Rnw:162-185
+### code chunk number 3: DSPFitter.Rnw:163-186
 ###################################################
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
@@ -178,7 +179,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 4: DSPFitter.Rnw:188-224
+### code chunk number 4: DSPFitter.Rnw:189-225
 ###################################################
 ####==== From PFitter.R
 
@@ -219,7 +220,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:290-1125
+### code chunk number 5: DSPFitter.Rnw:291-1130
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -544,6 +545,9 @@ DSPFitter <- function (
     intersequence.distances <- dlist[ -which(dlist[,1]==dlist[1,1]), 3 ];
     names( intersequence.distances ) <- apply( dlist[ -which(dlist[,1]==dlist[1,1]), 1:2 ], 1, paste, collapse = " to " );
     
+    sorted.consensus.distances <- sort( consensus.distances );
+    sorted.intersequence.distances <- sort( intersequence.distances );
+    
     DS.lambda <- mean( intersequence.distances );
     DS.estdays <- days( DS.lambda, nbases, epsilon );
     
@@ -661,8 +665,9 @@ DSPFitter <- function (
     } # PoissonDSM.getSmallestEpsilonAndLambda ( observed.data, pepr.variates )
     .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
         #print( .x ); 
-        return( PoissonDSM.getSmallestEpsilonAndLambda( intersequence.distances ) ); } );
-    ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
+        return( PoissonDSM.getSmallestEpsilonAndLambda( sorted.intersequence.distances, observed.data.are.already.in.ascending.order = TRUE ) ); } );
+    ds.posterior.epsilons <-
+        as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
     
     if( be.verbose ) {
         cat( paste( "It seems that the CDF of the closest Poisson distribution is roughly ", sprintf( "%2.1f", ( 100 * median( ds.posterior.epsilons ) ) ), "% away from the pepr-sampled empirical CDFs (middle 95% ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .025 ) ) ), " to ", sprintf( "%2.1f", ( 100 * quantile( ds.posterior.epsilons, .975 ) ) ), ").", sep = "" ), fill = TRUE );
@@ -757,7 +762,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
         .sorted.intersequence.distances <-
             unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
         .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
-            return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+            return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances, observed.data.are.already.in.ascending.order = TRUE ) );
         } );
         .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
         .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
@@ -774,9 +779,11 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
       .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
   
       .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
-      if( ( any( .p.values <= ( qbinom( 1-1E-5, POISSON.DRAW.REPS.DABBLE, .05 ) / POISSON.DRAW.REPS.DABBLE ) ) ) && !( all( .p.values <= 0.05 ) ) ) {
+      .thresh.dabble <-
+          ( qbinom( 1-1E-5, POISSON.DRAW.REPS.DABBLE, .05 ) / POISSON.DRAW.REPS.DABBLE );
+      if( ( any( .p.values <= .thresh.dabble ) ) && !( all( .p.values <= 0.05 ) ) ) {
         if( be.verbose ) {
-          cat( "Running ", POISSON.DRAW.REPS.INITIAL - POISSON.DRAW.REPS.DABBLE, " more reps, because p-value after ", POISSON.DRAW.REPS.DABBLE, " reps the p-values are: ", sep = "", fill = TRUE );
+          cat( "Running ", POISSON.DRAW.REPS.INITIAL - POISSON.DRAW.REPS.DABBLE, " more reps, because p-value after ", POISSON.DRAW.REPS.DABBLE, " reps the p-values are (at least one <= threshold ", sprintf( "%0.4f", .thresh.dabble ), "): ", sep = "", fill = TRUE );
           print( .p.values );
           print( paste( "Estimate:", dspfitter.results[[ "epsilon" ]][[ "estimate" ]] ) );
           print( "summary of null epsilon medians:" );
@@ -791,7 +798,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
           .sorted.intersequence.distances <-
               unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
           .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
-              return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances ) );
+              return( PoissonDSM.getSmallestEpsilonAndLambda( .sorted.intersequence.distances, observed.data.are.already.in.ascending.order = TRUE ) );
           } );
           .ds.posterior.epsilons <- as.numeric( .sampled.epsilons.and.lambdas[ "epsilon", ] );
           .quantiles.of.interest <- quantile( .ds.posterior.epsilons, probs = c( .025, .5, .975 ) );
@@ -807,10 +814,11 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
         .epsilon.lowers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "2.5%" ]] ) } );
         .epsilon.uppers <- sapply( .ds.rep.results, function( .lst ) { unname( .lst[[ "epsilon" ]][[ "97.5%" ]] ) } );
         .p.values <- list( "estimate.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "estimate" ]], .epsilon.medians ), "lower.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "2.5%" ]], .epsilon.lowers ), "upper.p.value" = calculateUpperSidedPValue( dspfitter.results[[ "epsilon" ]][[ "97.5%" ]], .epsilon.uppers ) );
-
-        if( any( .p.values <= ( qbinom( 1-1E-5, POISSON.DRAW.REPS.INITIAL, .05 ) / POISSON.DRAW.REPS.INITIAL ) ) && !( all( .p.values <= 0.05 ) ) ) {
+        .thresh <-
+            qbinom( 1-1E-5, POISSON.DRAW.REPS.INITIAL, .05 ) / POISSON.DRAW.REPS.INITIAL;
+        if( any( .p.values <= .thresh ) && !( all( .p.values <= 0.05 ) ) ) {
           if( be.verbose ) {
-            cat( "Running ", POISSON.DRAW.REPS.TOTAL - POISSON.DRAW.REPS.INITIAL, " more reps, because p-value after ", POISSON.DRAW.REPS.INITIAL, " reps the p-values are: ", sep = "", fill = TRUE );
+            cat( "Running ", POISSON.DRAW.REPS.TOTAL - POISSON.DRAW.REPS.INITIAL, " more reps, because p-value after ", POISSON.DRAW.REPS.INITIAL, " reps the p-values are (at least one <= threshold ", sprintf( "%0.4f", .thresh ), "): ", sep = "", fill = TRUE );
             print( .p.values );
           }
           .ds.rep.results <- c( .ds.rep.results, lapply( ( POISSON.DRAW.REPS.INITIAL + 1):POISSON.DRAW.REPS.TOTAL, function( .rep.i ) {
@@ -861,9 +869,6 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
       } # End if be.verbose
       dspfitter.results[[ "epsilon" ]] <- c( dspfitter.results[[ "epsilon" ]], .p.values );
     } # END IF we should do sampling to p-values for the epsilon distances.
-    
-    sorted.consensus.distances <- sort( consensus.distances );
-    sorted.intersequence.distances <- sort( intersequence.distances );
     
     draw.one.nonconflicted.pepr.sample <- function ( sorted.observed.data, conflict.max = 5000, method = "fast" ) {
         ## The naive way, just keep drawing until one works.
@@ -1059,7 +1064,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1137-1140
+### code chunk number 6: DSPFitter.Rnw:1142-1145
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1067,7 +1072,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1147-1149
+### code chunk number 7: DSPFitter.Rnw:1152-1154
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
