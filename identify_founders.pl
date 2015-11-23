@@ -981,7 +981,9 @@ sub identify_founders {
     if( $force_one_cluster ) {
       $tmp_extra_flags .= "-f ";
       ## TODO: REMOVE
-      print "FORCE ONE CLUSTER!!\n";
+      if( $VERBOSE ) {
+        print "Forcing one cluster, since the founder calls are consistently 1.\n";
+      }
     }
     my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
     if( $VERBOSE ) {
