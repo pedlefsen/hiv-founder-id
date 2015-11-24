@@ -1,4 +1,4 @@
-### R code from vignette source '/Users/Paul/src/from-git/hiv-founder-id/DSPFitter.Rnw'
+### R code from vignette source '/Users/pedlefsen/src/from-git/hiv-founder-id/DSPFitter.Rnw'
 ### Encoding: ASCII
 
 ###################################################
@@ -220,7 +220,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:291-1130
+### code chunk number 5: DSPFitter.Rnw:291-1136
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -753,11 +753,17 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
       POISSON.DRAW.REPS.DABBLE <- 10;
       POISSON.DRAW.REPS.INITIAL <- 100;
       POISSON.DRAW.REPS.TOTAL <- 500;
+      prior.gamma.shape <- 1;
+      prior.gamma.rate <- 1;
       .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS.DABBLE, function( .rep.i ) {
+        ## Draw the null lambda from the posterior distribution of
+        ## lambdas after seeing the consensus data.
+        .lambda <- rgamma( 1, prior.gamma.shape + sum( consensus.distances ), prior.gamma.rate + length( consensus.distances ) );
         if( be.verbose ) {
-            cat( ".rep.i: ", .rep.i, fill = TRUE );
+            cat( ".rep.i: ", .rep.i, " (.lambda: ", .lambda, ")", sep = "", fill = TRUE );
         }
-        .consensus.distances <- rpois( n.seqs, 1 );
+
+        .consensus.distances <- rpois( n.seqs, .lambda );
         .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
         .sorted.intersequence.distances <-
             unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -793,7 +799,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
           if( be.verbose ) {
               cat( ".rep.i: ", .rep.i, fill = TRUE );
           }
-          .consensus.distances <- rpois( n.seqs, 1 );
+          .consensus.distances <- rpois( n.seqs, .lambda );
           .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
           .sorted.intersequence.distances <-
               unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -825,7 +831,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
             if( be.verbose ) {
                 cat( ".rep.i: ", .rep.i, fill = TRUE );
             }
-            .consensus.distances <- rpois( n.seqs, 1 );
+            .consensus.distances <- rpois( n.seqs, .lambda );
             .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
             .sorted.intersequence.distances <-
                 unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -1064,7 +1070,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1142-1145
+### code chunk number 6: DSPFitter.Rnw:1148-1151
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1072,7 +1078,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1152-1154
+### code chunk number 7: DSPFitter.Rnw:1158-1160
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
