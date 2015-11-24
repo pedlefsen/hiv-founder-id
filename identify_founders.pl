@@ -38,7 +38,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_n $opt_i $opt_I $opt_s $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_s $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 sub splitFastaFileOnHeaderPatterns {
@@ -199,7 +199,7 @@ sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-PRFEHfIsr] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-PRFEHfnIsr] [-i <insites_threshold>] [-v <insites_threshold_v3>] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -214,14 +214,16 @@ sub identify_founders {
   # opt_E means skip (do not run) entropy statistics calculation
   # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
   # opt_f means fix hypermutated sequences, instead of removing them.
+  # opt_w is what we should fix hypermutated sequences with (default: R)
   # opt_n means mask out nonsynonymous codons (compared to input file consensus) when running PFitter.
-  # opt_i is the insites threshold to use (default: 0.85).
   # opt_I means run inSites online (instead of offline)
+  # opt_i is the insites threshold to use for all regions except v3 (default: 0.85).
+  # opt_v is the insites threshold to use for v3 (default: 0.33).
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
-  # opt_r means recursively operate on clusters identified using the Informtive Sites method. 
+  # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_n, $opt_i, $opt_I, $opt_s, $opt_r ) = ();
-  if( not getopts('DVo:O:PRFEHfni:Isr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_s, $opt_r ) = ();
+  if( not getopts('DVo:O:PRFEHfw:nIi:v:sr') ) {
     identify_founders_usage();
   }
   
@@ -234,9 +236,10 @@ sub identify_founders {
   my $run_entropy = !$opt_E;
   my $run_Hypermut = !$opt_H;
   my $fix_hypermutated_sequences = $opt_f || 0;
+  my $fix_hypermutated_sequences_with = $opt_w || "R";
   my $mask_out_nonsynonymous_codons_in_PFitter = $opt_n || 0;
   my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
-  #my $in_sites_ratio_threshold = 0.33; # For caprisa002
+  my $in_sites_ratio_threshold_v3 = $opt_v || 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
   my $be_slow = $opt_s || 0;
   my $recurse_on_clusters = $opt_r || 0;
@@ -337,7 +340,7 @@ sub identify_founders {
   push @table_column_headers,
   (
    "file", "num.seqs", "num.phyml.seqs", "diversity", "inf.to.priv.ratio",
-   "exceeds.diversity.threshold", "exceeds.ratio.threshold",
+   "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
    "is.one.founder"
    );
 
@@ -554,12 +557,12 @@ sub identify_founders {
     if( $run_Hypermut ) {
       if( $VERBOSE ) {
           if( $fix_hypermutated_sequences ) {
-            print "Calling R to fix hypermutated sequences..";
+            print "Calling R to fix hypermutated sequences (with $fix_hypermutated_sequences_with)..";
           } else {
             print "Calling R to remove hypermutated sequences..";
           }
       }
-      $R_output = `export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      $R_output = `export removeHypermutatedSequences_fixWith="$fix_hypermutated_sequences_with"; export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
       if( $VERBOSE ) {
         print( $R_output );
       }
@@ -579,7 +582,7 @@ sub identify_founders {
       if( $num_hypermut_sequences > 0 ) {
         $fasta_file_path = $output_path_dir_for_input_fasta_file;
         if( $fix_hypermutated_sequences ) {
-          $fasta_file_short = "${fasta_file_short_nosuffix}_fixHypermutatedSequences${fasta_file_suffix}";
+          $fasta_file_short = "${fasta_file_short_nosuffix}_fixHypermutatedSequencesWith${fix_hypermutated_sequences_with}${fasta_file_suffix}";
         } else {
           $fasta_file_short = "${fasta_file_short_nosuffix}_removeHypermutatedSequences${fasta_file_suffix}";
           # Recompute the seq_headers.
@@ -701,6 +704,14 @@ sub identify_founders {
     printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $in_sites_ratio );
     #print "did it\n";
 
+    my $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold;
+    if( $fasta_file_short_nosuffix =~ /^(.+)(?:_v3)/ ) {
+      if( $VERBOSE ) {
+        print "Using v3-specific InSites ratio threshold: $in_sites_ratio_threshold_v3\n";
+      }
+      $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold_v3;
+    }
+    
     # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $force_one_cluster = $default_force_one_cluster;
     my $morgane_calls_one_cluster = 1;
@@ -710,21 +721,22 @@ sub identify_founders {
     my $ds_pfitter_founders_call = 1;
     if( $mean_diversity > $mean_diversity_threshold ) {
       $diversity_threshold_exceeded = 1;
-      if( $in_sites_ratio > $in_sites_ratio_threshold ) {
+      if( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
         $in_sites_ratio_threshold_exceeded = 1;
-        print( "DIVERSITY THRESHOLD EXCEEDED\n" );
-        print( "RATIO THRESHOLD EXCEEDED TOO\n" );
+        print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
+        print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded too\n" );
         $morgane_calls_one_cluster = 0;
         $force_one_cluster = 0;
       } else {
-        print( "diversity threshold exceeded\n" );
+        print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
       }
-    } elsif( $in_sites_ratio > $in_sites_ratio_threshold ) {
+    } elsif( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
         $in_sites_ratio_threshold_exceeded = 1;
-        print( "ratio threshold exceeded\n" );
+        print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded\n" );
     }
     print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
     print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
+    print OUTPUT_TABLE_FH "\t", $the_relevant_in_sites_ratio_threshold;
     ## "is.one.founder":
     print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
 
@@ -1457,6 +1469,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", "NA"; # inf.to.priv.ratio
           print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.diversity.threshold
           print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.ratio.threshold
+          print OUTPUT_TABLE_FH "\t", "NA"; # ratio.threshold
           print OUTPUT_TABLE_FH "\t", "NA"; # is.one.founder
           if( $run_entropy ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # mean.entropy

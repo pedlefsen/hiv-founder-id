@@ -18,11 +18,9 @@ use Try::Tiny;
 # For screenscraping
 use WWW::Mechanize;
 use LWP::Simple;
-#use HTTP::Request::Common qw(POST);
-#use LWP::UserAgent;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_e );
+use vars qw( $opt_D $opt_V $opt_e $opt_p );
 use vars qw( $VERBOSE $DEBUG );
 
 sub runGeneCutterOnline {
@@ -31,23 +29,25 @@ sub runGeneCutterOnline {
   my $DEFAULT_EMAIL_ADDRESS = "pedlefsen\@gmail.com";
 
   sub runGeneCutterOnline_usage {
-    print "\trunGeneCutterOnline [-DV] [-e <youremail\@ddr.ess>] <input_fasta_file> [<output_dir>]\n";
+    print "\trunGeneCutterOnline [-DVp] [-e <youremail\@ddr.ess>] <input_fasta_file> [<output_dir>]\n";
     exit;
   }
 
   # This means -D and -V are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_V means be verbose.
+  # opt_p means that the input files are pre-aligned.
   # opt_e means use a different email address than the default.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_e ) = ();
-  if( not getopts('DVe') ) {
+  ( $opt_D, $opt_V, $opt_e, $opt_p ) = ();
+  if( not getopts('DVep') ) {
     runGeneCutterOnline_usage();
   }
   
   $DEBUG ||= $opt_D;
   $VERBOSE ||= $opt_V;
 
+  my $is_prealigned = $opt_p || 0;
   my $emailAddress = $opt_e || $DEFAULT_EMAIL_ADDRESS;
   
   my $old_autoflush;
@@ -74,107 +74,8 @@ sub runGeneCutterOnline {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
   }
 
-  ## Ok, for some reason GeneCutter has strict rules about header lines...
-  ## Reformat the file.
-  my $formattedForGeneCutter = 0;
-    if( 0 ) {
-      my $input_fasta_file_contents = path( $input_fasta_file )->slurp();
-      if( $input_fasta_file_contents =~ /[\|\/]/ ) {
-        if( $VERBOSE ) {
-          print( "Input file \"$input_fasta_file\" contains illegal characters \"|\"; changing them to \"-x-BAR-x-\" or \"-x-SLASH-x-\"\n" );
-          ## TODOL REMOVE
-          #print( $output_path_dir );
-        }
-        $formattedForGeneCutter = 1;
-        $input_fasta_file_contents =~ s/\|/-x-BAR-x-/g;
-        $input_fasta_file_contents =~ s/\//-x-SLASH-x-/g;
-        $input_fasta_file_contents =~ s/\\/-x-BACKSLASH-x-/g;
-        $input_fasta_file_contents =~ s/\.\./-x-DOTDOT-x-/g;
-        $input_fasta_file_contents =~ s/\./-x-DOT-x-/g;
-        # Now write it out to a temporary location in the output dir.
-        $input_fasta_file_path = $output_path_dir;
-        $input_fasta_file_short_nosuffix = "${input_fasta_file_short_nosuffix}_formattedForGeneCutter";
-        $input_fasta_file_short = "${input_fasta_file_short_nosuffix}${input_fasta_file_suffix}";
-        $input_fasta_file = "${input_fasta_file_path}/${input_fasta_file_short}";
-        
-        if( $VERBOSE ) {
-          print( "Writing out fixed input file \"$input_fasta_file\".." );
-        }
-        if( $VERBOSE ) { print "Opening file \"$input_fasta_file\" for writing..\n"; }
-        unless( open input_fasta_fileFH, ">$input_fasta_file" ) {
-            warn "Unable to open output file \"$input_fasta_file\": $!\n";
-            return 1;
-          }
-        print input_fasta_fileFH $input_fasta_file_contents;
-        close( input_fasta_fileFH );
-      }
-    }  
-
   my $fasta_file_readyForGeneCutter = $input_fasta_file;
   
-  my $R_output;
-
-  # GeneCutter seems to not be able to handle duplicate sequences.
-  ## STEP 1: remove duplicate sequences.
-#   if( $VERBOSE ) {
-#     print "Calling R to create a version of the fasta file in which duplicate sequences are removed..";
-#   }
-#   $R_output = `export removeDuplicateSequencesFromAlignedFasta_inputFilename="$input_fasta_file"; export removeDuplicateSequencesFromAlignedFasta_outputDir="$output_path_dir"; R -f removeDuplicateSequencesFromAlignedFasta.R --vanilla --slave`;
-#   # The output has the file name of the consensus file.
-#   if( $DEBUG ) {
-#     print( "GOT: $R_output\n" );
-#   }
-#   if( $VERBOSE ) {
-#     print ".done.\n";
-#   }
-#   # Parse it to get the output fasta filename.
-#   my ( $fasta_file_no_duplicates ) = ( $R_output =~ /\"([^\"]+)\"/ );
-#   print "Fasta file with duplicates removed: $fasta_file_no_duplicates\n";
-# 
-#   my ( $table_file_no_duplicates ) =
-#     ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
-#   $table_file_no_duplicates .= ".tbl";
-#   
-#   if( -e $table_file_no_duplicates ) {
-#     print "Table of duplicates removed: $table_file_no_duplicates\n";
-#   }
-# 
-#   # GeneCutter has a problem with certain characters in fasta headers. 
-#   ## STEP 2: Rename the seqs to just their numbers.
-#   if( $VERBOSE ) {
-#     print "Calling R to create a version of the fasta file in which seqs are numbered instead of named..";
-#   }
-#   my ( $fasta_file_no_duplicates_numbered ) =
-#     ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
-#   $fasta_file_no_duplicates_numbered .= "_numbered$input_fasta_file_suffix";
-#   $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputFilename="$fasta_file_no_duplicates_numbered"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
-#   # The output has the file name of the "consensus file" which is not in fact the consensus but the fasta with renamed seqs.
-#   if( $DEBUG ) {
-#     print( "GOT: $R_output\n" );
-#   }
-#   if( $VERBOSE ) {
-#     print ".done.\n";
-#   }
-#   # Parse it to get the filename.
-#   my ( $fasta_file_readyForGeneCutter ) = ( $R_output =~ /\"([^\"]+)\"/ );
-#   if( $DEBUG ) {
-#     print "Fasta file ready for GeneCutter: $fasta_file_readyForGeneCutter\n";
-#   }
-
-  ## Set up the table mapping sequence names to numbers.
-#       if( $VERBOSE ) {
-#         print "Reading sequence names from file \"", $fasta_file_no_duplicates, "\"..";
-#       }
-#       my $fasta_file_no_duplicates_contents =
-#            path( $fasta_file_no_duplicates )->slurp();
-#       if( $VERBOSE ) {
-#         print ".done\n";
-#       }
-#       if( $DEBUG ) {
-#         #print $fasta_file_no_duplicates_contents;
-#       }
-#       my ( @seq_names ) =  ( $fasta_file_no_duplicates_contents =~ /\n?>[ \t]*(.+) *\n/g );
-
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/GENE_CUTTER/cutter.html" );
 
@@ -182,7 +83,7 @@ sub runGeneCutterOnline {
                                   fields    => {
                                                 ORGANISM => "HIV-1",
                                                 UPLOAD => $fasta_file_readyForGeneCutter,
-                                                PREALIGNED => "YES",
+                                                PREALIGNED => ( $is_prealigned ? "YES" : "NO" ),
                                                 SEG => "ALL",
                                                 INSERTSTDSEQ => "YES",
                                                 REMOVESTDSEQ => "NO",
@@ -213,8 +114,9 @@ sub runGeneCutterOnline {
   unless( defined $jobTitle ) {
     die( "Error running GeneCutter online: GOT $content2" );
   }
-  ## TODO: REMOVE?
-  print "JOB ID IS $jobID\n";
+  if( $VERBOSE ) {
+    print "JOB ID IS $jobID\n";
+  }
   ## Results page
   my $results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/FRAMESET_PRO.html";
   ## Actual results are here:
@@ -226,13 +128,17 @@ sub runGeneCutterOnline {
   try {
     $mech->get( $results_url );
     $resultsContent = $mech->content();
-    print( "got $resultsContent" );
+    if( $DEBUG ) {
+      print( "got $resultsContent" );
+    }
   } catch {
     ## DO NOTHING.
     #warn "caught error: $_";
   };
-    while( !defined( $resultsContent ) || ( $resultsContent =~ /No such file/ ) ) {
-      print( "trying again to get the gene cutter results.\n" );
+  while( !defined( $resultsContent ) || ( $resultsContent =~ /No such file/ ) ) {
+    if( $VERBOSE || $DEBUG ) {
+      print( "trying again to get the gene cutter results in 1 second..\n" );
+    }
       sleep( 1 );
       try {
         $mech->get( $results_url );
@@ -241,7 +147,9 @@ sub runGeneCutterOnline {
         # do nothing.
       }
     }
+  if( $DEBUG ) {
     print( "finally, got $resultsContent" );
+  }
 
   $mech->get( $nuc_prepresults_url );
   $mech->get( $nuc_results_url );
@@ -255,7 +163,7 @@ sub runGeneCutterOnline {
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
  );
-  $mech->save_content( "allnucs.zip" );
+  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}_allnucs.zip" );
   #my $content3 = $mech->content();
   if( $DEBUG ) {
     print "OK3\n";# \$content3 is $content3\n";
@@ -274,7 +182,7 @@ sub runGeneCutterOnline {
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
  );
-  $mech->save_content( "allproteins.zip" );
+  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}_allproteins.zip" );
   #my $content4 = $mech->content();
   if( $DEBUG ) {
     print "OK4\n";# \$content4 is $content4\n";

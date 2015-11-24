@@ -107,7 +107,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
 
   # Write the subalignment as a fasta file
   if( fix.instead.of.remove ) {
-      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequences", fasta.file.short.suffix, sep = "" );
+      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequencesWith", fix.with, fasta.file.short.suffix, sep = "" );
   } else {
       out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeHypermutatedSequences", fasta.file.short.suffix, sep = "" );
   }
@@ -139,12 +139,16 @@ if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) 
 } else {
     fix.instead.of.remove <- TRUE;
 }
+fix.with <- Sys.getenv( "removeHypermutatedSequences_fixWith" ); # with what should we fix? "R" seems right but "-" might be best for algorithms...
+if( fix.with == "" ) {
+    fix.with <- "R";
+}
 
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
 if( file.exists( fasta.file ) ) {
-    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove ) );
+    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove, fix.with = fix.with ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }
