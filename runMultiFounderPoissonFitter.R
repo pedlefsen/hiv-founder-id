@@ -5,6 +5,9 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 # for maskSynonymousCodonsInAlignedFasta(..)
 source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" );
 
+# for removeDuplicateSequencesFromAlignedFasta(..)
+source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
+
 ## Similar to runPoissonFitter, except that the distances are computed within each cluster, then put together.
 ## Input files are taken to be all files matching the given pattern (default: ${fasta.file.prefix}.cluster\d+.fasta) -- you can change the suffix but the prefix must be fasta.file.prefix.
 # Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
@@ -62,9 +65,17 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
           fasta.file <-
               maskSynonymousCodonsInAlignedFasta( fasta.file, mask.nonsynonymous = TRUE );
       }
+      ## If there are any duplicate sequences, remove them and
+      ## incorporate the number of identical sequences into their names (_nnn suffix).
+      # The output has the file name of the consensus file.
+      fasta.file.no.duplicates <-
+          removeDuplicateSequencesFromAlignedFasta( fasta.file, output.dir, add.copy.number.to.sequence.names = TRUE );
+      in.fasta.no.duplicates <- read.dna( fasta.file.no.duplicates, format = "fasta" );
+  
+      ## This is the one with duplicates intact; lazy way to get consensus.
       in.fasta <- read.dna( fasta.file, format = "fasta" );
   
-      # Add the consensus.
+      # Add the consensus to the one with no duplicates.
       .consensus.mat <- matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
       consensus <- as.DNAbin( .consensus.mat );
       rownames( consensus ) <- paste( "Consensus" );
@@ -77,7 +88,12 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
       seq.lengths <<- c( seq.lengths, seq.length );
       seq.counts <<- c( seq.counts, nrow( in.fasta ) );
   
-      fasta.with.consensus <- rbind( consensus, in.fasta );
+      ### NEW, MUCH FASTER:
+      fasta.no.duplicates.with.consensus <-
+          rbind( consensus, in.fasta.no.duplicates );
+      ### OLD, SLOW (not excluding duplicates ):
+#       fasta.no.duplicates.with.consensus <-
+#           rbind( consensus, in.fasta );
   
       # Remove any columns with a consensus that is a gap, which means
       # that over half of seqs have gaps.  This needs to be removed
@@ -85,29 +101,31 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
       # insertions.  We do however consider rates of deletions, treating
       # them as point mutations (by including the indel counts in the
       # Hamming distance calculation).
-      fasta.with.consensus <- fasta.with.consensus[ , .consensus.mat[ 1, ] != "-" ];
+      fasta.no.duplicates.with.consensus <- fasta.no.duplicates.with.consensus[ , .consensus.mat[ 1, ] != "-" ];
       
       # The pairwise.deletion = TRUE argument is necessary so that columns with any gaps are not removed.
       # The optional second call adds in the count of sites with gap differences
       # (gap in one sequence but not the other), which are not included
       # in the first call's "raw" count. Adding them back in, we are
       # effectively treating those as differences.
-      fasta.with.consensus.dist <- dist.dna( fasta.with.consensus, model = "N", pairwise.deletion = TRUE );
-      fasta.with.consensus.dist[ is.nan( fasta.with.consensus.dist ) ] <- 0;
+      fasta.no.duplicates.with.consensus.dist <- dist.dna( fasta.no.duplicates.with.consensus, model = "N", pairwise.deletion = TRUE );
+      fasta.no.duplicates.with.consensus.dist[ is.nan( fasta.no.duplicates.with.consensus.dist ) ] <- 0;
       if( include.gaps.in.Hamming ) {
-          fasta.with.consensus.dist <- fasta.with.consensus.dist + dist.dna( fasta.with.consensus, model = "indel", pairwise.deletion = TRUE );
+          fasta.no.duplicates.with.consensus.dist <- fasta.no.duplicates.with.consensus.dist + dist.dna( fasta.no.duplicates.with.consensus, model = "indel", pairwise.deletion = TRUE );
       }
       
-      if( any( is.null( fasta.with.consensus.dist ) ) || any( is.na( fasta.with.consensus.dist ) ) || any( !is.finite( fasta.with.consensus.dist ) ) ) {
+      if( any( is.null( fasta.no.duplicates.with.consensus.dist ) ) || any( is.na( fasta.no.duplicates.with.consensus.dist ) ) || any( !is.finite( fasta.no.duplicates.with.consensus.dist ) ) ) {
         ## TODO: REMOVE
         warning( "UH OH got illegal distance value" );
         print( "UH OH got illegal distance value" );
-        print( fasta.with.consensus.dist );
+        print( fasta.no.duplicates.with.consensus.dist );
       }
   
-      pairwise.distances.as.matrix <- as.matrix( fasta.with.consensus.dist );
+      pairwise.distances.as.matrix <-
+          as.matrix( fasta.no.duplicates.with.consensus.dist );
   
-      pairwise.distances.as.matrix.flat <- matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
+      pairwise.distances.as.matrix.flat <-
+          matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
       line.i <- 1;
       for( row.i in 1:( nrow( pairwise.distances.as.matrix ) - 1 ) ) {
           for( col.i in ( row.i + 1 ):ncol( pairwise.distances.as.matrix ) ) {

@@ -3,7 +3,10 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 # for maskSynonymousCodonsInAlignedFasta(..)
-source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" );
+source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" )
+
+# for removeDuplicateSequencesFromAlignedFasta(..)
+source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
 runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
@@ -37,14 +40,27 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     unlink( output.dir, recursive = TRUE );
     dir.create( output.dir, showWarnings = TRUE );
 
-    in.fasta <- read.dna( fasta.file, format = "fasta" );
+    ## If there are any duplicate sequences, remove them and
+    ## incorporate the number of identical sequences into their names (_nnn suffix).
+    # The output has the file name of the consensus file.
+    fasta.file.no.duplicates <-
+        removeDuplicateSequencesFromAlignedFasta( fasta.file, output.dir, add.copy.number.to.sequence.names = TRUE );
+    in.fasta.no.duplicates <- read.dna( fasta.file.no.duplicates, format = "fasta" );
 
-    # Add the consensus.
-    .consensus.mat <- matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
+    ## This is the one with duplicates intact; lazy way to get consensus.
+    in.fasta <- read.dna( fasta.file, format = "fasta" );
+    # Add the consensus to the one with no duplicates.
+    .consensus.mat <-
+        matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
     consensus <- as.DNAbin( .consensus.mat );
     rownames( consensus ) <- paste( "Consensus" );
 
-    fasta.with.consensus <- rbind( consensus, in.fasta );
+    ### NEW, MUCH FASTER:
+    fasta.no.duplicates.with.consensus <-
+        rbind( consensus, in.fasta.no.duplicates );
+    ### OLD, SLOW (not excluding duplicates ):
+#     fasta.no.duplicates.with.consensus <-
+#         rbind( consensus, in.fasta );
 
     # Remove any columns with a consensus that is a gap, which means
     # that over half of seqs have gaps.  This needs to be removed
@@ -52,27 +68,28 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     # insertions.  We do however consider rates of deletions, treating
     # them as point mutations (by including the indel counts in the
     # Hamming distance calculation).
-    fasta.with.consensus <- fasta.with.consensus[ , .consensus.mat[ 1, ] != "-" ];
+    fasta.no.duplicates.with.consensus <-
+        fasta.no.duplicates.with.consensus[ , .consensus.mat[ 1, ] != "-" ];
     
     # The pairwise.deletion = TRUE argument is necessary so that columns with any gaps are not removed.
     # The optional second call adds in the count of sites with gap differences
     # (gap in one sequence but not the other), which are not included
     # in the first call's "raw" count. Adding them back in, we are
     # effectively treating those as differences.
-    fasta.with.consensus.dist <- dist.dna( fasta.with.consensus, model = "N", pairwise.deletion = TRUE );
-    fasta.with.consensus.dist[ is.nan( fasta.with.consensus.dist ) ] <- 0;
+    fasta.no.duplicates.with.consensus.dist <- dist.dna( fasta.no.duplicates.with.consensus, model = "N", pairwise.deletion = TRUE );
+    fasta.no.duplicates.with.consensus.dist[ is.nan( fasta.no.duplicates.with.consensus.dist ) ] <- 0;
     if( include.gaps.in.Hamming ) {
-        fasta.with.consensus.dist <- fasta.with.consensus.dist + dist.dna( fasta.with.consensus, model = "indel", pairwise.deletion = TRUE );
+        fasta.no.duplicates.with.consensus.dist <- fasta.no.duplicates.with.consensus.dist + dist.dna( fasta.no.duplicates.with.consensus, model = "indel", pairwise.deletion = TRUE );
     }
     
-    if( any( is.null( fasta.with.consensus.dist ) ) || any( is.na( fasta.with.consensus.dist ) ) || any( !is.finite( fasta.with.consensus.dist ) ) ) {
+    if( any( is.null( fasta.no.duplicates.with.consensus.dist ) ) || any( is.na( fasta.no.duplicates.with.consensus.dist ) ) || any( !is.finite( fasta.no.duplicates.with.consensus.dist ) ) ) {
       ## TODO: REMOVE
       warning( "UH OH got illegal distance value" );
       print( "UH OH got illegal distance value" );
-      print( fasta.with.consensus.dist );
+      print( fasta.no.duplicates.with.consensus.dist );
     }
 
-    pairwise.distances.as.matrix <- as.matrix( fasta.with.consensus.dist );
+    pairwise.distances.as.matrix <- as.matrix( fasta.no.duplicates.with.consensus.dist );
 
     pairwise.distances.as.matrix.flat <-
         matrix( "", nrow = ( ( nrow( pairwise.distances.as.matrix ) * ( ncol( pairwise.distances.as.matrix ) - 1 ) ) / 2 ), ncol = 3 );
@@ -104,13 +121,13 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
         write( paste( fasta.file.short.nosuffix, "FOLLOWS A STAR-PHYLOGENY", sep = " " ), file=outfile2, append=FALSE );
         .rv <- "0";
     } else {
-      R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' PFitter.R" );
+      R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' PFitter.R" );
       .rv <- system( R.cmd );
     }
 
     if( run.DSPFitter ) {
         DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );
-        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
         .rv <- system( R.cmd );
     }
     return( .rv );
