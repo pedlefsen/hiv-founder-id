@@ -493,7 +493,7 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlistT, missing.seqn
     maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
     colnames( maybe.longer.dlist ) <- colnames( any.dlist );
     duplicated.entries.dlist.list <-
-        lapply( unique( c( any.dlist[ , 1 ], any.dlist[ , 2 ] ), missing.seqnames ), function( .seq.name ) {
+        lapply( unique( c( any.dlist[ , 1 ], any.dlist[ , 2 ], missing.seqnames ) ), function( .seq.name ) {
             .mult <- NA;
             if( length( grep( "^.*_(\\d+)$", .seq.name, perl = TRUE ) ) > 0 ) {
                 .mult <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", .seq.name, perl = TRUE ) );
