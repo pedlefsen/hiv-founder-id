@@ -54,17 +54,20 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
         read.dna( fasta.file.no.duplicates, format = "fasta" );
     duplicate.sequences.tbl.file <-
         paste( output.dir, "/", fasta.file.no.duplicates.short.nosuffix, ".tbl", sep = "" );
-  stopifnot( file.exists( duplicate.sequences.tbl.file ) );
-  duplicate.sequences.tbl.in <- read.table( file = duplicate.sequences.tbl.file, sep = "\t", header = TRUE );
-  duplicate.sequences.tbl <- apply( duplicate.sequences.tbl.in, 1:2, function( .seq.name ) {
-        # Fix our "escape" of the BAR and SLASH.
-        .seq.name <- gsub( "-x-BAR-x-", "|", .seq.name );
-        .seq.name <- gsub( "-x-SLASH-x-", "/", .seq.name );
-        .seq.name <- gsub( "-x-BACKSLASH-x-", "\\", .seq.name );
-        .seq.name <- gsub( "-x-DOT-x-", ".", .seq.name );
-        .seq.name <- gsub( "-x-DOTDOT-x-", "..", .seq.name );
-        return( .seq.name );
-    } );
+  if( file.exists( duplicate.sequences.tbl.file ) ) { # won't exist if nothing was removed.
+    duplicate.sequences.tbl.in <- read.table( file = duplicate.sequences.tbl.file, sep = "\t", header = TRUE );
+    duplicate.sequences.tbl <- apply( duplicate.sequences.tbl.in, 1:2, function( .seq.name ) {
+          # Fix our "escape" of the BAR and SLASH.
+          .seq.name <- gsub( "-x-BAR-x-", "|", .seq.name );
+          .seq.name <- gsub( "-x-SLASH-x-", "/", .seq.name );
+          .seq.name <- gsub( "-x-BACKSLASH-x-", "\\", .seq.name );
+          .seq.name <- gsub( "-x-DOT-x-", ".", .seq.name );
+          .seq.name <- gsub( "-x-DOTDOT-x-", "..", .seq.name );
+          return( .seq.name );
+      } );
+   } else {
+       duplicate.sequences.tbl <- NULL;
+   }
     
   compute.hypermut2.p.value <-
     function( seq.i, fix.sequence = FALSE ) {
@@ -133,55 +136,58 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
         cat( .message, fill = TRUE );
     }
   } # End foreach seq.i
-    
-  if( fix.instead.of.remove ) {
+
+  if( is.null( duplicate.sequences.tbl ) ) {
     out.fasta <- in.fasta;
-    fixed.sequences.with.duplicates <-
-        intersect( names( fixed.sequence )[ fixed.sequence ], duplicate.sequences.tbl[ , "retained" ] );
-    if( length( fixed.sequences.with.duplicates ) > 0 ) {
-        rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
-        .duplicates.strings <- duplicate.sequences.tbl[ fixed.sequences.with.duplicates, "removed" ];
-        .duplicates.list <- strsplit( .duplicates.strings, "," );
-        names( .duplicates.list ) <- fixed.sequences.with.duplicates;
-        .result.ignored <- 
-        lapply( fixed.sequences.with.duplicates, function( .retained.sequence ) {
-            if( length( .duplicates.list[[ .retained.sequence ]] ) > 0 ) {
-                ## TODO: REMOVE
-                cat( paste( "Fixing '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
-                # Copy the fixed sequence.
-                .result.ignored <- 
-                sapply( .duplicates.list[[ .retained.sequence ]], function ( .retained ) {
-                    out.fasta[ .retained, ] <<- out.fasta[ .retained.sequence, ];
-                    fixed.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
-                    return( NULL );
-                } );
-            }
-            return( NULL );
-        } );
-    }
-  } else { # if fix.instead.of.remove .. else ..
-      #print( names( exclude.sequence )[ exclude.sequence ] );
-      #print( duplicate.sequences.tbl[ , "retained" ] );
-    excluded.sequences.with.duplicates <-
-        intersect( names( exclude.sequence )[ exclude.sequence ], duplicate.sequences.tbl[ , "retained" ] );
-    if( length( excluded.sequences.with.duplicates ) > 0 ) {
-        #print( "HA" );
-        rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
-        .duplicates.strings <- duplicate.sequences.tbl[ excluded.sequences.with.duplicates, "removed" ];
-        .duplicates.list <- strsplit( .duplicates.strings, "," );
-        names( .duplicates.list ) <- excluded.sequences.with.duplicates;
-        .result.ignored <- 
-        lapply( excluded.sequences.with.duplicates, function( .retained.sequence ) {
-            if( length( .duplicates.list[[ .retained.sequence ]] ) > 0 ) {
-                ## TODO: REMOVE
-                cat( paste( "Excluding '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
-                exclude.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
-            }
-            return( NULL );
-        } );
-    }
-    out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
-  } # End if fix.instead.of.remove .. else ..
+  } else {
+    if( fix.instead.of.remove ) {
+      fixed.sequences.with.duplicates <-
+          intersect( names( fixed.sequence )[ fixed.sequence ], duplicate.sequences.tbl[ , "retained" ] );
+      if( length( fixed.sequences.with.duplicates ) > 0 ) {
+          rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
+          .duplicates.strings <- duplicate.sequences.tbl[ fixed.sequences.with.duplicates, "removed" ];
+          .duplicates.list <- strsplit( .duplicates.strings, "," );
+          names( .duplicates.list ) <- fixed.sequences.with.duplicates;
+          .result.ignored <- 
+          lapply( fixed.sequences.with.duplicates, function( .retained.sequence ) {
+              if( length( .duplicates.list[[ .retained.sequence ]] ) > 0 ) {
+                  ## TODO: REMOVE
+                  cat( paste( "Fixing '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
+                  # Copy the fixed sequence.
+                  .result.ignored <- 
+                  sapply( .duplicates.list[[ .retained.sequence ]], function ( .retained ) {
+                      out.fasta[ .retained, ] <<- out.fasta[ .retained.sequence, ];
+                      fixed.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
+                      return( NULL );
+                  } );
+              }
+              return( NULL );
+          } );
+      }
+    } else { # if fix.instead.of.remove .. else ..
+        #print( names( exclude.sequence )[ exclude.sequence ] );
+        #print( duplicate.sequences.tbl[ , "retained" ] );
+      excluded.sequences.with.duplicates <-
+          intersect( names( exclude.sequence )[ exclude.sequence ], duplicate.sequences.tbl[ , "retained" ] );
+      if( length( excluded.sequences.with.duplicates ) > 0 ) {
+          #print( "HA" );
+          rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
+          .duplicates.strings <- duplicate.sequences.tbl[ excluded.sequences.with.duplicates, "removed" ];
+          .duplicates.list <- strsplit( .duplicates.strings, "," );
+          names( .duplicates.list ) <- excluded.sequences.with.duplicates;
+          .result.ignored <- 
+          lapply( excluded.sequences.with.duplicates, function( .retained.sequence ) {
+              if( length( .duplicates.list[[ .retained.sequence ]] ) > 0 ) {
+                  ## TODO: REMOVE
+                  cat( paste( "Excluding '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
+                  exclude.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
+              }
+              return( NULL );
+          } );
+      }
+      out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
+    } # End if fix.instead.of.remove .. else ..
+  } # End if is.null( duplicate.sequences.tbl ) .. else ..
     
   # Write the subalignment as a fasta file
   if( fix.instead.of.remove ) {

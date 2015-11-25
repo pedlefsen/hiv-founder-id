@@ -66,8 +66,7 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, dupli
     }
   } # End foreach line.i
 
-  if( !is.null( duplicate.sequences.tbl.file ) ) {
-    stopifnot( file.exists( duplicate.sequences.tbl.file ) );
+  if( !is.null( duplicate.sequences.tbl.file ) && file.exists( duplicate.sequences.tbl.file ) ) {
     duplicate.sequences.tbl.in <- read.table( file = duplicate.sequences.tbl.file, sep = "\t", header = TRUE );
     duplicate.sequences.tbl <- apply( duplicate.sequences.tbl.in, 1:2, function( .seq.name ) {
         # Fix our "escape" of the BAR and SLASH.
