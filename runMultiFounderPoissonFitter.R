@@ -70,6 +70,10 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
       # The output has the file name of the consensus file.
       fasta.file.no.duplicates <-
           removeDuplicateSequencesFromAlignedFasta( fasta.file, output.dir, add.copy.number.to.sequence.names = TRUE );
+      fasta.file.no.duplicates.short <-
+          gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file.no.duplicates, perl = TRUE );
+      fasta.file.no.duplicates.short.nosuffix <-
+          gsub( "^(.*?)\\.[^\\.]+$", "\\1", fasta.file.no.duplicates.short, perl = TRUE );
       in.fasta.no.duplicates <- read.dna( fasta.file.no.duplicates, format = "fasta" );
   
       ## This is the one with duplicates intact; lazy way to get consensus.
@@ -131,10 +135,10 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
           for( col.i in ( row.i + 1 ):ncol( pairwise.distances.as.matrix ) ) {
               if( row.i == 1 ) { # consensus, no _1 (multiplicity of the observed sequence)
                   pairwise.distances.as.matrix.flat[ line.i, ] <-
-                      c( rownames( pairwise.distances.as.matrix )[ row.i ], paste( colnames( pairwise.distances.as.matrix )[ col.i ], "_1", sep = "" ), pairwise.distances.as.matrix[ row.i, col.i ] );
+                      c( rownames( pairwise.distances.as.matrix )[ row.i ], colnames( pairwise.distances.as.matrix )[ col.i ], pairwise.distances.as.matrix[ row.i, col.i ] );
               } else {
                   pairwise.distances.as.matrix.flat[ line.i, ] <-
-                      c( paste( rownames( pairwise.distances.as.matrix )[ row.i ], "_1", sep = "" ), paste( colnames( pairwise.distances.as.matrix )[ col.i ], "_1", sep = "" ), pairwise.distances.as.matrix[ row.i, col.i ] );
+                      c( rownames( pairwise.distances.as.matrix )[ row.i ], colnames( pairwise.distances.as.matrix )[ col.i ], pairwise.distances.as.matrix[ row.i, col.i ] );
               }
               line.i <- line.i + 1;
           }

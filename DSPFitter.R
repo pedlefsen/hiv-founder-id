@@ -1,13 +1,14 @@
-### R code from vignette source '/Users/pedlefsen/src/from-git/hiv-founder-id/DSPFitter.Rnw'
+### R code from vignette source '/Users/Paul/src/from-git/hiv-founder-id/DSPFitter.Rnw'
 ### Encoding: ASCII
 
 ###################################################
-### code chunk number 1: DSPFitter.Rnw:18-28
+### code chunk number 1: DSPFitter.Rnw:18-29
 ###################################################
 ## R packages needed
 library( "xtable" )
 library( "coin" )
 library( "ggplot2" )
+library( "binom" )
 
 ## for prettyPrintPValuesTo4Digits
 #source( "~/src/from-git/projects/pedlefse/rapporttemplates/rapporttemplates-util.R" )
@@ -17,7 +18,7 @@ old.continue.option <- options( continue = " " )
 
 
 ###################################################
-### code chunk number 2: DSPFitter.Rnw:31-160
+### code chunk number 2: DSPFitter.Rnw:32-161
 ###################################################
 #### ERE I AM, there is still a problem with the plausibility calculation being unreasonably high when we get into the twilight zone where numeric stuff fails.  Particularly the problem is in logSubtract returning -Inf when its arguments are different but very close.  I think for now we can just sometimes give up, and that's ok.  It seems to happen when the data are very weird, as in the cases that violate the poisson model and assumed relationship between consensus and intersequence distances.  BUT TO CORRECT THIS, NEED NUMERICAL STABILITY MAYBE ONLY AVAILABLE WITH BFLOAT.
 
@@ -151,7 +152,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 3: DSPFitter.Rnw:163-186
+### code chunk number 3: DSPFitter.Rnw:164-187
 ###################################################
 ################################################################################## ten channel data generation
 # ten.channel.gen.count <- 100;
@@ -179,7 +180,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
 
 
 ###################################################
-### code chunk number 4: DSPFitter.Rnw:189-225
+### code chunk number 4: DSPFitter.Rnw:190-226
 ###################################################
 ####==== From PFitter.R
 
@@ -220,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:291-1136
+### code chunk number 5: DSPFitter.Rnw:292-1193
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -244,7 +245,7 @@ PFitter <- function (
     
     yvec <- rep(0, (1+max(intersequence.distances)))
     for(i in 1:length(seqnames)){
-        tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
+        tmp <- d1[which(d1[,1]==seqnames[i]),,]
         if( nrow( tmp ) == 0 ) {
             next;
         }
@@ -449,6 +450,49 @@ PFitter <- function (
     return( pfitter.results );
 } # PFitter (..)
 
+calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequence.dlist ) {
+    .mult.1 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) );
+    .mult.1[ .mult.1 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
+    .mult.2 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 2 ] ) );
+    .mult.2[ .mult.2 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
+    return( list( sum = sum( intersequence.dlist[ , 3 ] * .mult.1 * .mult.2, na.rm = T ), count = sum( .mult.1 * .mult.2, na.rm = T ) ) ); 
+} # calculateSumOfDistancesAccountingForSequenceMultiplicity (..)
+
+replicateDistancesForSequenceMultiplicity <- function ( any.dlist ) {
+    maybe.longer.dlist.list <-
+      lapply( 1:nrow( any.dlist ), function( .row.i ) {
+        .row <- any.dlist[ .row.i, ];
+        .mult.1 <- NA;
+        if( length( grep( "^.*_(\\d+)$", .row[ 1 ], perl = TRUE ) ) > 0 ) {
+            .mult.1 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", .row[ 1 ], perl = TRUE ) );
+        }
+        if( is.na( .mult.1 ) ) {
+            .mult.1 <- 1; # if it is missing the _nnn, just call it 1.
+        }
+        .mult.2 <- NA;
+        if( length( grep( "^.*_(\\d+)$", .row[ 2 ], perl = TRUE ) ) > 0 ) {
+            .mult.2 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", .row[ 2 ], perl = TRUE ) );
+        }
+        if( is.na( .mult.2 ) ) {
+            .mult.2 <- 1; # if it is missing the _nnn, just call it 1.
+        }
+        if( ( .mult.1 * .mult.2 ) > 1 ) {
+          .rv <- matrix( "", ncol = 3, nrow = ( .mult.1 * .mult.2 ) );
+          .rv[ , 1 ] <- .row[[ 1 ]];
+          .rv[ , 2 ] <- .row[[ 2 ]];
+          .rv[ , 3 ] <- .row[[ 3 ]];
+          return( .rv );
+      } else {
+          .rv <- matrix( .row, nrow = 1 );
+          mode( .rv ) <- "character";
+          return( .rv );
+      }
+    } );
+    maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
+    colnames( maybe.longer.dlist ) <- colnames( any.dlist );
+    return( maybe.longer.dlist );
+} # replicateDistancesForSequenceMultiplicity (..)
+
 BayesPFitter <- function (
   infile = args[1],
   dlist = read.table( file=infile, sep="\t", stringsAsFactors=F ),
@@ -456,17 +500,20 @@ BayesPFitter <- function (
   nbases = c(as.numeric(args[3])),
   be.verbose = TRUE
 ) {
-    consensus.distances <- dlist[ which(dlist[,1]==dlist[1,1]), 3 ];
-    intersequence.distances <- dlist[ -which(dlist[,1]==dlist[1,1]), 3 ];
+    #consensus.distances <- replicateDistancesForSequenceMultiplicity( dlist[ which(dlist[,1]==dlist[1,1]), ] );
+    #intersequence.distances <- replicateDistancesForSequenceMultiplicity( dlist[ -which(dlist[,1]==dlist[1,1]), ] );
     
     ## Bayesian, too.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  [However note that alpha and beta approaching zero might give the closest analogue to the DS solution.]
     # Here I'm using the posterior median; the mode or mean are other options; can be looked up for generic gamma distrns.
     # Using posterior median, just to be different.
     prior.gamma.shape <- 1;
     prior.gamma.rate <- 1;
-    posterior.lambda <- qgamma( .5, prior.gamma.shape + sum( intersequence.distances ), prior.gamma.rate + length( intersequence.distances ) );
-    posterior.lambda.low <- qgamma( .025, prior.gamma.shape + sum( intersequence.distances ), prior.gamma.rate + length( intersequence.distances ) );
-    posterior.lambda.high <- qgamma( .975, prior.gamma.shape + sum( intersequence.distances ), prior.gamma.rate + length( intersequence.distances ) );
+    .id.sum.and.count <- calculateSumOfDistancesAccountingForSequenceMultiplicity( dlist[ -which(dlist[,1]==dlist[1,1]), ] );
+    .id.sum <- .id.sum.and.count[[ "sum" ]];
+    .id.count  <- .id.sum.and.count[[ "count" ]];
+    posterior.lambda <- qgamma( .5, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
+    posterior.lambda.low <- qgamma( .025, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
+    posterior.lambda.high <- qgamma( .975, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
     posterior.estdays <- days(posterior.lambda, nbases, epsilon)
     posterior.upplim <- days(posterior.lambda.high, nbases, epsilon)
     posterior.lowlim <- days(posterior.lambda.low, nbases, epsilon)
@@ -540,15 +587,25 @@ DSPFitter <- function (
   nbases = c(as.numeric(args[3])),
   be.verbose = TRUE
 ) {
-    consensus.distances <- dlist[ which(dlist[,1]==dlist[1,1]), 3 ];
-    names( consensus.distances ) <- dlist[ which(dlist[,1]==dlist[1,1]), 2 ];
-    intersequence.distances <- dlist[ -which(dlist[,1]==dlist[1,1]), 3 ];
-    names( intersequence.distances ) <- apply( dlist[ -which(dlist[,1]==dlist[1,1]), 1:2 ], 1, paste, collapse = " to " );
+    ## Sort first for efficiency.  Then expand.
+    .mat <- dlist[ which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
+    .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
+    rownames( .mat ) <- .mat[ , 2 ];
+    sorted.consensus.distances <-
+        as.numeric( replicateDistancesForSequenceMultiplicity( .mat )[ , 3 ] );
     
-    sorted.consensus.distances <- sort( consensus.distances );
-    sorted.intersequence.distances <- sort( intersequence.distances );
+    .mat <- dlist[ -which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
+    .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
+    rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
+    sorted.intersequence.distances <-
+        as.numeric( replicateDistancesForSequenceMultiplicity( .mat )[ , 3 ] );
     
-    DS.lambda <- mean( intersequence.distances );
+    consensus.distances <-
+        sorted.consensus.distances;
+    intersequence.distances <-
+        sorted.intersequence.distances;
+    
+    DS.lambda <- mean( intersequence.distances, na.rm = TRUE );
     DS.estdays <- days( DS.lambda, nbases, epsilon );
     
     if( DS.lambda == 0 ) {
@@ -755,15 +812,15 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
       POISSON.DRAW.REPS.TOTAL <- 500;
       prior.gamma.shape <- 1;
       prior.gamma.rate <- 1;
+      .lambdas <- rgamma( POISSON.DRAW.REPS.TOTAL, prior.gamma.shape + sum( consensus.distances ), prior.gamma.rate + length( consensus.distances ) );
       .ds.rep.results <- lapply( 1:POISSON.DRAW.REPS.DABBLE, function( .rep.i ) {
         ## Draw the null lambda from the posterior distribution of
         ## lambdas after seeing the consensus data.
-        .lambda <- rgamma( 1, prior.gamma.shape + sum( consensus.distances ), prior.gamma.rate + length( consensus.distances ) );
         if( be.verbose ) {
-            cat( ".rep.i: ", .rep.i, " (.lambda: ", .lambda, ")", sep = "", fill = TRUE );
+            cat( ".rep.i: ", .rep.i, " (.lambda: ", .lambdas[ .rep.i ], ")", sep = "", fill = TRUE );
         }
 
-        .consensus.distances <- rpois( n.seqs, .lambda );
+        .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
         .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
         .sorted.intersequence.distances <-
             unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -799,7 +856,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
           if( be.verbose ) {
               cat( ".rep.i: ", .rep.i, fill = TRUE );
           }
-          .consensus.distances <- rpois( n.seqs, .lambda );
+          .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
           .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
           .sorted.intersequence.distances <-
               unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -831,7 +888,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
             if( be.verbose ) {
                 cat( ".rep.i: ", .rep.i, fill = TRUE );
             }
-            .consensus.distances <- rpois( n.seqs, .lambda );
+            .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
             .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
             .sorted.intersequence.distances <-
                 unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
@@ -1070,7 +1127,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1148-1151
+### code chunk number 6: DSPFitter.Rnw:1205-1208
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1078,7 +1135,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1158-1160
+### code chunk number 7: DSPFitter.Rnw:1215-1217
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )

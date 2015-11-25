@@ -2,6 +2,10 @@
 .libPaths( c( "~/R/Library", .libPaths() ) );
 source( "https://bioconductor.org/biocLite.R" );
 
+install.packages( pkgs = "binom", dependencies = TRUE, quiet = TRUE );
+if( !require( "binom" ) ) {
+    stop( "Error loading package \"binom\"" );
+}
 install.packages( pkgs = "xtable", dependencies = TRUE, quiet = TRUE );
 if( !require( "xtable" ) ) {
     stop( "Error loading package \"xtable\"" );
