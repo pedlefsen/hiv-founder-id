@@ -221,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:292-1229
+### code chunk number 5: DSPFitter.Rnw:292-1235
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -461,7 +461,11 @@ calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequ
 
 replicateDistancesForSequenceMultiplicity <- function ( any.dlist, missing.seqnames = NULL ) {
     # Note that this isn't the entire thing because we also have to add the "0" distance distances among the duplicated seqs; see below.
-    maybe.longer.dlist.list <-
+    #print( missing.seqnames );
+    if( is.null( any.dlist ) || is.null( dim( any.dlist ) ) || ( nrow( any.dlist ) == 0 ) ) {
+        maybe.longer.dlist.list <- NULL;
+    } else {
+      maybe.longer.dlist.list <-
       lapply( 1:nrow( any.dlist ), function( .row.i ) {
         .row <- any.dlist[ .row.i, ];
         .mult.1 <- NA;
@@ -490,7 +494,8 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlist, missing.seqna
           return( .rv );
       }
     } );
-    if( length( maybe.longer.dlist.list ) > 0 ) {
+    }
+    if( !is.null( maybe.longer.dlist.list ) && ( length( maybe.longer.dlist.list ) > 0 ) ) {
       maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
       colnames( maybe.longer.dlist ) <- colnames( any.dlist );
     } else {
@@ -624,17 +629,17 @@ DSPFitter <- function (
   be.verbose = TRUE
 ) {
     ## Sort first for efficiency.  Then expand.
-    .mat <- dlist[ which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
-    .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
-    rownames( .mat ) <- .mat[ , 2 ];
+    .con.mat <- dlist[ which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
+    .con.mat <- .con.mat[ order( .con.mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
+    rownames( .con.mat ) <- .con.mat[ , 2 ];
     sorted.consensus.distances <-
-        as.numeric( replicateDistancesForSequenceMultiplicity( .mat )[ , 3 ] );
+        as.numeric( replicateDistancesForSequenceMultiplicity( .con.mat )[ , 3 ] );
     
     .mat <- dlist[ -which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
     .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
     rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
     sorted.intersequence.distances <-
-        as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = names( sorted.consensus.distances ) )[ , 3 ] );
+        as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = .con.mat[ , 2 ] )[ , 3 ] );
     
     consensus.distances <-
         sorted.consensus.distances;
@@ -643,7 +648,8 @@ DSPFitter <- function (
     
     DS.lambda <- mean( intersequence.distances, na.rm = TRUE );
     DS.estdays <- days( DS.lambda, nbases, epsilon );
-    
+    #print( DS.lambda );
+    #print( sorted.intersequence.distances );
     if( DS.lambda == 0 ) {
         # Special case. All zeros.
         DS.lambda.low <- 0;
@@ -1163,7 +1169,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1241-1244
+### code chunk number 6: DSPFitter.Rnw:1247-1250
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1171,7 +1177,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1251-1253
+### code chunk number 7: DSPFitter.Rnw:1257-1259
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
