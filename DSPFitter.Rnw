@@ -518,14 +518,16 @@ PFitter <- function (
 } # PFitter (..)
 
 calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequence.dlist ) {
-    .mult.1 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) );
-    .mult.1[ .mult.1 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
-    .mult.2 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 2 ] ) );
-    .mult.2[ .mult.2 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
+    .mult.1 <- suppressWarnings( as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) ) );
+    .mult.1[ is.na( .mult.1 ) | ( .mult.1 == 0 ) ] <- 1; # if it is missing the _nnn, just call it 1.
+    .mult.2 <- suppressWarnings( as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 2 ] ) ) );
+
+    .mult.2[ is.na( .mult.2 ) | ( .mult.2 == 0 ) ] <- 1; # if it is missing the _nnn, just call it 1.
     return( list( sum = sum( intersequence.dlist[ , 3 ] * .mult.1 * .mult.2, na.rm = T ), count = sum( .mult.1 * .mult.2, na.rm = T ) ) ); 
 } # calculateSumOfDistancesAccountingForSequenceMultiplicity (..)
 
 replicateDistancesForSequenceMultiplicity <- function ( any.dlist ) {
+    # Note that this isn't the entire thing because we also have to add the "0" distance distances among the duplicated seqs; see below.
     maybe.longer.dlist.list <-
       lapply( 1:nrow( any.dlist ), function( .row.i ) {
         .row <- any.dlist[ .row.i, ];
@@ -557,7 +559,36 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlist ) {
     } );
     maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
     colnames( maybe.longer.dlist ) <- colnames( any.dlist );
-    return( maybe.longer.dlist );
+    duplicated.entries.dlist.list <-
+        lapply( unique( c( any.dlist[ , 1 ], any.dlist[ , 2 ] ) ), function( .seq.name ) {
+            .mult <- NA;
+            if( length( grep( "^.*_(\\d+)$", .seq.name, perl = TRUE ) ) > 0 ) {
+                .mult <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", .seq.name, perl = TRUE ) );
+            }
+            if( is.na( .mult ) ) {
+                .mult <- 1; # if it is missing the _nnn, just call it 1.
+            }
+            if( .mult == 1 ) {
+                return();
+            }
+            .rv <- matrix( "", ncol = 3, nrow = choose( .mult, 2 ) );
+            .rv[ , 1 ] <- .seq.name;
+            .rv[ , 2 ] <- .seq.name;
+            .rv[ , 3 ] <- 0;
+            return( .rv );
+    } );
+    if( !all( unlist( lapply( duplicated.entries.dlist.list, is.null ) ) ) ) {
+        duplicated.entries.dlist <- do.call( rbind, duplicated.entries.dlist.list );
+        if( is.null( dim( duplicated.entries.dlist ) ) ) {
+            duplicated.entries.dlist <- matrix( duplicated.entries.dlist, nrow = 1, ncol = 3 );
+            mode( duplicated.entries.dlist ) <- "character";
+        }
+        colnames( duplicated.entries.dlist ) <- colnames( any.dlist );
+        return( rbind( duplicated.entries.dlist, maybe.longer.dlist ) );
+    } else {
+        return( maybe.longer.dlist );
+    }
+    # Put zero entries first to maintian sort order jic.
 } # replicateDistancesForSequenceMultiplicity (..)
 
 BayesPFitter <- function (

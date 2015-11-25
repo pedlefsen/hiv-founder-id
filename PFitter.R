@@ -59,7 +59,8 @@ dlist <- read.table(file=infile, sep="\t", stringsAsFactors=F)
 d1 <- dlist[-which(dlist[,1]==dlist[1,1]),]	 # PAUL moved this here, to help handle singleton clusters.
 seqnames <- unique(c( d1[,1], d1[,2] ))          # PAUL moved this here, to help handle singleton clusters.
 d0 <- dlist[which(dlist[,1]==dlist[1,1] & (dlist[,2] %in% seqnames)),] # PAUL changed this, to handle singleton clusters.
-mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2]))
+suppressWarnings( mult0 <- as.numeric(sub('.+_(\\d+)$', '\\1', d0[,2])) );
+mult0[ is.na( mult0 ) ] <- 1; ## PAUL ADDED.
 nseq <- sum(mult0)
 yvec0 <- rep(0, (1+max(d0[,3])))
 for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
@@ -74,10 +75,12 @@ for(i in 1:length(seqnames)){
     if( nrow( tmp ) == 0 ) {
         next;
     }
-	m0 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1]))
+	m0 <- suppressWarnings( as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1])) )
+        m0[ is.na( m0 ) ] <- 1; ## PAUL ADDED.
 	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
 	for(j in 1:dim(tmp)[1]){
-		m1 <- as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2]))
+		m1 <- suppressWarnings( as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2])) );
+                m1[ is.na( m1 ) ] <- 1; ## PAUL ADDED.
 		val <- tmp[j,3]
 		yvec[val+1] <- yvec[val+1] + m0*m1
 	}

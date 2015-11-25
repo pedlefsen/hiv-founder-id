@@ -60,11 +60,11 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     rownames( consensus ) <- paste( "Consensus" );
 
     ### NEW, MUCH FASTER:
-    fasta.no.duplicates.with.consensus <-
-        rbind( consensus, in.fasta.no.duplicates );
+      fasta.no.duplicates.with.consensus <-
+          rbind( consensus, in.fasta.no.duplicates );
     ### OLD, SLOW (not excluding duplicates ):
-#     fasta.no.duplicates.with.consensus <-
-#         rbind( consensus, in.fasta );
+#       fasta.no.duplicates.with.consensus <-
+#           rbind( consensus, in.fasta );
 
     # Remove any columns with a consensus that is a gap, which means
     # that over half of seqs have gaps.  This needs to be removed

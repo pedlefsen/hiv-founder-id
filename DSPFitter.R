@@ -221,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:292-1193
+### code chunk number 5: DSPFitter.Rnw:292-1194
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -451,10 +451,11 @@ PFitter <- function (
 } # PFitter (..)
 
 calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequence.dlist ) {
-    .mult.1 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) );
-    .mult.1[ .mult.1 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
-    .mult.2 <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 2 ] ) );
-    .mult.2[ .mult.2 == 0 ] <- 1; # if it is missing the _nnn, just call it 1.
+    .mult.1 <- suppressWarnings( as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) ) );
+    .mult.1[ is.na( .mult.1 ) | ( .mult.1 == 0 ) ] <- 1; # if it is missing the _nnn, just call it 1.
+    .mult.2 <- suppressWarnings( as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 2 ] ) ) );
+
+    .mult.2[ is.na( .mult.2 ) | ( .mult.2 == 0 ) ] <- 1; # if it is missing the _nnn, just call it 1.
     return( list( sum = sum( intersequence.dlist[ , 3 ] * .mult.1 * .mult.2, na.rm = T ), count = sum( .mult.1 * .mult.2, na.rm = T ) ) ); 
 } # calculateSumOfDistancesAccountingForSequenceMultiplicity (..)
 
@@ -1127,7 +1128,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1205-1208
+### code chunk number 6: DSPFitter.Rnw:1206-1209
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1135,7 +1136,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1215-1217
+### code chunk number 7: DSPFitter.Rnw:1216-1218
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
