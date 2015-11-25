@@ -221,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:292-1194
+### code chunk number 5: DSPFitter.Rnw:292-1221
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -459,7 +459,8 @@ calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequ
     return( list( sum = sum( intersequence.dlist[ , 3 ] * .mult.1 * .mult.2, na.rm = T ), count = sum( .mult.1 * .mult.2, na.rm = T ) ) ); 
 } # calculateSumOfDistancesAccountingForSequenceMultiplicity (..)
 
-replicateDistancesForSequenceMultiplicity <- function ( any.dlist ) {
+replicateDistancesForSequenceMultiplicity <- function ( any.dlistT, missing.seqnames = NULL ) {
+    # Note that this isn't the entire thing because we also have to add the "0" distance distances among the duplicated seqs; see below.
     maybe.longer.dlist.list <-
       lapply( 1:nrow( any.dlist ), function( .row.i ) {
         .row <- any.dlist[ .row.i, ];
@@ -491,7 +492,36 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlist ) {
     } );
     maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
     colnames( maybe.longer.dlist ) <- colnames( any.dlist );
-    return( maybe.longer.dlist );
+    duplicated.entries.dlist.list <-
+        lapply( unique( c( any.dlist[ , 1 ], any.dlist[ , 2 ] ), missing.seqnames ), function( .seq.name ) {
+            .mult <- NA;
+            if( length( grep( "^.*_(\\d+)$", .seq.name, perl = TRUE ) ) > 0 ) {
+                .mult <- as.numeric( gsub( "^.*_(\\d+)$", "\\1", .seq.name, perl = TRUE ) );
+            }
+            if( is.na( .mult ) ) {
+                .mult <- 1; # if it is missing the _nnn, just call it 1.
+            }
+            if( .mult == 1 ) {
+                return();
+            }
+            .rv <- matrix( "", ncol = 3, nrow = choose( .mult, 2 ) );
+            .rv[ , 1 ] <- .seq.name;
+            .rv[ , 2 ] <- .seq.name;
+            .rv[ , 3 ] <- 0;
+            return( .rv );
+    } );
+    if( !all( unlist( lapply( duplicated.entries.dlist.list, is.null ) ) ) ) {
+        duplicated.entries.dlist <- do.call( rbind, duplicated.entries.dlist.list );
+        if( is.null( dim( duplicated.entries.dlist ) ) ) {
+            duplicated.entries.dlist <- matrix( duplicated.entries.dlist, nrow = 1, ncol = 3 );
+            mode( duplicated.entries.dlist ) <- "character";
+        }
+        colnames( duplicated.entries.dlist ) <- colnames( any.dlist );
+        return( rbind( duplicated.entries.dlist, maybe.longer.dlist ) );
+    } else {
+        return( maybe.longer.dlist );
+    }
+    # Put zero entries first to maintian sort order jic.
 } # replicateDistancesForSequenceMultiplicity (..)
 
 BayesPFitter <- function (
@@ -501,9 +531,6 @@ BayesPFitter <- function (
   nbases = c(as.numeric(args[3])),
   be.verbose = TRUE
 ) {
-    #consensus.distances <- replicateDistancesForSequenceMultiplicity( dlist[ which(dlist[,1]==dlist[1,1]), ] );
-    #intersequence.distances <- replicateDistancesForSequenceMultiplicity( dlist[ -which(dlist[,1]==dlist[1,1]), ] );
-    
     ## Bayesian, too.  Congjugate prior is Gamma, and Gamma( 1, 1 ) (expo) has log( x ) propto 1.  [However note that alpha and beta approaching zero might give the closest analogue to the DS solution.]
     # Here I'm using the posterior median; the mode or mean are other options; can be looked up for generic gamma distrns.
     # Using posterior median, just to be different.
@@ -599,7 +626,7 @@ DSPFitter <- function (
     .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
     rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
     sorted.intersequence.distances <-
-        as.numeric( replicateDistancesForSequenceMultiplicity( .mat )[ , 3 ] );
+        as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = names( sorted.consensus.distances ) )[ , 3 ] );
     
     consensus.distances <-
         sorted.consensus.distances;
@@ -1128,7 +1155,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1206-1209
+### code chunk number 6: DSPFitter.Rnw:1233-1236
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1136,7 +1163,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1216-1218
+### code chunk number 7: DSPFitter.Rnw:1243-1245
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
