@@ -64,27 +64,43 @@ mult0[ is.na( mult0 ) ] <- 1; ## PAUL ADDED.
 nseq <- sum(mult0)
 yvec0 <- rep(0, (1+max(d0[,3])))
 for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
+## TODO: REMOVE
+# print( "nseq" );
+# print( nseq );
+# print( "yvec0" );
+# print( yvec0 );
 
 nl0 <- length(yvec0);
 clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
+## TODO: REMOVE
+#print( clambda );
 
 ### calc intersequence HD
 yvec <- rep(0, (1+max(d1[,3])))
 for(i in 1:length(seqnames)){
+	m0 <- suppressWarnings( as.numeric(sub('.+_(\\d+)$', '\\1', seqnames[ i ])) )
+        if( is.na( m0 ) ) {
+          m0 <- 1; ## PAUL ADDED.
+        }
+    yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
     tmp <- d1[which(d1[,1]==seqnames[i]),,drop = FALSE]
     if( nrow( tmp ) == 0 ) {
         next;
     }
-	m0 <- suppressWarnings( as.numeric(sub('.+_(\\d+)$', '\\1', tmp[1,1])) )
-        m0[ is.na( m0 ) ] <- 1; ## PAUL ADDED.
-	yvec[1] <- yvec[1] + 0.5*m0*(m0-1) ## 0 bin
 	for(j in 1:dim(tmp)[1]){
 		m1 <- suppressWarnings( as.numeric(sub('.+_(\\d+)$', '\\1', tmp[j,2])) );
-                m1[ is.na( m1 ) ] <- 1; ## PAUL ADDED.
+                if( is.na( m1 ) ) {
+                    m1 <- 1; ## PAUL ADDED.
+                }
+                ## TODO: REMOVE
+                #print( list( "m0" = m0, "m1" = m1 ) );
 		val <- tmp[j,3]
+                #print( list( "val" = val ) );
 		yvec[val+1] <- yvec[val+1] + m0*m1
 	}
 }
+## TODO: REMOVE
+#print( yvec );
 
 ### Fitting
 
@@ -106,27 +122,41 @@ nuni <- dim(d0)[1]
 TX <- matrix(rep(NA,nuni^2), ncol=nuni)
 rownames( TX ) <- seqnames;
 colnames( TX ) <- seqnames;
-for(i in 1:(dim(d0)[1]-1)){
-	useq <- d0[i,2]
-	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
+for( .i in 1:nrow( d1 ) ) {
+    TX[ d1[ .i, 1 ], d1[ .i, 2 ] ] <- d1[ .i, 3 ];
+    TX[ d1[ .i, 2 ], d1[ .i, 1 ] ] <- d1[ .i, 3 ];
 }
+# for(i in 1:(dim(d0)[1]-1)){
+# 	useq <- d0[i,2]
+# 	TX[d1[which(d1[,1]==useq),2],i] <- d1[which(d1[,1]==useq),3];
+# }
+## TODO: REMOVE
+# print( "TX" )
+# print( TX )
 
 sigma1 <- 0
 sigma2 <- 0
 muhat <- 0
-denmu <- (sum( !is.na( TX )))^(-1)
+
 ## TODO: Figure out what (if any) is the right fix to the below to handle sparse distances
 den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
 den2 <- den1/4
 
+.denmuinv <- 0;
+.denmuinv <- .denmuinv + choose(mult0[nuni], 2); # transitions among duplicates, all of distance 0
 for(n in 1:(nuni-1)){
+    .denmuinv <- .denmuinv + choose(mult0[n], 2); # transitions among duplicates, all of distance 0
     for(m in (n+1):nuni){
         if( !is.na( TX[ m, n ] ) ) {
-            muhat <- muhat + mult0[n]*mult0[m]*denmu*TX[m,n]
+            muhat <-
+                muhat + mult0[n]*mult0[m]*TX[m,n]
+            .denmuinv <- .denmuinv + mult0[n]*mult0[m];
 	}
     }
 }
-
+#print( .denmuinv );
+muhat <- muhat / .denmuinv;
+#print( list( muhat = muhat ) ); ## TODO: REMOVE
 for(n in 1:nuni){
 	dnn <- 0
 	sigma1 <- sigma1 + choose(mult0[n],3)*den1*2*(dnn-muhat)^2 
@@ -157,7 +187,9 @@ for(n in 1:nuni){
 A <- 8/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
 B <- 4/(nseq*(nseq-1)*(nseq-2)*(nseq-3))
 newvarhd <- sqrt(A*sigma1 + B*sigma2)
-	
+## TODO: REMOVE
+#print( list( A = A, B = B, sigma1 = sigma1, sigma2 = sigma2, newvarhd = newvarhd ) );
+
 upplim <- days(lambda + 1.96*newvarhd, nbases, epsilon)
 lowlim <- days(lambda - 1.96*newvarhd, nbases, epsilon)
 uppdays <- round(upplim)

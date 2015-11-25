@@ -2,8 +2,6 @@ library( "ade4", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # needed by some
 library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dna"
 library( "seqinr", warn.conflicts = FALSE,lib.loc="~/R/Library" ) # for "as.alignment", "consensus"
 
-### TODO: ADD input of the removeDuplicateSequencesFromAlignedFasta .tbl output file, and remove all duplicates of removed input seqs.
-
 # This parses the summaryTable output of the RAP tool; see runRAPOnline.pl.
 # This also optionally parses the .tbl output of the removeDuplicateSequencesFromAlignedFasta.R script.
 removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, duplicate.sequences.tbl.file = NULL, output.dir = NULL, p.value.threshold = 0.0007 ) {
