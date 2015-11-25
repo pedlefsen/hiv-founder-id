@@ -459,7 +459,7 @@ calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequ
     return( list( sum = sum( intersequence.dlist[ , 3 ] * .mult.1 * .mult.2, na.rm = T ), count = sum( .mult.1 * .mult.2, na.rm = T ) ) ); 
 } # calculateSumOfDistancesAccountingForSequenceMultiplicity (..)
 
-replicateDistancesForSequenceMultiplicity <- function ( any.dlistT, missing.seqnames = NULL ) {
+replicateDistancesForSequenceMultiplicity <- function ( any.dlist, missing.seqnames = NULL ) {
     # Note that this isn't the entire thing because we also have to add the "0" distance distances among the duplicated seqs; see below.
     maybe.longer.dlist.list <-
       lapply( 1:nrow( any.dlist ), function( .row.i ) {
