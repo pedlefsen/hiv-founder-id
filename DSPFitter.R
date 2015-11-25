@@ -221,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:292-1221
+### code chunk number 5: DSPFitter.Rnw:292-1229
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -490,8 +490,12 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlist, missing.seqna
           return( .rv );
       }
     } );
-    maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
-    colnames( maybe.longer.dlist ) <- colnames( any.dlist );
+    if( length( maybe.longer.dlist.list ) > 0 ) {
+      maybe.longer.dlist <- do.call( rbind, maybe.longer.dlist.list );
+      colnames( maybe.longer.dlist ) <- colnames( any.dlist );
+    } else {
+      maybe.longer.dlist <- NULL;
+    }
     duplicated.entries.dlist.list <-
         lapply( unique( c( any.dlist[ , 1 ], any.dlist[ , 2 ], missing.seqnames ) ), function( .seq.name ) {
             .mult <- NA;
@@ -517,7 +521,11 @@ replicateDistancesForSequenceMultiplicity <- function ( any.dlist, missing.seqna
             mode( duplicated.entries.dlist ) <- "character";
         }
         colnames( duplicated.entries.dlist ) <- colnames( any.dlist );
-        return( rbind( duplicated.entries.dlist, maybe.longer.dlist ) );
+        if( is.null( maybe.longer.dlist ) ) {
+          return( duplicated.entries.dlist );
+        } else {
+          return( rbind( duplicated.entries.dlist, maybe.longer.dlist ) );
+        }
     } else {
         return( maybe.longer.dlist );
     }
@@ -1155,7 +1163,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1233-1236
+### code chunk number 6: DSPFitter.Rnw:1241-1244
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1163,7 +1171,7 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1243-1245
+### code chunk number 7: DSPFitter.Rnw:1251-1253
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
