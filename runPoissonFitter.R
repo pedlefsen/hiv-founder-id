@@ -57,7 +57,7 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
     .consensus.mat <-
         matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
     consensus <- as.DNAbin( .consensus.mat );
-    rownames( consensus ) <- paste( "Consensus" );
+    rownames( consensus ) <- paste( fasta.file.no.duplicates.short.nosuffix, "Consensus", sep = "." );
 
     ### NEW, MUCH FASTER:
       fasta.no.duplicates.with.consensus <-

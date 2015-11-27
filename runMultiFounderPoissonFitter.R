@@ -82,7 +82,7 @@ runMultiFounderPoissonFitter <- function ( fasta.file.prefix, output.dir = NULL,
       # Add the consensus to the one with no duplicates.
       .consensus.mat <- matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 );
       consensus <- as.DNAbin( .consensus.mat );
-      rownames( consensus ) <- paste( "Consensus" );
+      rownames( consensus ) <- paste( fasta.file.no.duplicates.short.nosuffix, "Consensus", sep = "." );
       #seq.length <- ncol( consensus );
       # Counting everything for which the consensus is not a gap:
       seq.length <- sum( .consensus.mat[ 1, ] != '-' );
