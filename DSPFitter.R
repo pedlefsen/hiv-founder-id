@@ -962,13 +962,14 @@ DSPFitter <- function (
                 cat( ".rep.i: ", .rep.i, fill = TRUE );
             }
             .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
+            .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+            
             # enforce maximum
             .num.intersequence.distances <- sum( .table.of.intersequence.distances );
             if( .num.intersequence.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
                 .table.of.intersequence.distances <- round( MAXIMUM.DS.SAMPLE.SIZE * .table.of.intersequence.distances / .num.intersequence.distances );
             }
           
-            .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
             .sorted.intersequence.distances <-
                 unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
             .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
