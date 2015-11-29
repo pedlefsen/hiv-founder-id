@@ -710,6 +710,8 @@ DSPFitter <- function (
         sorted.consensus.distances <-
             unlist( sapply( 1:length( new.sorted.consensus.distances.table ), function( .i ) { rep( .i - 1, new.sorted.consensus.distances.table[ .i ]  ) } ) );
     }
+    consensus.distances <-
+        sorted.consensus.distances;
     
     ### Intersequence distances.
     ## Sort first for efficiency.  Then expand.

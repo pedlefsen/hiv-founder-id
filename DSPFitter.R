@@ -1,4 +1,4 @@
-### R code from vignette source '/Users/Paul/src/from-git/hiv-founder-id/DSPFitter.Rnw'
+### R code from vignette source '/Users/pedlefsen/src/from-git/hiv-founder-id/DSPFitter.Rnw'
 ### Encoding: ASCII
 
 ###################################################
@@ -221,7 +221,7 @@ days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(ph
 
 
 ###################################################
-### code chunk number 5: DSPFitter.Rnw:292-1235
+### code chunk number 5: DSPFitter.Rnw:292-1270
 ###################################################
 PFitter <- function (
   infile = args[1],
@@ -643,6 +643,8 @@ DSPFitter <- function (
         sorted.consensus.distances <-
             unlist( sapply( 1:length( new.sorted.consensus.distances.table ), function( .i ) { rep( .i - 1, new.sorted.consensus.distances.table[ .i ]  ) } ) );
     }
+    consensus.distances <-
+        sorted.consensus.distances;
     
     ### Intersequence distances.
     ## Sort first for efficiency.  Then expand.
@@ -1204,7 +1206,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 6: DSPFitter.Rnw:1247-1250
+### code chunk number 6: DSPFitter.Rnw:1282-1285
 ###################################################
 #.result.ignored <- PFitter( be.verbose = TRUE );
 .result.ignored <- BayesPFitter( be.verbose = TRUE );
@@ -1212,7 +1214,7 @@ DSPFitter <- function (
 
 
 ###################################################
-### code chunk number 7: DSPFitter.Rnw:1257-1259
+### code chunk number 7: DSPFitter.Rnw:1292-1294
 ###################################################
 # (un)Setup for prettier Sweave output.
 options( continue = old.continue.option$continue )
