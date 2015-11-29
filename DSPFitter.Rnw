@@ -693,8 +693,10 @@ DSPFitter <- function (
   dlist = read.table( file=infile, sep="\t", stringsAsFactors=F ),
   epsilon = c(as.numeric(args[2])),
   nbases = c(as.numeric(args[3])),
-  be.verbose = TRUE
+  be.verbose = TRUE,
+  MAXIMUM.DS.SAMPLE.SIZE = 250
 ) {
+    ### Consensus distances.
     ## Sort first for efficiency.  Then expand.
     .con.mat <- dlist[ which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
     .con.mat <- .con.mat[ order( .con.mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
@@ -702,21 +704,35 @@ DSPFitter <- function (
     sorted.consensus.distances <-
         as.numeric( replicateDistancesForSequenceMultiplicity( .con.mat )[ , 3 ] );
     
+    .num.consensus.distances <- length( sorted.consensus.distances );
+    if( .num.consensus.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
+        new.sorted.consensus.distances.table <- round( MAXIMUM.DS.SAMPLE.SIZE * table( sorted.consensus.distances ) / .num.consensus.distances );
+        sorted.consensus.distances <-
+            unlist( sapply( 1:length( new.sorted.consensus.distances.table ), function( .i ) { rep( .i - 1, new.sorted.consensus.distances.table[ .i ]  ) } ) );
+    }
+    
+    ### Intersequence distances.
+    ## Sort first for efficiency.  Then expand.
     .mat <- dlist[ -which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
     .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
     rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
     sorted.intersequence.distances <-
         as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = .con.mat[ , 2 ] )[ , 3 ] );
-    
-    consensus.distances <-
-        sorted.consensus.distances;
+
+    # Do this before reducing the sample size..
+    DS.lambda <- mean( sorted.intersequence.distances, na.rm = TRUE );
+    DS.estdays <- days( DS.lambda, nbases, epsilon );
+
+    .num.intersequence.distances <- length( sorted.intersequence.distances );
+    if( .num.intersequence.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
+        new.sorted.intersequence.distances.table <- round( MAXIMUM.DS.SAMPLE.SIZE * table( sorted.intersequence.distances ) / .num.intersequence.distances )
+        sorted.intersequence.distances <-
+            unlist( sapply( 1:length( new.sorted.intersequence.distances.table ), function( .i ) { rep( .i - 1, new.sorted.intersequence.distances.table[ .i ]  ) } ) );
+    }
     intersequence.distances <-
         sorted.intersequence.distances;
-    
-    DS.lambda <- mean( intersequence.distances, na.rm = TRUE );
-    DS.estdays <- days( DS.lambda, nbases, epsilon );
+
     #print( DS.lambda );
-    #print( sorted.intersequence.distances );
     if( DS.lambda == 0 ) {
         # Special case. All zeros.
         DS.lambda.low <- 0;
@@ -841,77 +857,77 @@ DSPFitter <- function (
     
     dspfitter.results <- c( dspfitter.results, list( epsilon = list( "estimate" = median( ds.posterior.epsilons ), "2.5%" = quantile( ds.posterior.epsilons, .025 ), "97.5%" = quantile( ds.posterior.epsilons, .975 ) ) ) );
 
-create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
-    nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
-    yvec0 <- rep( 0, nl0 );
-    yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
-    #print( yvec0 );
-    xvec1 <- c(yvec0, rep(0,nl0))
-    
-    yvec1 <- rep(0,2*nl0)
-    for( m in 1:length( yvec1 ) ) {
-        yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
-                xvec1[ k ] * xvec1[ m - k + 1 ]
-            } ) ) );
-        if( m %% 2 == 1 ) {
-            # Odd m.
-            yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+    create.intersequence.distances.by.convolving.consensus.distances <- function ( table.of.consensus.distances ) {
+        nl0 <- 1 + max( as.numeric( names( table.of.consensus.distances ) ) );
+        yvec0 <- rep( 0, nl0 );
+        yvec0[ 1 + as.numeric( names( table.of.consensus.distances ) ) ] <- table.of.consensus.distances;
+        #print( yvec0 );
+        xvec1 <- c(yvec0, rep(0,nl0))
+        
+        yvec1 <- rep(0,2*nl0)
+        for( m in 1:length( yvec1 ) ) {
+            yvec1[ m ] <- ( 1 / 2 ) * sum( unlist( sapply( 1:m, function( k ) {
+                    xvec1[ k ] * xvec1[ m - k + 1 ]
+                } ) ) );
+            if( m %% 2 == 1 ) {
+                # Odd m.
+                yvec1[ m ] <- yvec1[ m ] - ( 1 / 2 ) * xvec1[ (((m-1)/2)+1) ];
+            }
         }
-    }
-    # print( "yvec1" );
-    # print( yvec1 );
-    # 
-    # yvec1 <- rep(0,2*nl0)
-    # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
-    # for( i in 1:nl0 ) {
-    #     m <- i * 2;
-    #     for(k in 1:m){
-    #         .xvec1.k <- xvec1[k];
-    #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
-    #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
-    #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
-    #         if(i != nl0) {
-    #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
-    #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
-    #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
-    #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
-    #         } 
-    #     }
-    #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
-    # }
-    # print( "yvec1" );
-    # print( yvec1 );
-    return( yvec1 );
-} # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
-
-createPrettyPrintPValuesToXDigits <- function( X ) {
-  stopifnot( X > 0 );
-  return( function( p.value, equalsText = "", lessThanText = "<"  ) { # Note that there's two chars for "0." in "0.05"...
-      if( is.na( p.value ) | !is.finite( as.numeric( p.value ) ) ) { # Could be -Inf if from say max( c( NA, NA ) )
-        return( "" );
-      }
-      p.value <- as.numeric( p.value );
-      ## TODO: REMOVE
-      if( p.value < 0 ) {
-          print( paste( "UH OH <0", p.value ) );
-      }
-      stopifnot( p.value >= 0 );
-      stopifnot( p.value <= 1 );
-      p.value <- sprintf( paste( "%1.", X, "f", sep = "" ), p.value );
-      if( p.value == sprintf( paste( "%1.", X, "f", sep = "" ), 0 ) ) {
-          if( X > 1 ) {
-              p.value <- paste( lessThanText, "0.", paste( rep( "0", X-1 ), collapse = "" ), "1", sep = "" );
-          } else {
-              p.value <- paste( lessThanText, "0.1", sep = "" );
+        # print( "yvec1" );
+        # print( yvec1 );
+        # 
+        # yvec1 <- rep(0,2*nl0)
+        # yvec1[1] <- 1/2*yvec0[1]*(yvec0[1]-1)  ### freq at zero 
+        # for( i in 1:nl0 ) {
+        #     m <- i * 2;
+        #     for(k in 1:m){
+        #         .xvec1.k <- xvec1[k];
+        #         .xvec1.m.minus.k.plus.1 <- xvec1[m-k+1];
+        #         #yvec1[m] <- yvec1[m] + 1/2*xvec1[k]*xvec1[m-k+1]
+        #         yvec1[m] <- yvec1[m] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.1;
+        #         if(i != nl0) {
+        #             #yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[k]*(xvec1[m-k+2] - ifelse( k == (i+1), 1, 0 ));
+        #             .xvec1.m.minus.k.plus.2 <- xvec1[m-k+2];
+        #             .xvec1.m.minus.k.plus.2.maybeminus1 <- .xvec1.m.minus.k.plus.2 - ifelse( k == (i+1), 1, 0 );
+        #             yvec1[m+1] <- yvec1[m+1] + 1/2*.xvec1.k*.xvec1.m.minus.k.plus.2.maybeminus1;
+        #         } 
+        #     }
+        #     if(i != nl0) { yvec1[m+1] <- yvec1[m+1] + 1/2*xvec1[m+1]*xvec1[1] }
+        # }
+        # print( "yvec1" );
+        # print( yvec1 );
+        return( yvec1 );
+    } # create.intersequence.distances.by.convolving.consensus.distances ( table.of.consensus.distances )
+    
+    createPrettyPrintPValuesToXDigits <- function( X ) {
+      stopifnot( X > 0 );
+      return( function( p.value, equalsText = "", lessThanText = "<"  ) { # Note that there's two chars for "0." in "0.05"...
+          if( is.na( p.value ) | !is.finite( as.numeric( p.value ) ) ) { # Could be -Inf if from say max( c( NA, NA ) )
+            return( "" );
           }
-      } else if( equalsText != "" ) {
-          p.value <- paste( equalsText, p.value, sep = "" );
-      }
-      return( p.value );
-     } # <anonymous fn>( p.value )
-    ); # return(..)
-} # createPrettyPrintPValuesToXDigits ( X )( p.value )
-prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
+          p.value <- as.numeric( p.value );
+          ## TODO: REMOVE
+          if( p.value < 0 ) {
+              print( paste( "UH OH <0", p.value ) );
+          }
+          stopifnot( p.value >= 0 );
+          stopifnot( p.value <= 1 );
+          p.value <- sprintf( paste( "%1.", X, "f", sep = "" ), p.value );
+          if( p.value == sprintf( paste( "%1.", X, "f", sep = "" ), 0 ) ) {
+              if( X > 1 ) {
+                  p.value <- paste( lessThanText, "0.", paste( rep( "0", X-1 ), collapse = "" ), "1", sep = "" );
+              } else {
+                  p.value <- paste( lessThanText, "0.1", sep = "" );
+              }
+          } else if( equalsText != "" ) {
+              p.value <- paste( equalsText, p.value, sep = "" );
+          }
+          return( p.value );
+         } # <anonymous fn>( p.value )
+        ); # return(..)
+    } # createPrettyPrintPValuesToXDigits ( X )( p.value )
+    prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
     
     if( TRUE ) {
       n.seqs <- length( consensus.distances );
@@ -931,6 +947,13 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 
         .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
         .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+          
+        # enforce maximum
+        .num.intersequence.distances <- sum( .table.of.intersequence.distances );
+        if( .num.intersequence.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
+            .table.of.intersequence.distances <- round( MAXIMUM.DS.SAMPLE.SIZE * .table.of.intersequence.distances / .num.intersequence.distances );
+        }
+          
         .sorted.intersequence.distances <-
             unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
         .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
@@ -967,6 +990,12 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
           }
           .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
           .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
+          # enforce maximum
+          .num.intersequence.distances <- sum( .table.of.intersequence.distances );
+          if( .num.intersequence.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
+              .table.of.intersequence.distances <- round( MAXIMUM.DS.SAMPLE.SIZE * .table.of.intersequence.distances / .num.intersequence.distances );
+          }
+          
           .sorted.intersequence.distances <-
               unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
           .sampled.epsilons.and.lambdas <- sapply( 1:EPSILON.NDRAWS, function( .x ) {
@@ -998,6 +1027,12 @@ prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
                 cat( ".rep.i: ", .rep.i, fill = TRUE );
             }
             .consensus.distances <- rpois( n.seqs, .lambdas[ .rep.i ] );
+            # enforce maximum
+            .num.intersequence.distances <- sum( .table.of.intersequence.distances );
+            if( .num.intersequence.distances > MAXIMUM.DS.SAMPLE.SIZE ) {
+                .table.of.intersequence.distances <- round( MAXIMUM.DS.SAMPLE.SIZE * .table.of.intersequence.distances / .num.intersequence.distances );
+            }
+          
             .table.of.intersequence.distances <- create.intersequence.distances.by.convolving.consensus.distances( table( .consensus.distances ) );
             .sorted.intersequence.distances <-
                 unlist( sapply( 1:length( .table.of.intersequence.distances ), function( .i ) { rep( .i - 1, .table.of.intersequence.distances[ .i ]  ) } ) );
