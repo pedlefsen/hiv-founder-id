@@ -553,6 +553,14 @@ sub identify_founders {
     print OUTPUT_TABLE_FH $fasta_file_short;
   
     print "\nInput Fasta file: $fasta_file_short\n";
+
+
+    my $fasta_file_mask_out_nonsynonymous_codons_in_PFitter = $mask_out_nonsynonymous_codons_in_PFitter;
+    if( $fasta_file_short_nosuffix =~ /^(.+)_NFLG/ ) {
+      # NFLG seqs are not in one reading frame, so codons don't translate, so we don't do it.
+      $fasta_file_mask_out_nonsynonymous_codons_in_PFitter = 0;
+    }
+    
     # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $run_Hypermut ) {
       if( $VERBOSE ) {
@@ -832,12 +840,12 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$tmp_mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
         }
-        if( $mask_out_nonsynonymous_codons_in_PFitter ) {
+        if( $fasta_file_mask_out_nonsynonymous_codons_in_PFitter ) {
           $maybe_masked = "maskNonsynonymousCodons_";
         }
         my $PFitter_fitter_stats_raw =
@@ -1072,7 +1080,7 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
@@ -1350,7 +1358,7 @@ sub identify_founders {
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           #print "\$suffix_pattern: $suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
             print( "done.\n" );
