@@ -862,40 +862,45 @@ sub identify_founders {
         }
 
         # DS results
-        my $DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out`;
-        ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
-          ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
-        ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
-          ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
-        ( $DS_PFitter_lambda_est, $DS_PFitter_lambda_ci_low, $DS_PFitter_lambda_ci_high ) =
-          ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
-        ( $DS_PFitter_days_est, $DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high ) =
-          ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
-        ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) =
-          ( $DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
-        ( $DS_PFitter_fitstext ) =
-          ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
-        $DS_PFitter_fits =
-          ( ( $DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
-        ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
-          ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
-  
-        ( $DS_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
-        $DS_PFitter_is_starlike = "0";
-        if( $DS_starlike_text eq "FOLLOWS" ) {
-          $DS_PFitter_is_starlike = "1";
-        }
-        ( $DS_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
-        $DS_PFitter_lower_is_starlike = "0";
-        if( $DS_lower_starlike_text eq "FOLLOWS" ) {
-          $DS_PFitter_lower_is_starlike = "1";
-        }
-        ( $DS_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
-        $DS_PFitter_upper_is_starlike = "0";
-        if( $DS_upper_starlike_text eq "FOLLOWS" ) {
-          $DS_PFitter_upper_is_starlike = "1";
-        }
+        my $DSPFitter_outfile = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out";
+        if( !-e $DSPFitter_outfile ) {
+          print( "UH OH: Missing DSPFitter output file \"$DSPFitter_outfile\"\n" );
+        } else {
+          my $DSPFitter_fitter_stats_raw =
+            `cat $DSPFitter_outfile`;
+          ( $Bayesian_PFitter_lambda_est, $Bayesian_PFitter_lambda_ci_low, $Bayesian_PFitter_lambda_ci_high ) =
+            ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+          ( $Bayesian_PFitter_days_est, $Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high ) =
+            ( $DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+          ( $DS_PFitter_lambda_est, $DS_PFitter_lambda_ci_low, $DS_PFitter_lambda_ci_high ) =
+            ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+          ( $DS_PFitter_days_est, $DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high ) =
+            ( $DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+          ( $DS_PFitter_distance_mean, $DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high ) =
+            ( $DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+          ( $DS_PFitter_fitstext ) =
+            ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+          $DS_PFitter_fits =
+            ( ( $DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
+          ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
+            ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
+    
+          ( $DS_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_is_starlike = "0";
+          if( $DS_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_is_starlike = "1";
+          }
+          ( $DS_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_lower_is_starlike = "0";
+          if( $DS_lower_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_lower_is_starlike = "1";
+          }
+          ( $DS_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_upper_is_starlike = "0";
+          if( $DS_upper_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_upper_is_starlike = "1";
+          }
+        } # End if the DSPFitter output file exists.
 
         print "PoissonFitter Determination: ";
         if( $is_starlike ) {
