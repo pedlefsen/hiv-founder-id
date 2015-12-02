@@ -117,9 +117,9 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
               .representative.seq <- seq.removed.since.represented.by.seq[ ( seq.removed.since.represented.by.seq > 0 ) & ( dist.mat[ seq.i, ] <= threshold.k ) ];
               stopifnot( length( .representative.seq ) > 0 );
               if( length( .representative.seq ) > 1 ) {
-                  if( threshold.k == 0 ) {
-                      stopifnot( all( .representative.seq == .representative.seq[ 1 ] ) );
-                  }
+                  #if( threshold.k == 0 ) {
+                      #stopifnot( all( .representative.seq == .representative.seq[ 1 ] ) );
+                  #}
                   .representative.seq <- .representative.seq[ 1 ];
               }
               ## TODO: REMOVE
