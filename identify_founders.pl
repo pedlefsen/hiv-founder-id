@@ -38,7 +38,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_s $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_s $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 sub splitFastaFileOnHeaderPatterns {
@@ -208,6 +208,7 @@ sub identify_founders {
   # opt_o is an optional directory to put the output; default depends on input filename.
   # opt_O is just like opt_o.  Same thing.
   # opt_V means be verbose.
+  # opt_C means skip (do not run) the PhyML diversity or InSites analysis and the primary founder call (which depends on those)
   # opt_P means skip (do not run) profillic
   # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
   # opt_F means skip (do not run) PFitter
@@ -222,14 +223,15 @@ sub identify_founders {
   # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_s, $opt_r ) = ();
-  if( not getopts('DVo:O:PRFEHfw:nIi:v:sr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_s, $opt_r ) = ();
+  if( not getopts('DVo:O:CPRFEHfw:nIi:v:sr') ) {
     identify_founders_usage();
   }
   
   $DEBUG ||= $opt_D;
   $VERBOSE ||= $opt_V;
 
+  my $run_InSites_and_PhyML = !$opt_C;
   my $run_profillic = !$opt_P;
   my $run_RAP = !$opt_R;
   my $run_PFitter = !$opt_F;
@@ -339,10 +341,16 @@ sub identify_founders {
 
   push @table_column_headers,
   (
-   "file", "num.seqs", "num.phyml.seqs", "diversity", "inf.to.priv.ratio",
-   "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
-   "is.one.founder"
+   "file"
    );
+  if( $run_InSites_and_PhyML ) {
+    push @table_column_headers,
+      (
+       "num.seqs", "num.phyml.seqs", "diversity", "inf.to.priv.ratio",
+       "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
+       "is.one.founder"
+      );
+  }
 
   if( $run_entropy ) {
     push @table_column_headers,
@@ -444,7 +452,9 @@ sub identify_founders {
     push @table_column_headers, "profillic.clusters", "profillic.founder.call";
   } # End if $run_profillic
 
-  push @table_column_headers, "founder.call";
+  if( $run_InSites_and_PhyML ) {
+    push @table_column_headers, "founder.call";
+  }
   if( $run_PFitter ) {
     push @table_column_headers, "founder.call.alt";
   }
@@ -669,91 +679,95 @@ sub identify_founders {
       $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $fasta_file_short_nosuffix ];
     }
 
-    my $runInSites_output;
-    if( $runInSites_online ) {
-      $runInSites_output = `perl runInSitesOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
-    } else {
-      $runInSites_output = `perl runInSitesOffline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
-    }
-    if( $VERBOSE ) {
-      print $runInSites_output;
-    }
-    my $getInSitesStat_output = `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    if( $VERBOSE ) {
-      print $getInSitesStat_output;
-    }
-    my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-    ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
-
-    # Run phyML, get stats
-    my $phyml_out = `perl runPhyML.pl $extra_flags ${fasta_file} ${output_path_dir_for_input_fasta_file}`;
-    if( $VERBOSE ) {
-      print $phyml_out;
-    }
-    my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
-    my ( $num_phyml_seqs, $mean_diversity ) =
-      ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
-    unless( defined( $num_phyml_seqs ) ) {
-      warn( "UH OH: $fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
-      $num_phyml_seqs = 0;
-      $mean_diversity = 0;
-    }
-    # unless( $num_phyml_seqs == scalar( @seq_headers ) ) {
-    #   ## THIS IS BECAUSE phyml apparently only counts unique sequences.
-    #   # print "WHY ARE THERE $num_seqs SEQS, when there are ", scalar( @seq_headers ), " sequences in the input file?\n";
-    # }
-    my $num_seqs = scalar( @seq_headers );
-    print "Number of sequences: $num_seqs\n";
-    if( $num_seqs != $num_phyml_seqs ) { print "BUT NOTE: Number of PhyML sequences: $num_phyml_seqs\n" };
-    print "Mean pairwise diversity: $mean_diversity\n";
-    print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
-
-    #print "ABOUT TO WRITE OUT \$num_seqs ($num_seqs) and \$num_phyml_seqs ($num_phyml_seqs)\n";
-    printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $in_sites_ratio );
-    #print "did it\n";
-
-    my $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold;
-    if( $fasta_file_short_nosuffix =~ /^(.+)(?:_v3)/ ) {
-      if( $VERBOSE ) {
-        print "Using v3-specific InSites ratio threshold: $in_sites_ratio_threshold_v3\n";
-      }
-      $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold_v3;
-    }
-    
-    # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
     my $force_one_cluster = $default_force_one_cluster;
     my $morgane_calls_one_cluster = 1;
     my $diversity_threshold_exceeded = 0;
     my $in_sites_ratio_threshold_exceeded = 0;
     my $in_sites_founders_call = 1;
     my $ds_pfitter_founders_call = 1;
-    if( $mean_diversity > $mean_diversity_threshold ) {
-      $diversity_threshold_exceeded = 1;
-      if( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
-        $in_sites_ratio_threshold_exceeded = 1;
-        print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
-        print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded too\n" );
-        $morgane_calls_one_cluster = 0;
-        $force_one_cluster = 0;
+    my $num_phyml_seqs = undef;
+    my $mean_diversity = undef;
+    if( $run_InSites_and_PhyML ) {
+      my $runInSites_output;
+      if( $runInSites_online ) {
+        $runInSites_output = `perl runInSitesOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
       } else {
-        print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
+        $runInSites_output = `perl runInSitesOffline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
       }
-    } elsif( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
-        $in_sites_ratio_threshold_exceeded = 1;
-        print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded\n" );
-    }
-    print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
-    print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
-    print OUTPUT_TABLE_FH "\t", $the_relevant_in_sites_ratio_threshold;
-    ## "is.one.founder":
-    print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
-
-    if( $morgane_calls_one_cluster ) {
-      print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: 1\n";
-      $in_sites_founders_call = 1; # go with Morgane's call if it is 1.
-    } else {
-      print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: greater than 1\n";
-    }
+      if( $VERBOSE ) {
+        print $runInSites_output;
+      }
+      my $getInSitesStat_output = `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+      if( $VERBOSE ) {
+        print $getInSitesStat_output;
+      }
+      my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+      ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
+      
+      # Run phyML, get stats
+      my $phyml_out = `perl runPhyML.pl $extra_flags ${fasta_file} ${output_path_dir_for_input_fasta_file}`;
+      if( $VERBOSE ) {
+        print $phyml_out;
+      }
+      my $pairwise_diversity_stats = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}.phylip_phyml_pwdiversity.txt`;
+      ( $num_phyml_seqs, $mean_diversity ) =
+        ( $pairwise_diversity_stats =~ /Max\s+(\d+)\s+([e\-\.\d]+)\s+/ );
+      unless( defined( $num_phyml_seqs ) ) {
+        warn( "UH OH: $fasta_file\nGOT:\n$pairwise_diversity_stats\n" );
+        $num_phyml_seqs = 0;
+        $mean_diversity = 0;
+      }
+      # unless( $num_phyml_seqs == scalar( @seq_headers ) ) {
+      #   ## THIS IS BECAUSE phyml apparently only counts unique sequences.
+      #   # print "WHY ARE THERE $num_seqs SEQS, when there are ", scalar( @seq_headers ), " sequences in the input file?\n";
+      # }
+      my $num_seqs = scalar( @seq_headers );
+      print "Number of sequences: $num_seqs\n";
+      if( $num_seqs != $num_phyml_seqs ) { print "BUT NOTE: Number of PhyML sequences: $num_phyml_seqs\n" };
+      print "Mean pairwise diversity: $mean_diversity\n";
+      print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
+      
+      #print "ABOUT TO WRITE OUT \$num_seqs ($num_seqs) and \$num_phyml_seqs ($num_phyml_seqs)\n";
+      printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $in_sites_ratio );
+      #print "did it\n";
+      
+      my $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold;
+      if( $fasta_file_short_nosuffix =~ /^(.+)(?:_v3)/ ) {
+        if( $VERBOSE ) {
+          print "Using v3-specific InSites ratio threshold: $in_sites_ratio_threshold_v3\n";
+        }
+        $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold_v3;
+      }
+      
+      # Now cluster the informative sites (only relevant if one or both of the above exceeds a threshold.
+      if( $mean_diversity > $mean_diversity_threshold ) {
+        $diversity_threshold_exceeded = 1;
+        if( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
+          $in_sites_ratio_threshold_exceeded = 1;
+          print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
+          print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded too\n" );
+          $morgane_calls_one_cluster = 0;
+          $force_one_cluster = 0;
+        } else {
+          print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
+        }
+      } elsif( $in_sites_ratio > $the_relevant_in_sites_ratio_threshold ) {
+          $in_sites_ratio_threshold_exceeded = 1;
+          print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded\n" );
+      }
+      print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
+      print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
+      print OUTPUT_TABLE_FH "\t", $the_relevant_in_sites_ratio_threshold;
+      ## "is.one.founder":
+      print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
+      
+      if( $morgane_calls_one_cluster ) {
+        print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: 1\n";
+        $in_sites_founders_call = 1; # go with Morgane's call if it is 1.
+      } else {
+        print "Number of founders estimated using informative:private sites ratio and diversity thresholding is: greater than 1\n";
+      }
+    } # End if $run_InSites_and_PhyML
 
     if( $run_entropy ) {
       $R_output = `export computeEntropyFromAlignedFasta_inputFilename="$fasta_file"; export computeEntropyFromAlignedFasta_outputDir="$output_path_dir_for_input_fasta_file"; R -f computeEntropyFromAlignedFasta.R --vanilla --slave`;
@@ -988,7 +1002,7 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_starlike_pvalue;
 
       ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests, and its diversity is sufficiently high.
-      if( ( $mean_diversity > $mean_diversity_threshold ) && ( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) && ( $mean_diversity > 0 ) ) ) ) {
+      if( ( ( defined( $mean_diversity ) ? ( ( $mean_diversity > $mean_diversity_threshold ) && ( $mean_diversity > 0 ) ) : 1 ) ) && ( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) ) ) ) {
         $paul_calls_one_cluster = 0;
         $force_one_cluster = 0;
       }
@@ -1002,35 +1016,33 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $paul_calls_one_cluster;
     } # End if( $run_PFitter )
 
-    my $tmp_extra_flags = $extra_flags;
-    if( $force_one_cluster ) {
-      $tmp_extra_flags .= "-f ";
-      ## TODO: REMOVE
-      if( $VERBOSE ) {
-        print "Forcing one cluster, since the founder calls are consistently 1.\n";
+    my $num_clusters = undef;
+    if( $run_InSites_and_PhyML || $run_PFitter ) {
+      my $tmp_extra_flags = $extra_flags;
+      if( $force_one_cluster ) {
+        $tmp_extra_flags .= "-f ";
+        ## TODO: REMOVE
+        if( $VERBOSE ) {
+          print "Forcing one cluster, since the founder calls are consistently 1.\n";
+        }
       }
-    }
-    my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
-    if( $VERBOSE ) {
-      print $clusterInformativeSites_output;
-    }
-    # There might be extra text in there.  Look for the telltale "[1]" output
-    my ( $num_clusters ) = ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
-    if( !$morgane_calls_one_cluster ) {
-      $in_sites_founders_call = $num_clusters;
-    }
-    if( !$paul_calls_one_cluster ) {
-      $ds_pfitter_founders_call = $num_clusters;
-    }
-
-    # Print out the number of clusters
-    if( !$force_one_cluster ) {
-      print "Number of clusters found when clustering informative sites: $num_clusters\n";
-    }
-    print "Number of founders estimated by the Informative Sites method: $in_sites_founders_call\n";
-    if( $run_PFitter ) {
-      print "Number of founders estimated by the Informative Sites method using DS PFitter thresholding: $ds_pfitter_founders_call\n";
-    }
+      my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
+      if( $VERBOSE ) {
+        print $clusterInformativeSites_output;
+      }
+      # There might be extra text in there.  Look for the telltale "[1]" output
+      ( $num_clusters ) = ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
+      if( $run_InSites_and_PhyML && !$morgane_calls_one_cluster ) {
+        $in_sites_founders_call = $num_clusters;
+        if( !$force_one_cluster ) {
+          print "Number of clusters found when clustering informative sites: $num_clusters\n";
+        }
+      }
+      if( $run_PFitter && !$paul_calls_one_cluster ) {
+        $ds_pfitter_founders_call = $num_clusters;
+        print "Number of founders estimated by the Informative Sites method using DS PFitter thresholding: $ds_pfitter_founders_call\n";
+      }
+    } # End if $run_InSites_and_PhyML || $run_PFitter
 
     if( $run_PFitter ) {
       if( $num_clusters == 1 ) {
@@ -1253,7 +1265,9 @@ sub identify_founders {
       }
     } # End if $run_profillic
 
-    print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
+    if( $run_InSites_and_PhyML ) {
+      print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
+    }
     if( $run_PFitter ) {
       print OUTPUT_TABLE_FH "\t", $ds_pfitter_founders_call;
     }
@@ -1476,14 +1490,16 @@ sub identify_founders {
             print OUTPUT_TABLE_FH "\t", "NA"; # removed-recomb
           }
           print OUTPUT_TABLE_FH "\t", "NA"; # file
-          print OUTPUT_TABLE_FH "\t", "NA"; # num.seqs
-          print OUTPUT_TABLE_FH "\t", "NA"; # num.phyml.seqs
-          print OUTPUT_TABLE_FH "\t", "NA"; # diversity
-          print OUTPUT_TABLE_FH "\t", "NA"; # inf.to.priv.ratio
-          print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.diversity.threshold
-          print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.ratio.threshold
-          print OUTPUT_TABLE_FH "\t", "NA"; # ratio.threshold
-          print OUTPUT_TABLE_FH "\t", "NA"; # is.one.founder
+          if( $run_InSites_and_PhyML ) {
+            print OUTPUT_TABLE_FH "\t", "NA"; # num.seqs
+            print OUTPUT_TABLE_FH "\t", "NA"; # num.phyml.seqs
+            print OUTPUT_TABLE_FH "\t", "NA"; # diversity
+            print OUTPUT_TABLE_FH "\t", "NA"; # inf.to.priv.ratio
+            print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.diversity.threshold
+            print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.ratio.threshold
+            print OUTPUT_TABLE_FH "\t", "NA"; # ratio.threshold
+            print OUTPUT_TABLE_FH "\t", "NA"; # is.one.founder
+          }
           if( $run_entropy ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # mean.entropy
             print OUTPUT_TABLE_FH "\t", "NA"; # sd.entropy
@@ -1570,8 +1586,12 @@ sub identify_founders {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founder.call"
           } # End if $run_profillic
-          print OUTPUT_TABLE_FH "\t", "NA"; # founder.call
-          print OUTPUT_TABLE_FH "\t", "NA"; # founder.call.alt
+          if( $run_InSites_and_PhyML ) {
+            print OUTPUT_TABLE_FH "\t", "NA"; # founder.call
+          }
+          if( $run_PFitter ) {
+            print OUTPUT_TABLE_FH "\t", "NA"; # founder.call.alt
+          }
           print OUTPUT_TABLE_FH "\n";
 
       } # End if this is the last region, consider combining for MultiRegionPoissonFitter. .. else ..
