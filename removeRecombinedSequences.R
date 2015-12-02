@@ -42,17 +42,17 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, dupli
     for( line.i in 3:length( RAP.summaryTable ) ) {
         #warning( line.i );
         #warning( RAP.summaryTable[ line.i ] );
-        p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\\S+) .+$", "\\1", RAP.summaryTable[ line.i ] );
+        p.value <- gsub( "^Set \\d+ \\S+ \\S+ (\\S+) .*$", "\\1", RAP.summaryTable[ line.i ] );
     # Note that the p-value could be in scientific notation, in which case it's really small.
     if( !is.na( p.value ) && ( ( length( grep( "e", p.value ) ) > 0 ) || ( p.value < p.value.threshold ) ) ) {
-        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        seq.name <- gsub( "^Set \\d+ (\\S+) \\S+ \\S+ .*$", "\\1", RAP.summaryTable[ line.i ] );
         # Fix our "escape" of the BAR and SLASH.
         seq.name <- gsub( "-x-BAR-x-", "|", seq.name );
         seq.name <- gsub( "-x-SLASH-x-", "/", seq.name );
         seq.name <- gsub( "-x-BACKSLASH-x-", "\\", seq.name );
         seq.name <- gsub( "-x-DOT-x-", ".", seq.name );
         seq.name <- gsub( "-x-DOTDOT-x-", "..", seq.name );
-        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .+$", "\\1", RAP.summaryTable[ line.i ] );
+        seq.parents <- gsub( "^Set \\d+ \\S+ (\\S+) \\S+ .*$", "\\1", RAP.summaryTable[ line.i ] );
         seq.parents <- gsub( "-x-BAR-x-", "|", seq.parents );
         seq.parents <- gsub( "-x-SLASH-x-", "/", seq.parents );
         seq.parents <- gsub( "-x-BACKSLASH-x-", "\\", seq.parents );
