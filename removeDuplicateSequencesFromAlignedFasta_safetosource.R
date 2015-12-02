@@ -186,8 +186,8 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
           #print( table( seq.removed.since.represented.by.seq ) );
           #print( "sum( seq.removed.since.represented.by.seq == 0 )" );
           #print( sum( seq.removed.since.represented.by.seq == 0 ) );
-          # All the zeros, and the number of unique remainders.
-          n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 ) + ( length( table( seq.removed.since.represented.by.seq ) ) - 1 );
+          # All the zeros, aka the number of unique remainders.
+          n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 );
           ## TODO: REMOVE?
           #cat( "n.seqs.after:", n.seqs.after, fill = TRUE );
           if( n.seqs.after == 0 ) {
@@ -210,8 +210,9 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
       } # End while( n.seqs.after > increase.threshold.to.ensure.max )
       # One last time for good measure (occasionally because of iupac codes the non-transitivity of the distances makes it happen that you need to do another pass).
       .result.ignored <- removeDuplicatesAtThreshold( threshold.k );
-      # All the zeros, and the number of unique remainders.
-      n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 ) + ( length( table( seq.removed.since.represented.by.seq ) ) - 1 );
+      # Consolodate seq.removed.since.represented.by.seq.
+      # All the zeros, aka the number of unique remainders.
+      n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 );
       ## TODO: REMOVE?
       cat( "DONE. Using threshold ", threshold.k, ": THERE ARE ", n.seqs.after, "sequences.", sep = "", fill = TRUE );
     } # End if is.null( increase.threshold.to.ensure.max ) .. else ..
