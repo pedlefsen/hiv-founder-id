@@ -840,7 +840,7 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$tmp_mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
