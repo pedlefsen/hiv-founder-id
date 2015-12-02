@@ -214,7 +214,7 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
       # All the zeros, aka the number of unique remainders.
       n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 );
       ## TODO: REMOVE?
-      cat( "DONE. Using threshold ", threshold.k, ": THERE ARE ", n.seqs.after, "sequences.", sep = "", fill = TRUE );
+      cat( "DONE. Using threshold ", threshold.k, ": THERE ARE ", n.seqs.after, " sequences.", sep = "", fill = TRUE );
     } # End if is.null( increase.threshold.to.ensure.max ) .. else ..
     
     if( !is.null( output.table.file ) && ( length( output.table.as.list ) > 0 ) ) {
