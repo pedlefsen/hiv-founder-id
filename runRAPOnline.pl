@@ -106,16 +106,17 @@ sub runRAPOnline {
   
   my $R_output;
 
-  # RAP seems to not be able to handle duplicate sequences.
+  # RAP seems to not be able to handle duplicate sequences.  Also, it seems to have a limit to the number of sequences it can handle; it is not clear what this limit is.  A case with 98 fails.  A case with 73 is ok.
+  my $RAP_MAX_SEQUENCES = 75;
   ## STEP 1: remove duplicate sequences.
   if( $VERBOSE ) {
     print "Calling R to create a version of the fasta file in which duplicate sequences are removed..";
   }
-  $R_output = `export removeDuplicateSequencesFromAlignedFasta_inputFilename="$input_fasta_file"; export removeDuplicateSequencesFromAlignedFasta_outputDir="$output_path_dir"; R -f removeDuplicateSequencesFromAlignedFasta.R --vanilla --slave`;
+  $R_output = `export removeDuplicateSequencesFromAlignedFasta_increaseThresholdToEnsureMax="$RAP_MAX_SEQUENCES"; export removeDuplicateSequencesFromAlignedFasta_inputFilename="$input_fasta_file"; export removeDuplicateSequencesFromAlignedFasta_outputDir="$output_path_dir"; R -f removeDuplicateSequencesFromAlignedFasta.R --vanilla --slave`;
   # The output has the file name of the consensus file.
-  if( $DEBUG ) {
+  #if( $DEBUG ) {
     print( "GOT: $R_output\n" );
-  }
+  #}
   if( $VERBOSE ) {
     print ".done.\n";
   }

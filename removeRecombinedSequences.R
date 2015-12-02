@@ -78,7 +78,10 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, dupli
         return( .seq.name );
     } );
     excluded.sequences.with.duplicates <- intersect( names( exclude.sequence )[ exclude.sequence ], duplicate.sequences.tbl[ , "retained" ] );
-    if( length( excluded.sequences.with.duplicates ) > 0 ) {
+    newly.excluded.sequence <- rep( FALSE, nrow( in.fasta ) );
+    names( newly.excluded.sequence ) <- rownames( in.fasta );
+    while( length( excluded.sequences.with.duplicates ) > 0 ) {
+        newly.excluded.sequence[ newly.excluded.sequence ] <- FALSE;
         rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
         .duplicates.strings <- duplicate.sequences.tbl[ excluded.sequences.with.duplicates, "removed" ];
         .duplicates.list <- strsplit( .duplicates.strings, "," );
@@ -89,9 +92,12 @@ removeRecombinedSequences <- function ( fasta.file, RAP.summaryTable.file, dupli
                 ## TODO: REMOVE
                 cat( paste( "Excluding '", .duplicates.list[[ .retained.sequence ]], "' because it is a duplicate of ", .retained.sequence, ".", sep = "", collapse = "\n" ), fill = TRUE );
                 exclude.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
+                newly.excluded.sequence[ .duplicates.list[[ .retained.sequence ]] ] <<- TRUE;
             }
             return( NULL );
         } );
+        # Recurse in case some of the sequences just excluded were recursively removed.
+        excluded.sequences.with.duplicates <- intersect( names( newly.excluded.sequence )[ newly.excluded.sequence ], duplicate.sequences.tbl[ , "retained" ] );
     }
   } # End if( !is.null( duplicate.sequences.tbl.file ) )
     

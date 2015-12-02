@@ -42,9 +42,10 @@ runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Ha
 
     ## If there are any duplicate sequences, remove them and
     ## incorporate the number of identical sequences into their names (_nnn suffix).
+    ## NOTE that the value of include.gaps.in.Hamming is passed to removeDuplicateSequencesFromAlignedFasta, which means that by when this is FALSE (as it is by default), sequences will be considered duplicates even if there are gaps between them.
     # The output has the file name of the consensus file.
     fasta.file.no.duplicates <-
-        removeDuplicateSequencesFromAlignedFasta( fasta.file, output.dir, add.copy.number.to.sequence.names = TRUE );
+        removeDuplicateSequencesFromAlignedFasta( fasta.file, output.dir, add.copy.number.to.sequence.names = TRUE, include.gaps.in.Hamming = include.gaps.in.Hamming );
     fasta.file.no.duplicates.short <-
         gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file.no.duplicates, perl = TRUE );
     fasta.file.no.duplicates.short.nosuffix <-

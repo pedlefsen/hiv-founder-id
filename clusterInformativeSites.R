@@ -84,7 +84,8 @@ clusterSequences <- function ( insites.fasta.file, full.fasta.file = NULL, outpu
 
     in.dist <- dist.dna( in.fasta, model = "N", pairwise.deletion = TRUE );
     in.dist[ is.nan( in.dist ) ] <- 0;
-    in.dist <- in.dist + dist.dna( in.fasta, model = "indel", pairwise.deletion = TRUE ); 
+    ## This next line adds indel distances;  I've removed it because the caprisa002 deep sequence data contains examples of large deletions that entirely define clusters, but those deletions should not be informative to the clustering if they reflect anything other than an alternative founder, but a non-productive founder (which a large deletion is likely to reflect) is not really what we mean by "founder".  Hence I remove this, so that only non-gaps contribute to the clustering.
+#    in.dist <- in.dist + dist.dna( in.fasta, model = "indel", pairwise.deletion = TRUE ); 
     if( any( is.null( in.dist ) ) || any( is.na( in.dist ) ) || any( !is.finite( in.dist ) ) ) {
       ## TODO: REMOVE
       warning( "UH OH got illegal distance value" );
