@@ -18,4 +18,4 @@ export outputFile=${outputDir}/identify_founders.out
 export errFile=${mainDir}/${patient}.err
 export listFile=${mainDir}/${patient}.list
 touch $errFile
-/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl  -E -P -F -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl -C -E -P -F -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
