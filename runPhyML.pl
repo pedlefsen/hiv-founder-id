@@ -42,6 +42,7 @@ use vars qw( $VERBOSE $DEBUG );
 
 ## NOTE THAT THIS NEEDS TO BE PATCHED; SEE ABOVE.
 use constant PHYML_EXECUTABLE => "./phyml";
+use constant PHYML_MAX_SEQS => 4000;
 
 Readonly my %PHYML_OPTIONS => (
   datatype       => "nt",	# sequence data type ('nt' or 'aa')
@@ -114,11 +115,15 @@ sub runPhyML {
   my @seqNames = ChangetoPhylip( $unixFile, $phylipFile );
   my $seqCount = scalar( @seqNames );
 
-  ## PhyML has a hard-coded limit of 4000 sequences.
-  if( $seqCount >= 4000 ) {
-    @seqNames = ChangetoPhylip( $unixFile, $phylipFile, 3999 );
+  ## PhyML has a hard-coded limit of PHYML_MAX_SEQS sequences.
+## TODO: REMOVE
+  #warn( "PHYML_MAX_SEQS is " . PHYML_MAX_SEQS . "\n" );
+  #warn( "\$seqCount is $seqCount\n" );
+  if( $seqCount >= PHYML_MAX_SEQS ) {
+    @seqNames = ChangetoPhylip( $unixFile, $phylipFile, ( PHYML_MAX_SEQS - 1 ) );
     $seqCount = scalar( @seqNames );
-    die unless( $seqCount < 4000 );
+  #warn( "\$seqCount is now $seqCount\n" );
+    die unless( $seqCount < PHYML_MAX_SEQS );
   }
   unlink( $unixFile );# Removing the temporary file.
 
@@ -179,28 +184,28 @@ sub runPhyML {
     chomp $line;
     next if ($line =~ /^\s*$/);
     if( $line =~ /Building BioNJ tree/ ) {
+#      if( ( $line =~ /Building BioNJ tree\.+(\d+)\s*$/ ) ) {
+#        $count = 1;
+#      }
       $flag = 1;
       next;
     }
     if( $flag && $line =~ /^(\d+)$/ ) {
-      $count = $1;
+#      $count = $1;
       next;
     }
     if( $line =~ /^\./ ) {
       $flag = 0;
     }
     if( $flag ) {
-      if( $line =~ /^(.+)$/ ) {
-        my $seqnName = $1;				
-        push @seqNamesWithDists, $seqnName;
-        $seqnName =~ /^(\S+)\s+/;
-        my $seqName = $1;
-        unless( $seqName eq $seqNames[ scalar( @alternative_seqNames ) ] ) {
-          warn( "seqName changed: was " . $seqNames[ scalar( @alternative_seqNames ) ] . "; is now " . $seqName );
-          $seqNames[ scalar( @alternative_seqNames ) ] = $seqName;
-        }
-        push @alternative_seqNames, $seqName;
+      push @seqNamesWithDists, $line;
+      my ( $seqName ) = ( $line =~ /^(\S+)\s+/ );
+      #warn( "$seqName: $line\n" );
+      unless( $seqName eq $seqNames[ scalar( @alternative_seqNames ) ] ) {
+        warn( "seqName changed: was " . $seqNames[ scalar( @alternative_seqNames ) ] . "; is now " . $seqName );
+        $seqNames[ scalar( @alternative_seqNames ) ] = $seqName;
       }
+      push @alternative_seqNames, $seqName;
     }
   }
   if( $VERBOSE ) {
@@ -243,6 +248,13 @@ sub runPhyML {
           }
           if( !defined( $pwDistHashRef->{ $firstName }->{ $secondName } ) ) {
             print "Warning: no distance value between $firstName and $secondName\n";
+            if( defined( $pwDistHashRef->{ $secondName }->{ $firstName } ) ) {
+              print "\t..using value from $secondName and $firstName\n";
+              push @diversity, $pwDistHashRef->{ $secondName }->{ $firstName };
+              #print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $secondName }->{ $firstName }, "\n";
+            } else {
+              print "\t..and also there is no value from $secondName and $firstName\n";
+            }
           } else {
             push @diversity, $pwDistHashRef->{ $firstName }->{ $secondName };
             #print $firstName, " ", $secondName, " ", $pwDistHashRef->{ $firstName }->{ $secondName }, "\n";
@@ -346,11 +358,15 @@ sub ChangetoPhylip {
 	close IN;
 	my $seqLen = length $seq;
 
-        my @retained = 0..( $seqCount - 1 );
-        my @is_retained = 1 x $seqCount;
+        my @is_retained = 1..$seqCount;
+        foreach my $i ( 0..( $seqCount - 1 ) ) {
+          $is_retained[ $i ] = 1;
+        }
         if( defined( $numberOfSequencesToRetain ) && ( $seqCount > $numberOfSequencesToRetain ) ) {
-          @is_retained = 0 x $seqCount;
-          @retained = ( shuffle( @retained ) )[0..( $numberOfSequencesToRetain - 1 )];
+          foreach my $i ( 0..( $seqCount - 1 ) ) {
+            $is_retained[ $i ] = 0;
+          }
+          my @retained = ( shuffle( 0..( $seqCount - 1 ) ) )[0..( $numberOfSequencesToRetain - 1 )];
           ## TODO: REMOVE
           #warn( "\@retained: ( ", join( ", ", @retained ), " )\n" );
           foreach my $retained_i ( 0..( $numberOfSequencesToRetain - 1 ) ) {
@@ -365,7 +381,6 @@ sub ChangetoPhylip {
 	open(OUT, ">$phylipFile") || die "Cant open $phylipFile\n";
 	print OUT $seqCount," ",$seqLen,"\n";
 	$seqCount = 0;
-	my $outCount = 0;
 	$seq = "";
         my @seqNames;
 	while(my $line = <IN>) {
@@ -376,8 +391,10 @@ sub ChangetoPhylip {
 			if ($seqCount) {
 				my $len = length $seq;
 				if ($len == $seqLen) {
+          ## TODO: REMOVE
+          #warn( "\$seqCount is $seqCount and \$is_retained[ $seqCount - 1 ] is $is_retained[ $seqCount - 1 ]" );
                                   if( $is_retained[ $seqCount - 1 ] ) {
-                                    $outCount++;
+                                    push @seqNames, $seqName;
                                     print OUT "$seqName\t$seq\n";
                                   }
 					$seq = $seqName = "";
@@ -389,7 +406,6 @@ sub ChangetoPhylip {
                         }
 			$seqCount++;
                         $seqName = $seqCount;
-                        push @seqNames, $seqName;
 		} else {
 			$seq .= $line;		
 		}		
@@ -398,8 +414,10 @@ sub ChangetoPhylip {
         # check the length of last sequence
   	my $len = length $seq;
   	if ($len == $seqLen) {
-          if( $is_retained[ $seqCount ] ) {
-            $outCount++;
+          ## TODO: REMOVE
+          #warn( "END: \$seqCount is $seqCount and \$is_retained[ $seqCount - 1 ] is $is_retained[ $seqCount - 1 ]" );
+          if( $is_retained[ $seqCount - 1 ] ) {
+            push @seqNames, $seqName;
             print OUT "$seqName\t$seq\n";
           }
   	} else {
@@ -410,14 +428,13 @@ sub ChangetoPhylip {
 	close IN;
 	close OUT;
         ## PAUL CHANGED; ADDED RETURN STATEMENT.
-        die unless( scalar( @seqNames ) == $seqCount );
         if( defined( $numberOfSequencesToRetain ) ) {
-          unless( $outCount <= $numberOfSequencesToRetain ) {
-            warn( "\$outCount is $outCount but \numberOfSequencesToRetain is $numberOfSequencesToRetain" );
+          unless( scalar( @seqNames ) <= $numberOfSequencesToRetain ) {
+            warn( "scalar( \@seqNames ) is " . scalar( @seqNames ) . " but \$numberOfSequencesToRetain is $numberOfSequencesToRetain" );
           }
-          @seqNames = @seqNames[ @retained ];
-          unless( scalar( @seqNames ) == $outCount ) {
-            warn( "\$outCount is $outCount but scalar( \@seqNames ) is " . scalar( @seqNames ) );
+        } else {
+          unless( scalar( @seqNames ) == $seqCount ) {
+              warn( "\$seqCount is $seqCount but scalar( \@seqNames ) is " . scalar( @seqNames ) );
           }
         }
         return( @seqNames );
