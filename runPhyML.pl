@@ -111,6 +111,13 @@ sub runPhyML {
   ConvertToUnix( $input_fasta_file, $unixFile );
   my @seqNames = ChangetoPhylip( $unixFile, $phylipFile );
   my $seqCount = scalar( @seqNames );
+
+  ## PhyML has a hard-coded limit of 4000 sequences.
+  if( $seqCount >= 4000 ) {
+    @seqNames = ChangetoPhylip( $unixFile, $phylipFile, 3999 );
+    $seqCount = scalar( @seqNames );
+    stopifnot( $seqCount < 4000 );
+  }
   unlink( $unixFile );# Removing the temporary file.
 
   my @cmd = (
@@ -312,8 +319,12 @@ sub ConvertToUnix {
 	print OUT $line;	
 	close OUT;	
 }
+## Paul modified this to accept an optional third argument, which is a maximum number of sequences to retain. We just take the first $numberOfSequencesToRetain sequences in the file.
 sub ChangetoPhylip {
-	my ($unixFile, $phylipFile) = @_;
+	my $unixFile = shift;
+        my $phylipFile = shift;
+        my $numberOfSequencesToRetain = shift || undef;
+
 	my $seqCount = 0;
 	my $seq = my $seqName = "";
 	open IN, $unixFile or die "Couldn't open $unixFile\n";
@@ -328,7 +339,7 @@ sub ChangetoPhylip {
 	}
 	close IN;
 	my $seqLen = length $seq;
-	
+
 	open(IN, $unixFile) || die "Can't open $unixFile\n";
 	open(OUT, ">$phylipFile") || die "Cant open $phylipFile\n";
 	print OUT $seqCount," ",$seqLen,"\n";
@@ -351,10 +362,12 @@ sub ChangetoPhylip {
 					die "Error: the sequence length of $seqName is not same as others.\n";
 				}
 			}	
-			$seqName = $seqCount; # PAUL CHANGED; USING ONLY THE index is safest
+                        if( defined( $numberOfSequencesToRetain ) && ( $seqCount > $numberOfSequencesToRetain ) ) {
+                          last;
+                        }
                         push @seqNames, $seqName;
 			$seqCount++;
-		}else {
+		} else {
 			$seq .= $line;		
 		}		
 	}
