@@ -30,6 +30,8 @@ use Path::Tiny;
 use Statistics::Descriptive;
 use Readonly;
 
+use List::Util 'shuffle';
+
 # use Bio::TreeIO;
 # use Bio::Tree::TreeFunctionsI;
 # use Net::SMTP;
@@ -116,7 +118,7 @@ sub runPhyML {
   if( $seqCount >= 4000 ) {
     @seqNames = ChangetoPhylip( $unixFile, $phylipFile, 3999 );
     $seqCount = scalar( @seqNames );
-    stopifnot( $seqCount < 4000 );
+    #die unless( $seqCount < 4000 );
   }
   unlink( $unixFile );# Removing the temporary file.
 
@@ -319,11 +321,15 @@ sub ConvertToUnix {
 	print OUT $line;	
 	close OUT;	
 }
-## Paul modified this to accept an optional third argument, which is a maximum number of sequences to retain. We just take the first $numberOfSequencesToRetain sequences in the file.
+## Paul modified this to accept an optional third argument, which is a maximum number of sequences to retain. We take a random subset of size $numberOfSequencesToRetain sequences from the file.
 sub ChangetoPhylip {
 	my $unixFile = shift;
         my $phylipFile = shift;
         my $numberOfSequencesToRetain = shift || undef;
+        ## TODO: REMOVE
+        if( defined( $numberOfSequencesToRetain ) ) {
+          print( "ChangetoPhylip called with \$numberOfSequencesToRetain = $numberOfSequencesToRetain\n" );
+        }
 
 	my $seqCount = 0;
 	my $seq = my $seqName = "";
@@ -340,10 +346,26 @@ sub ChangetoPhylip {
 	close IN;
 	my $seqLen = length $seq;
 
+        my @retained = 0..( $seqCount - 1 );
+        my @is_retained = 1 x $seqCount;
+        if( defined( $numberOfSequencesToRetain ) && ( $seqCount > $numberOfSequencesToRetain ) ) {
+          @is_retained = 0 x $seqCount;
+          @retained = ( shuffle( @retained ) )[0..( $numberOfSequencesToRetain - 1 )];
+          ## TODO: REMOVE
+          #warn( "\@retained: ( ", join( ", ", @retained ), " )\n" );
+          foreach my $retained_i ( 0..( $numberOfSequencesToRetain - 1 ) ) {
+            $is_retained[ $retained[ $retained_i ] ] = 1;
+          }
+          ## TODO: REMOVE
+          #print( "\@is_retained: ( ", join( ", ", @is_retained ), " )\n" );
+          $seqCount = $numberOfSequencesToRetain;
+        }
+
 	open(IN, $unixFile) || die "Can't open $unixFile\n";
 	open(OUT, ">$phylipFile") || die "Cant open $phylipFile\n";
 	print OUT $seqCount," ",$seqLen,"\n";
 	$seqCount = 0;
+	my $outCount = 0;
 	$seq = "";
         my @seqNames;
 	while(my $line = <IN>) {
@@ -354,37 +376,48 @@ sub ChangetoPhylip {
 			if ($seqCount) {
 				my $len = length $seq;
 				if ($len == $seqLen) {
-					print OUT "$seqName\t$seq\n";
+                                  if( $is_retained[ $seqCount - 1 ] ) {
+                                    $outCount++;
+                                    print OUT "$seqName\t$seq\n";
+                                  }
 					$seq = $seqName = "";
 				}else {
 					unlink $unixFile;
 					unlink $phylipFile;
 					die "Error: the sequence length of $seqName is not same as others.\n";
 				}
-			}	
-                        if( defined( $numberOfSequencesToRetain ) && ( $seqCount > $numberOfSequencesToRetain ) ) {
-                          last;
                         }
-                        push @seqNames, $seqName;
 			$seqCount++;
+                        $seqName = $seqCount;
+                        push @seqNames, $seqName;
 		} else {
 			$seq .= $line;		
 		}		
 	}
 	close IN;
-	# check the length of last sequence
-	my $len = length $seq;
-	if ($len == $seqLen) {
-		print OUT "$seqName\t$seq\n";
-	}else {
-		unlink $unixFile;
-		unlink $phylipFile;
-		die "Error: the sequence length of $seqName is not same as others.\n";
-	}	
+        # check the length of last sequence
+  	my $len = length $seq;
+  	if ($len == $seqLen) {
+          if( $is_retained[ $seqCount - 1 ] ) {
+            $outCount++;
+            print OUT "$seqName\t$seq\n";
+          }
+  	} else {
+          unlink $unixFile;
+          unlink $phylipFile;
+          die "Error: the sequence length of $seqName is not same as others.\n";
+        }
 	close IN;
 	close OUT;
         ## PAUL CHANGED; ADDED RETURN STATEMENT.
         die unless( scalar( @seqNames ) == $seqCount );
+        if( defined( $numberOfSequencesToRetain ) ) {
+          die unless( $outCount <= $numberOfSequencesToRetain );
+          @seqNames = @seqNames[ @retained ];
+          unless( scalar( @seqNames ) == $outCount ) {
+            warn( "\$outCount is $outCount but scalar( \@seqNames ) is " . scalar( @seqNames ) );
+          }
+        }
         return( @seqNames );
 }
 ######################################################################################
