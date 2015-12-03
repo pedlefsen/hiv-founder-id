@@ -118,7 +118,7 @@ sub runPhyML {
   if( $seqCount >= 4000 ) {
     @seqNames = ChangetoPhylip( $unixFile, $phylipFile, 3999 );
     $seqCount = scalar( @seqNames );
-    #die unless( $seqCount < 4000 );
+    die unless( $seqCount < 4000 );
   }
   unlink( $unixFile );# Removing the temporary file.
 
@@ -398,7 +398,7 @@ sub ChangetoPhylip {
         # check the length of last sequence
   	my $len = length $seq;
   	if ($len == $seqLen) {
-          if( $is_retained[ $seqCount - 1 ] ) {
+          if( $is_retained[ $seqCount ] ) {
             $outCount++;
             print OUT "$seqName\t$seq\n";
           }
