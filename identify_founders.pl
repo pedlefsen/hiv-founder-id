@@ -346,7 +346,7 @@ sub identify_founders {
   if( $run_InSites_and_PhyML ) {
     push @table_column_headers,
       (
-       "num.seqs", "num.phyml.seqs", "diversity", "inf.to.priv.ratio",
+       "num.seqs", "num.diversity.seqs", "diversity", "inf.to.priv.ratio",
        "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
        "is.one.founder"
       );
