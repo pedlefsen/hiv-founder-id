@@ -412,7 +412,9 @@ sub ChangetoPhylip {
         ## PAUL CHANGED; ADDED RETURN STATEMENT.
         die unless( scalar( @seqNames ) == $seqCount );
         if( defined( $numberOfSequencesToRetain ) ) {
-          die unless( $outCount <= $numberOfSequencesToRetain );
+          unless( $outCount <= $numberOfSequencesToRetain ) {
+            warn( "\$outCount is $outCount but \numberOfSequencesToRetain is $numberOfSequencesToRetain" );
+          }
           @seqNames = @seqNames[ @retained ];
           unless( scalar( @seqNames ) == $outCount ) {
             warn( "\$outCount is $outCount but scalar( \@seqNames ) is " . scalar( @seqNames ) );
