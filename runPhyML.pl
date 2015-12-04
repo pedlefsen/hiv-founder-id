@@ -358,10 +358,7 @@ sub ChangetoPhylip {
 	close IN;
 	my $seqLen = length $seq;
 
-        my @is_retained = 1..$seqCount;
-        foreach my $i ( 0..( $seqCount - 1 ) ) {
-          $is_retained[ $i ] = 1;
-        }
+        my @is_retained = 1..$seqCount; # This will be 0 or 1 at every index
         if( defined( $numberOfSequencesToRetain ) && ( $seqCount > $numberOfSequencesToRetain ) ) {
           foreach my $i ( 0..( $seqCount - 1 ) ) {
             $is_retained[ $i ] = 0;
@@ -375,6 +372,10 @@ sub ChangetoPhylip {
           ## TODO: REMOVE
           #print( "\@is_retained: ( ", join( ", ", @is_retained ), " )\n" );
           $seqCount = $numberOfSequencesToRetain;
+        } else {
+          foreach my $i ( 0..( $seqCount - 1 ) ) {
+            $is_retained[ $i ] = 1;
+          }
         }
 
 	open(IN, $unixFile) || die "Can't open $unixFile\n";
