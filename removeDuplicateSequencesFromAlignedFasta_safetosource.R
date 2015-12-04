@@ -149,8 +149,6 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
     } # removeDuplicatesAtThreshold ( threshold.k )
     if( is.null( increase.threshold.to.ensure.max ) ) {
         .result.ignored <- removeDuplicatesAtThreshold( 0 );
-        # Do it twice to ensure you got 'em all.
-        .result.ignored <- removeDuplicatesAtThreshold( 0 );
     } else {
       increase.threshold.to.ensure.max <-
           as.numeric( increase.threshold.to.ensure.max );
@@ -208,8 +206,6 @@ removeDuplicateSequencesFromAlignedFasta <- function ( input.fasta.file, output.
               }
           }
       } # End while( n.seqs.after > increase.threshold.to.ensure.max )
-      # One last time for good measure (occasionally because of iupac codes the non-transitivity of the distances makes it happen that you need to do another pass).
-      .result.ignored <- removeDuplicatesAtThreshold( threshold.k );
       # Consolodate seq.removed.since.represented.by.seq.
       # All the zeros, aka the number of unique remainders.
       n.seqs.after <- sum( seq.removed.since.represented.by.seq == 0 );
