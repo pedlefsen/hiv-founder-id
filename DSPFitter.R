@@ -450,6 +450,7 @@ PFitter <- function (
     return( pfitter.results );
 } # PFitter (..)
 
+## TODO: FIX THIS.
 calculateSumOfDistancesAccountingForSequenceMultiplicity <- function ( intersequence.dlist ) {
     .mult.1 <- suppressWarnings( as.numeric( gsub( "^.*_(\\d+)$", "\\1", intersequence.dlist[ , 1 ] ) ) );
     .mult.1[ is.na( .mult.1 ) | ( .mult.1 == 0 ) ] <- 1; # if it is missing the _nnn, just call it 1.
@@ -549,9 +550,23 @@ BayesPFitter <- function (
     # Using posterior median, just to be different.
     prior.gamma.shape <- 1;
     prior.gamma.rate <- 1;
-    .id.sum.and.count <- calculateSumOfDistancesAccountingForSequenceMultiplicity( dlist[ -which(dlist[,1]==dlist[1,1]), ] );
-    .id.sum <- .id.sum.and.count[[ "sum" ]];
-    .id.count  <- .id.sum.and.count[[ "count" ]];
+    if( FALSE ) {
+      ## FASTER WAY: skip expansion step.
+    ## TODO: FIX THIS; IT SEEMS TO BE GIVING WRONG RESULTS:
+      .id.sum.and.count <- calculateSumOfDistancesAccountingForSequenceMultiplicity( dlist[ -which(dlist[,1]==dlist[1,1]), ] );
+      .id.sum <- .id.sum.and.count[[ "sum" ]];
+      .id.count  <- .id.sum.and.count[[ "count" ]];
+    } else {
+      ### SLOWER WAY, expand then sum.
+      .mat <- dlist[ -which(dlist[,1]==dlist[1,1]), , drop = FALSE ];
+      .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
+      rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
+      sorted.intersequence.distances <-
+          as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = .con.mat[ , 2 ] )[ , 3 ] );
+      
+      .id.sum <- sum( sorted.intersequence.distances, na.rm = TRUE );
+      .id.count <- sum( !is.na( sorted.intersequence.distances ) );
+    }
     posterior.lambda <- qgamma( .5, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
     posterior.lambda.low <- qgamma( .025, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
     posterior.lambda.high <- qgamma( .975, prior.gamma.shape + .id.sum, prior.gamma.rate + .id.count );
