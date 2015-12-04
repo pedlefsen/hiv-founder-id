@@ -765,7 +765,10 @@ DSPFitter <- function (
       .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
       while( !is.finite( .f.at.lowest.nonzero.x ) ) {
           .lowest.nonzero.x <- .lowest.nonzero.x + ( .maximal.x.so.far / 100 );
-          stopifnot( .lowest.nonzero.x < DS.lambda );
+          if( .lowest.nonzero.x > DS.lambda ) {
+            warning( ".lowest.nonzero.x increased too much, so it would be higher than DS.lambda. Setting it to DS.lambda" );
+            .lowest.nonzero.x <- DS.lambda;
+          }         
           .f.at.lowest.nonzero.x <- .f( .lowest.nonzero.x );
       }
       HD.normalizedPlausibilities <- 
