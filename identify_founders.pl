@@ -305,11 +305,6 @@ sub identify_founders {
     $extra_flags .= "-V ";
   }
 
-  my $default_force_one_cluster = 1;
-  if( $be_slow ) {
-    $default_force_one_cluster = 0;
-  }
-
   my $output_table_file = $output_path_dir . '/' . "identify_founders.tab";
 
   if( $VERBOSE ) { print "Opening file \"$output_table_file\" for writing.."; }
@@ -449,14 +444,17 @@ sub identify_founders {
   } # End if $run_PFitter
 
   if( $run_profillic ) {
-    push @table_column_headers, "profillic.clusters", "profillic.founder.call";
+    push @table_column_headers, "profillic.clusters", "profillic.founders";
   } # End if $run_profillic
 
+  if( $run_InSites_and_PhyML || $run_PFitter ) {
+    push @table_column_headers, "insites.clusters";
+  }
   if( $run_InSites_and_PhyML ) {
-    push @table_column_headers, "founder.call";
+    push @table_column_headers, "insites.founders";
   }
   if( $run_PFitter ) {
-    push @table_column_headers, "founder.call.alt";
+    push @table_column_headers, "starphy.founders";
   }
   
   my $table_header = join( "\t", @table_column_headers );
@@ -679,7 +677,6 @@ sub identify_founders {
       $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $fasta_file_short_nosuffix ];
     }
 
-    my $force_one_cluster = $default_force_one_cluster;
     my $morgane_calls_one_cluster = 1;
     my $diversity_threshold_exceeded = 0;
     my $in_sites_ratio_threshold_exceeded = 0;
@@ -747,7 +744,6 @@ sub identify_founders {
           print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
           print( "Ratio threshold ($the_relevant_in_sites_ratio_threshold) exceeded too\n" );
           $morgane_calls_one_cluster = 0;
-          $force_one_cluster = 0;
         } else {
           print( "Diversity threshold ($mean_diversity_threshold) exceeded\n" );
         }
@@ -1004,7 +1000,6 @@ sub identify_founders {
       ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests, and its diversity is sufficiently high.
       if( ( ( defined( $mean_diversity ) ? ( ( $mean_diversity > $mean_diversity_threshold ) && ( $mean_diversity > 0 ) ) : 1 ) ) && ( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) ) ) ) {
         $paul_calls_one_cluster = 0;
-        $force_one_cluster = 0;
       }
       if( $paul_calls_one_cluster ) {
         print "Number of founders estimated using p-values from DSPfitter is: 1\n";
@@ -1018,30 +1013,37 @@ sub identify_founders {
 
     my $num_clusters = undef;
     if( $run_InSites_and_PhyML || $run_PFitter ) {
-      my $tmp_extra_flags = $extra_flags;
-      if( $force_one_cluster ) {
-        $tmp_extra_flags .= "-f ";
-        ## TODO: REMOVE
+      foreach my $force_one_cluster ( 0, 1 ) {
+        my $tmp_extra_flags = $extra_flags;
+        if( $force_one_cluster ) {
+          $tmp_extra_flags .= "-f ";
+        }
+        my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
         if( $VERBOSE ) {
-          print "Forcing one cluster, since the founder calls are consistently 1.\n";
+          print $clusterInformativeSites_output;
         }
-      }
-      my $clusterInformativeSites_output = `perl clusterInformativeSites.pl $tmp_extra_flags $fasta_file ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt $output_path_dir_for_input_fasta_file`;
-      if( $VERBOSE ) {
-        print $clusterInformativeSites_output;
-      }
-      # There might be extra text in there.  Look for the telltale "[1]" output
-      ( $num_clusters ) = ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
-      if( $run_InSites_and_PhyML && !$morgane_calls_one_cluster ) {
-        $in_sites_founders_call = $num_clusters;
         if( !$force_one_cluster ) {
-          print "Number of clusters found when clustering informative sites: $num_clusters\n";
-        }
-      }
-      if( $run_PFitter && !$paul_calls_one_cluster ) {
-        $ds_pfitter_founders_call = $num_clusters;
-        print "Number of founders estimated by the Informative Sites method using DS PFitter thresholding: $ds_pfitter_founders_call\n";
-      }
+          # There might be extra text in there.  Look for the telltale "[1]" output
+          ( $num_clusters ) =
+            ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
+          if( $run_InSites_and_PhyML ) {
+            if( $morgane_calls_one_cluster ) {
+              $in_sites_founders_call = 1;
+            } else {
+              $in_sites_founders_call = $num_clusters;
+              print "Number of clusters found when clustering informative sites: $num_clusters\n";
+            }
+          }
+          if( $run_PFitter ) {
+            if( $paul_calls_one_cluster ) {
+              $ds_pfitter_founders_call = 1;
+            } else {
+              $ds_pfitter_founders_call = $num_clusters;
+              print "Number of founders estimated by the Informative Sites method using DS PFitter thresholding: $ds_pfitter_founders_call\n";
+            }
+          }
+        } # End if !$force_one_cluster
+      } # End foreach $force_one_cluster in ( 0, 1 )
     } # End if $run_InSites_and_PhyML || $run_PFitter
 
     if( $run_PFitter ) {
@@ -1229,11 +1231,6 @@ sub identify_founders {
 
     ## Now try it the more profillic way.  This is a hybrid approach that makes profiles only of the informative sites.
     if( $run_profillic ) {
-      if( $force_one_cluster ) {
-        # Avoid NA in the table output.  Just print that the estimated number of founders is 1.  Which it is.
-        print OUTPUT_TABLE_FH "\t", 1;
-        print OUTPUT_TABLE_FH "\t", 1;
-      } else {
         my $alignment_profiles_output_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_profileToAlignmentProfile.alignmentprofs";
         if( $VERBOSE ) {
           print "Running Profillic..\n";
@@ -1262,9 +1259,11 @@ sub identify_founders {
           print "Number of founders estimated by the Informative Sites Profillic method: $num_profillic_clusters\n";
           print OUTPUT_TABLE_FH "\t", $num_profillic_clusters;
         }
-      }
     } # End if $run_profillic
 
+    if( $run_InSites_and_PhyML || $run_PFitter ) {
+      print OUTPUT_TABLE_FH "\t", $num_clusters;
+    }
     if( $run_InSites_and_PhyML ) {
       print OUTPUT_TABLE_FH "\t", $in_sites_founders_call;
     }
