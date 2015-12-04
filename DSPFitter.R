@@ -562,7 +562,7 @@ BayesPFitter <- function (
       .mat <- .mat[ order( .mat[ , 3 ] ), , drop = FALSE ]; # Sort it by column 3, distance.
       rownames( .mat ) <- apply( .mat[ , 1:2 ], 1, paste, collapse = " to " );
       sorted.intersequence.distances <-
-          as.numeric( replicateDistancesForSequenceMultiplicity( .mat, missing.seqnames = .con.mat[ , 2 ] )[ , 3 ] );
+          as.numeric( replicateDistancesForSequenceMultiplicity( .mat )[ , 3 ] );
       
       .id.sum <- sum( sorted.intersequence.distances, na.rm = TRUE );
       .id.count <- sum( !is.na( sorted.intersequence.distances ) );
