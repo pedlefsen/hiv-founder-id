@@ -698,7 +698,7 @@ sub identify_founders {
         print $getInSitesStat_output;
       }
       my $in_sites_ratio_text = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-      print( "\$in_sites_ratio_text is $in_sites_ratio_text\n" );
+      #print( "\$in_sites_ratio_text is $in_sites_ratio_text\n" );
       my ( $inf_sites, $priv_sites, $in_sites_ratio ) = ( $in_sites_ratio_text =~ /^\s*(\S+)\s*\/\s*(\S+)\s*=\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
       
       # Run phyML, get stats
@@ -722,7 +722,7 @@ sub identify_founders {
       print "Number of sequences: $num_seqs\n";
       if( $num_seqs != $num_phyml_seqs ) { print "BUT NOTE: Number of PhyML sequences: $num_phyml_seqs\n" };
       print "Mean pairwise diversity: $mean_diversity\n";
-      print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
+      print "Informative sites to private sites ratio: $in_sites_ratio = $inf_sites / $priv_sites\n"; # Newline is no longer on there
       
       #print "ABOUT TO WRITE OUT \$num_seqs ($num_seqs) and \$num_phyml_seqs ($num_phyml_seqs)\n";
       printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%d\t%d\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $inf_sites, $priv_sites, $in_sites_ratio );
@@ -1030,7 +1030,7 @@ sub identify_founders {
           ## Now create a single output file with all of the cluster founders.
           if( $num_clusters == 1 ) {
             # Ok so the "multiplefounders" is just the "singlefounder".
-            "`cp ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_singlefounder_cons.fasta ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_multiplefounders_cons.fasta";
+            `cp ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_singlefounder_cons.fasta ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_multiplefounders_cons.fasta`;
           } else { # if $num_clusters == 1 .. else ..
             # Just append them all together.
             opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
