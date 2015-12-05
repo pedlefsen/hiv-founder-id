@@ -1312,9 +1312,7 @@ sub identify_founders {
             print "[Combining these sequences: ", join( ",", @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } } ), "]..";
           }
           
-          ## BUT WAIT.  If there are clusters, gather the cluster files instead.
           my @files_for_regions = @{ $final_input_fasta_file_short_names_by_original_short_name_stripped{ $fasta_file_very_short } };
-          ## TODO: ONLY DO THIS IF THE (respective) INFORMATIVE_SITES CALL WAS > 1 [for consistent behavior when using -s flag]
           ## For each one, see if there are cluster files.
           opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
           my @all_files = readdir( OUTPUT_DIR );
@@ -1322,52 +1320,37 @@ sub identify_founders {
           ## TODO: REMOVE
           #print "\nALL: ", join( ", ", @all_files ), "\n";
           ## These are anonymous functions because in Perl the rules for scope differ for anonymous functions.  Access to "my" variables defined (lexically) outside the scope of anonymous functions from within them are as expected (changes to the variable are seen by the inner function); access to "my" variables defined in outer functions and accessed within named functions (which in c parlance are static) access their values at first call to the outer function.  See http://stackoverflow.com/questions/4048248/variable-foo-will-not-stay-shared-warning-error-in-perl-while-calling-subrout
-              my $foo = sub {
-                my $fileprefix = shift;
-                my $file_name = shift;
-                my $inwithcluster = "^" . $fileprefix . "_cluster\\d+\\.fasta\$";
-                #print "\$inwithcluster is $inwithcluster\n";
-                my $isamatch = ( $file_name =~ m/$inwithcluster/ );
-                if( $isamatch ) {
-                  #print "MATCH: $file_name\n";
-                } else {
-                  #print "MISMATCH: $file_name\n";
-                }
-                return( $isamatch );
-              }; # End sub $foo
-              my $baz = sub {
+              my $strip_fasta_suffix = sub {
                 my $fn = shift;
                 my ( $rv ) = ( $fn =~ /^(.+)\.fasta$/ );
                 #print "stripped: $rv\n";
                 return( $rv );
-              }; # End sub $baz
-          my $bar = sub  {
+              }; # End sub $strip_fasta_suffix
+
+          ## multi-region, but not multi-founder:
+          my $getMultiRegionSingleFounderFilesWithPrefix = sub  {
             my $fileprefix = shift;
             #print $fileprefix, "\n";
-            if( ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster0.fasta" ) || ( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster1.fasta" ) ) {
+            if( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_singlefounder.fasta" ) {
               #print "YES\n";
-              my @cluster_files = grep { &$foo( $fileprefix, $_ ) } @all_files;
-              # Strip off the .fasta suffix.
-              #print "ok\n";
-              my @stripped_cluster_files = map { &$baz($_) } @cluster_files;
-              #print "still\n";
-              #print( "\@stripped_cluster_files: ( " . join( ", ", @stripped_cluster_files ) . " )\n" );
-              return( @stripped_cluster_files );
+              # Strip .fasta suffix:
+              return( "${output_path_dir_for_input_fasta_file}/${fileprefix}_singlefounder" );
             } else {
               #print "NO\n";
               my @lst;
               push @lst, $fileprefix;
               return( @lst );
             }
-          }; # End sub $bar
+          }; # End sub $getMultiRegionSingleFounderFilesWithPrefix
           my @new_files_for_regions;
-          map { my @lst = &$bar($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
+          map { my @lst = &$getMultiRegionSingleFounderFilesWithPrefix($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
           ## TODO: REMOVE
           #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
           my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
+
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
-          #print "\$suffix_pattern: $suffix_pattern\n";
+          print "\$suffix_pattern: $suffix_pattern\n";
           $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
@@ -1478,6 +1461,159 @@ sub identify_founders {
             print "Multi-Region Number of founders estimated using p-values from DSPfitter is: greater than 1\n";
           }
 
+          ## mult-region AND multi-founder:
+              my $fileMatchesPrefixAndIsAClusterFile = sub {
+                my $fileprefix = shift;
+                my $file_name = shift;
+                my $inwithcluster = "^" . $fileprefix . "_cluster\\d+\\.fasta\$";
+                #print "\$inwithcluster is $inwithcluster\n";
+                my $isamatch = ( $file_name =~ m/$inwithcluster/ );
+                if( $isamatch ) {
+                  #print "MATCH: $file_name\n";
+                } else {
+                  #print "MISMATCH: $file_name\n";
+                }
+                return( $isamatch );
+              }; # End sub $fileMatchesPrefixAndIsAClusterFile
+          my $getMultiRegionMultiFounderFilesWithPrefix = sub  {
+            my $fileprefix = shift;
+            #print $fileprefix, "\n";
+            if( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_cluster1.fasta" ) {
+              #print "YES\n";
+              my @cluster_files = grep { &$fileMatchesPrefixAndIsAClusterFile( $fileprefix, $_ ) } @all_files;
+              # Strip off the .fasta suffix.
+              #print "ok\n";
+              my @stripped_cluster_files = map { &$strip_fasta_suffix($_) } @cluster_files;
+              #print "still\n";
+              #print( "\@stripped_cluster_files: ( " . join( ", ", @stripped_cluster_files ) . " )\n" );
+              return( @stripped_cluster_files );
+            } else {
+              #print "NO\n";
+              my @lst;
+              push @lst, $fileprefix;
+              return( @lst );
+            }
+          }; # End sub $getMultiRegionMultiFounderFilesWithPrefix
+          @multifounder_new_files_for_regions;
+          map { my @lst = &$getMultiRegionMultiFounderFilesWithPrefix($_); push @multifounder_new_files_for_regions, @lst; $_ } @files_for_regions;
+          ## TODO: REMOVE
+          #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
+          my @multifounder_file_suffixes = map { ( $_ ) = ( $_ =~ /^$fasta_file_very_short(.+)$/ ); $_ } @multifounder_new_files_for_regions;
+
+          my $multifounder_suffix_pattern = join( "\.fasta|", @multifounder_file_suffixes ) . "_cluster\d+\.fasta";
+          # print "\$fasta_file_very_short: $fasta_file_very_short\n";
+          print "multi-region multi-founder \$multifounder_suffix_pattern: $multifounder_suffix_pattern\n";
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$multifounder_suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          if( $VERBOSE ) {
+            print $R_output;
+            print( "done.\n" );
+          }
+          my $multi_region_multifounder_PFitter_fitter_stats_raw =
+            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          my ( $multi_region_multifounder_PFitter_lambda, $multi_region_multifounder_PFitter_se, $multi_region_multifounder_PFitter_nseq, $multi_region_multifounder_PFitter_nbases, $multi_region_multifounder_PFitter_mean_hd, $multi_region_multifounder_PFitter_max_hd, $multi_region_multifounder_PFitter_days_est_and_ci, $multi_region_multifounder_PFitter_chi_sq_stat, $multi_region_multifounder_PFitter_chi_sq_df, $multi_region_multifounder_PFitter_chi_sq_p_value  ) =
+            (
+             $multi_region_multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+         my ( $multi_region_multifounder_PFitter_days_est, $multi_region_multifounder_PFitter_days_ci_low, $multi_region_multifounder_PFitter_days_ci_high ) =
+           ( $multi_region_multifounder_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+          my $multi_region_multifounder_is_poisson = ( defined( $multi_region_multifounder_PFitter_chi_sq_p_value ) && ( $multi_region_multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
+          ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
+          # my $multi_region_multifounder_starlike_raw =
+          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+          # if( $DEBUG ) {
+          #   ## TODO: REMOVE
+          #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_multifounder_starlike_raw\n";
+          # }
+          # my ( $multi_region_multifounder_starlike_text ) = ( $multi_region_multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+          # my $multi_region_multifounder_is_starlike = ( $multi_region_multifounder_starlike_text eq "FOLLOWS" );
+
+         # DS results
+         my $multi_region_multifounder_DSPFitter_fitter_stats_raw =
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_${maybe_masked}DSPFitter.out`;
+         my ( $multi_region_multifounder_Bayesian_PFitter_lambda_est, $multi_region_multifounder_Bayesian_PFitter_lambda_ci_low, $multi_region_multifounder_Bayesian_PFitter_lambda_ci_high ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+         my ( $multi_region_multifounder_Bayesian_PFitter_days_est, $multi_region_multifounder_Bayesian_PFitter_days_ci_low, $multi_region_multifounder_Bayesian_PFitter_days_ci_high ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+         my ( $multi_region_multifounder_DS_PFitter_lambda_est, $multi_region_multifounder_DS_PFitter_lambda_ci_low, $multi_region_multifounder_DS_PFitter_lambda_ci_high ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+         my ( $multi_region_multifounder_DS_PFitter_days_est, $multi_region_multifounder_DS_PFitter_days_ci_low, $multi_region_multifounder_DS_PFitter_days_ci_high ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /DS PFitter Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+         my ( $multi_region_multifounder_DS_PFitter_distance_mean, $multi_region_multifounder_DS_PFitter_distance_ci_low, $multi_region_multifounder_DS_PFitter_distance_ci_high ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+         my ( $multi_region_multifounder_DS_PFitter_fitstext ) =
+            ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+         my $multi_region_multifounder_DS_PFitter_fits =
+            ( ( $multi_region_multifounder_DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
+         my ( $multi_region_multifounder_DS_PFitter_assertion_low, $multi_region_multifounder_DS_PFitter_assertion_high, $multi_region_multifounder_DS_PFitter_R ) =
+           ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+
+          print "\nInput fasta file: ${fasta_file_very_short}${fasta_file_suffix}\n";
+          
+          my ( $multi_region_multifounder_DS_starlike_text, $multi_region_multifounder_DS_PFitter_starlike_pvalue ) = ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multi_region_multifounder_DS_PFitter_is_starlike = "0";
+        if( $multi_region_multifounder_DS_starlike_text eq "FOLLOWS" ) {
+          $multi_region_multifounder_DS_PFitter_is_starlike = "1";
+        }
+          my ( $multi_region_multifounder_DS_lower_starlike_text, $multi_region_multifounder_DS_PFitter_lower_starlike_pvalue ) = ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multi_region_multifounder_DS_PFitter_lower_is_starlike = "0";
+        if( $multi_region_multifounder_DS_lower_starlike_text eq "FOLLOWS" ) {
+          $multi_region_multifounder_DS_PFitter_lower_is_starlike = "1";
+        }
+          my ( $multi_region_multifounder_DS_upper_starlike_text, $multi_region_multifounder_DS_PFitter_upper_starlike_pvalue ) = ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multi_region_multifounder_DS_PFitter_upper_is_starlike = "0";
+        if( $multi_region_multifounder_DS_upper_starlike_text eq "FOLLOWS" ) {
+          $multi_region_multifounder_DS_PFitter_upper_is_starlike = "1";
+        }
+          
+#         print "Multi-Region Multi-Founder PoissonFitter Determination: ";
+#         if( $is_starlike ) {
+#           print "Star-Like Phylogeny\n";
+#         } else {
+#           print "Non-Star-Like Phylogeny\n";
+#         }
+        print "Multi-Region Multi-Founder PoissonFitter Poisson Fit: ";
+        if( $is_poisson ) {
+          print "OK\n";
+        } else {
+          print "BAD (p = $PFitter_chi_sq_p_value)\n";
+        }
+        print "Multi-Region Multi-Founder average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multi_region_multifounder_DS_PFitter_distance_mean ($multi_region_multifounder_DS_PFitter_distance_ci_low, $multi_region_multifounder_DS_PFitter_distance_ci_high)\n";
+        print "Multi-Region Multi-Founder DS PoissonFitter Determination: ";
+        if( $multi_region_multifounder_DS_PFitter_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_starlike_pvalue)\n";
+        }
+        print "Multi-Region Multi-Founder DS lower PoissonFitter Determination (using 2.5th percentile of epsilon): ";
+        if( $multi_region_multifounder_DS_PFitter_lower_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_lower_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_lower_starlike_pvalue)\n";
+        }
+        print "Multi-Region Multi-Founder DS upper PoissonFitter Determination (using 97.5th percentile of epsilon): ";
+        if( $multi_region_multifounder_DS_PFitter_upper_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_upper_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multi_region_multifounder_DS_PFitter_upper_starlike_pvalue)\n";
+        }
+
+          print "Multi-Region Multi-Founder DS Poisson Fit: $multi_region_multifounder_DS_PFitter_fitstext (R=$multi_region_multifounder_DS_PFitter_R).\n";
+          print "Multi-Region Multi-Founder PFitter Poisson time estimate (95\% CI): $multi_region_multifounder_PFitter_days_est ($multi_region_multifounder_PFitter_days_ci_low, $multi_region_multifounder_PFitter_days_ci_high)\n";
+          print "Multi-Region Multi-Founder DS Poisson time estimate (95\% CI): $multi_region_multifounder_DS_PFitter_days_est ($multi_region_multifounder_DS_PFitter_days_ci_low, $multi_region_multifounder_DS_PFitter_days_ci_high)\n";
+          print "Multi-Region Multi-Founder Bayesian Poisson time estimate (95\% CI): $multi_region_multifounder_Bayesian_PFitter_days_est ($multi_region_multifounder_Bayesian_PFitter_days_ci_low, $multi_region_multifounder_Bayesian_PFitter_days_ci_high)\n";
+          #print "\n$multi_region_multifounder_PFitter_fitter_stats_raw\n";
+          
+          ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests.
+          my $multi_region_multifounder_paul_calls_one_cluster = 1;
+          if( ( $multi_region_multifounder_DS_PFitter_fits eq "0" ) || ( $multi_region_multifounder_DS_PFitter_is_starlike eq "0" ) ) {
+            $multi_region_multifounder_paul_calls_one_cluster = 0;
+          }
+          if( $multi_region_multifounder_paul_calls_one_cluster ) {
+            print "Multi-Region Multi-Founder Number of founders estimated using p-values from DSPfitter is: 1\n";
+          } else {
+            print "Multi-Region Multi-Founder Number of founders estimated using p-values from DSPfitter is: greater than 1\n";
+          }
+
+          ## Note that we will need to post-process the file to fill in the NAs.
           print OUTPUT_TABLE_FH "${fasta_file_very_short}${fasta_file_suffix}";
           if( $run_Hypermut ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # fixed-hypermut or removed-hypermut
@@ -1540,44 +1676,44 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_is_starlike;
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_starlike_pvalue;
           print OUTPUT_TABLE_FH "\t", $multi_region_paul_calls_one_cluster; # "is.one.founder.alt"
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_lambda;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_se;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nseq;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nbases;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_mean_hd;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_max_hd;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_est;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_stat;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_df;
-          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_p_value;
-          print OUTPUT_TABLE_FH "\t", $multi_region_is_poisson;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_est;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_est;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_est;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_est;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_mean;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_ci_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_ci_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_assertion_low;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_assertion_high;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_fits;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_R;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_is_starlike;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_starlike_pvalue;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lower_is_starlike;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lower_starlike_pvalue;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_is_starlike;
-          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_lambda;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_se;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_nseq;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_nbases;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_mean_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_max_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_stat;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_df;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_p_value;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_is_poisson;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_lambda_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_lambda_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_lambda_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_distance_mean;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_distance_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_distance_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_assertion_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_assertion_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_fits;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_R;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_lower_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_lower_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_upper_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_upper_starlike_pvalue;
           if( $run_profillic ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founder.call"
