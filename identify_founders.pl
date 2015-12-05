@@ -1409,7 +1409,7 @@ sub identify_founders {
          my $multi_region_DS_PFitter_fits =
             ( ( $multi_region_DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
          my ( $multi_region_DS_PFitter_assertion_low, $multi_region_DS_PFitter_assertion_high, $multi_region_DS_PFitter_R ) =
-           ( $multi_region_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+           ( $multi_region_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R <?= (\S+)\)/ );
 
           print "\nInput fasta file: ${fasta_file_very_short}${fasta_file_suffix}\n";
           
@@ -1561,7 +1561,7 @@ sub identify_founders {
          my $multi_region_multifounder_DS_PFitter_fits =
             ( ( $multi_region_multifounder_DS_PFitter_fitstext =~ /^OK$/ ) ? "1" : "0" );
          my ( $multi_region_multifounder_DS_PFitter_assertion_low, $multi_region_multifounder_DS_PFitter_assertion_high, $multi_region_multifounder_DS_PFitter_R ) =
-           ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R = (\S+)\)/ );
+           ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R <?= (\S+)\)/ );
 
           print "\nInput fasta file: ${fasta_file_very_short}${fasta_file_suffix}\n";
           
