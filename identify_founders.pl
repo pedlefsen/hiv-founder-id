@@ -38,7 +38,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_s $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 sub splitFastaFileOnHeaderPatterns {
@@ -220,7 +220,6 @@ sub identify_founders {
   # opt_I means run inSites online (instead of offline)
   # opt_i is the insites threshold to use for all regions except v3 (default: 0.85).
   # opt_v is the insites threshold to use for v3 (default: 0.33).
-  # opt_s means be slow, ie run everything even when the diversity and insites thresholds are not exceeded.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
   ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_s, $opt_r ) = ();
@@ -243,7 +242,6 @@ sub identify_founders {
   my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
   my $in_sites_ratio_threshold_v3 = $opt_v || 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
-  my $be_slow = $opt_s || 0;
   my $recurse_on_clusters = $opt_r || 0;
 
   ## TODO: make into an arg
@@ -561,7 +559,6 @@ sub identify_founders {
     print OUTPUT_TABLE_FH $fasta_file_short;
   
     print "\nInput Fasta file: $fasta_file_short\n";
-
 
     my $fasta_file_mask_out_nonsynonymous_codons_in_PFitter = $mask_out_nonsynonymous_codons_in_PFitter;
     if( $fasta_file_short_nosuffix =~ /^(.+)_NFLG/ ) {
