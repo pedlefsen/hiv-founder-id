@@ -1540,44 +1540,44 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_is_starlike;
           print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_starlike_pvalue;
           print OUTPUT_TABLE_FH "\t", $multi_region_paul_calls_one_cluster; # "is.one.founder.alt"
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.lambda
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.se
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.nseq
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.nbases
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.mean.hd
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.max.hd
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.time.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.time.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.time.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.stat
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.df
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.PFitter.chi.sq.p.value
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.is.poisson
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.lambda.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.lambda.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.lambda.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.days.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.days.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.Bayesian.PFitter.days.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.lambda.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.lambda.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.lambda.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.days.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.days.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.days.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.distance.est
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.distance.ci.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.distance.ci.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.assertion.low
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.assertion.high
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.fits
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.R
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.is.starlike
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.starlike.pvalue
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.lower.is.starlike
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.lower.starlike.pvalue
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.upper.is.starlike
-          print OUTPUT_TABLE_FH "\t", "NA"; # multifounder.DS.PFitter.upper.starlike.pvalue
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_lambda;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_se;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nseq;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_nbases;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_mean_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_max_hd;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_stat;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_df;
+          print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_p_value;
+          print OUTPUT_TABLE_FH "\t", $multi_region_is_poisson;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lambda_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_est;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_days_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_mean;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_ci_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_distance_ci_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_assertion_low;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_assertion_high;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_fits;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_R;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lower_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_lower_starlike_pvalue;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_is_starlike;
+          print OUTPUT_TABLE_FH "\t", $multi_region_DS_PFitter_upper_starlike_pvalue;
           if( $run_profillic ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founder.call"
