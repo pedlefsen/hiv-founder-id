@@ -9,10 +9,10 @@
 export mainDir=$1
 export patient=$2
 export outputDir=./hiv_founder_id_processed_${patient}
+rm -rf ${outputDir}
 mkdir ${outputDir}
-rm -rf ${outputDir}/*
 export outputFile=${outputDir}/identify_founders.out
 export errFile=${outputDir}/${patient}.err
 touch $errFile
 export listFile=${mainDir}/processed_${patient}.list
-/usr/bin/time -a -o $errFile  perl -w ./identify_founders.pl -HRnP -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+perl -w ./identify_founders.pl -HRnP -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
