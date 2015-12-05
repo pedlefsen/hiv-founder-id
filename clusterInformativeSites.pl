@@ -126,6 +126,9 @@ sub clusterInformativeSites {
   # Maybe there are no informative sites.  We are just done, then.
   my $insites_fasta_file = "";
   if( !scalar( @seqorder ) ) {
+    if( $VERBOSE ) {
+      print( "No informative sites..\n" );
+    }
     $force_one_cluster = 1;
     $insites_fasta_file = $original_fasta_filename;
   } else {

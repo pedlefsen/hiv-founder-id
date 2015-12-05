@@ -165,7 +165,7 @@ sub getInSitesStat {
     print "Printing output..";
   }
   
-  print OUTPUT_FH "$morganes_stat\n";
+  print OUTPUT_FH "$informative_no_gaps / $private_no_gaps = $morganes_stat\n";
   
   if( $VERBOSE ) { print ".done.\n"; }
   

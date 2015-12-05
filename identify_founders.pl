@@ -222,8 +222,8 @@ sub identify_founders {
   # opt_v is the insites threshold to use for v3 (default: 0.33).
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_s, $opt_r ) = ();
-  if( not getopts('DVo:O:CPRFEHfw:nIi:v:sr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_r ) = ();
+  if( not getopts('DVo:O:CPRFEHfw:nIi:v:r') ) {
     identify_founders_usage();
   }
   
@@ -303,6 +303,7 @@ sub identify_founders {
     $extra_flags .= "-V ";
   }
 
+  #my %subtable_sharing_original_short_name_stripped; # Arrays, one per file with the same prefix (for multi-region)
   my $output_table_file = $output_path_dir . '/' . "identify_founders.tab";
 
   if( $VERBOSE ) { print "Opening file \"$output_table_file\" for writing.."; }
@@ -339,7 +340,8 @@ sub identify_founders {
   if( $run_InSites_and_PhyML ) {
     push @table_column_headers,
       (
-       "num.seqs", "num.diversity.seqs", "diversity", "inf.to.priv.ratio",
+       "num.seqs", "num.diversity.seqs", "diversity",
+       "inf.sites","priv.sites","inf.to.priv.ratio",
        "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
        "is.one.founder"
       );
@@ -691,12 +693,13 @@ sub identify_founders {
       if( $VERBOSE ) {
         print $runInSites_output;
       }
-      my $getInSitesStat_output = `perl getInSitesStat.pl $extra_flags ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+      my $getInSitesStat_output = `perl getInSitesStat.pl $extra_flags -O ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_informativeSites.txt ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_privateSites.txt`;
       if( $VERBOSE ) {
         print $getInSitesStat_output;
       }
-      my $in_sites_ratio = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
-      ( $in_sites_ratio ) = ( $in_sites_ratio =~ /^\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
+      my $in_sites_ratio_text = `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_inSitesRatioStat.txt`;
+      print( "\$in_sites_ratio_text is $in_sites_ratio_text\n" );
+      my ( $inf_sites, $priv_sites, $in_sites_ratio ) = ( $in_sites_ratio_text =~ /^\s*(\S+)\s*\/\s*(\S+)\s*=\s*(\S+)\s*$/ ); # Strip trailing newline, and any other flanking whitespace.
       
       # Run phyML, get stats
       my $phyml_out = `perl runPhyML.pl $extra_flags ${fasta_file} ${output_path_dir_for_input_fasta_file}`;
@@ -722,7 +725,7 @@ sub identify_founders {
       print "Informative sites to private sites ratio: $in_sites_ratio\n"; # Newline is no longer on there
       
       #print "ABOUT TO WRITE OUT \$num_seqs ($num_seqs) and \$num_phyml_seqs ($num_phyml_seqs)\n";
-      printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $in_sites_ratio );
+      printf OUTPUT_TABLE_FH "\t%d\t%d\t%1.4f\t%d\t%d\t%1.4f", ( $num_seqs, $num_phyml_seqs, $mean_diversity, $inf_sites, $priv_sites, $in_sites_ratio );
       #print "did it\n";
       
       my $the_relevant_in_sites_ratio_threshold = $in_sites_ratio_threshold;
@@ -1023,6 +1026,21 @@ sub identify_founders {
           # There might be extra text in there.  Look for the telltale "[1]" output
           ( $num_clusters ) =
             ( $clusterInformativeSites_output =~ /\[1\] (\d+?)\s*/ );
+
+          ## Now create a single output file with all of the cluster founders.
+          if( $num_clusters == 1 ) {
+            # Ok so the "multiplefounders" is just the "singlefounder".
+            "`cp ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_singlefounder_cons.fasta ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_multiplefounders_cons.fasta";
+          } else { # if $num_clusters == 1 .. else ..
+            # Just append them all together.
+            opendir OUTPUT_DIR, $output_path_dir_for_input_fasta_file;
+            my @cluster_files_short = grep { /^${fasta_file_short_nosuffix}_cluster\d+_cons\.fasta$/ } readdir( OUTPUT_DIR );
+            closedir OUTPUT_DIR;
+            # print "CLUSTER FILES: ", join( ", ", @cluster_files_short ), "\n";
+            my @cluster_files = map { $output_path_dir_for_input_fasta_file . "/" . $_ } @cluster_files_short;
+            my $cluster_files_string = join( " ", @cluster_files );
+            `cat $cluster_files_string > ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_multiplefounders_cons.fasta`;
+          } # End if $num_clusters == 1 .. else ..
           if( $run_InSites_and_PhyML ) {
             if( $morgane_calls_one_cluster ) {
               $in_sites_founders_call = 1;
@@ -1332,25 +1350,24 @@ sub identify_founders {
             my $fileprefix = shift;
             #print $fileprefix, "\n";
             if( -e "${output_path_dir_for_input_fasta_file}/${fileprefix}_singlefounder.fasta" ) {
+              ## TODO: REMOVE
               #print "YES\n";
               # Strip .fasta suffix:
               return( "${output_path_dir_for_input_fasta_file}/${fileprefix}_singlefounder" );
             } else {
-              #print "NO\n";
-              my @lst;
-              push @lst, $fileprefix;
-              return( @lst );
+              warn( "UH OH MISSING: ${output_path_dir_for_input_fasta_file}/${fileprefix}_singlefounder.fasta" );
+              return( $fileprefix );
             }
           }; # End sub $getMultiRegionSingleFounderFilesWithPrefix
           my @new_files_for_regions;
-          map { my @lst = &$getMultiRegionSingleFounderFilesWithPrefix($_); push @new_files_for_regions, @lst; $_ } @files_for_regions;
+          map { my $fileprefix = &$getMultiRegionSingleFounderFilesWithPrefix($_); push @new_files_for_regions, $fileprefix; $_ } @files_for_regions;
           ## TODO: REMOVE
           #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
-          my @file_suffixes = map { ( $_ ) = ( $_ =~ /^$fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
+          my @file_suffixes = map { ( $_ ) = ( $_ =~ /$fasta_file_very_short(.+)$/ ); $_ } @new_files_for_regions;
 
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
-          print "\$suffix_pattern: $suffix_pattern\n";
+          # print "\$suffix_pattern: $suffix_pattern\n";
           $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
@@ -1494,15 +1511,15 @@ sub identify_founders {
               return( @lst );
             }
           }; # End sub $getMultiRegionMultiFounderFilesWithPrefix
-          @multifounder_new_files_for_regions;
+          my @multifounder_new_files_for_regions;
           map { my @lst = &$getMultiRegionMultiFounderFilesWithPrefix($_); push @multifounder_new_files_for_regions, @lst; $_ } @files_for_regions;
           ## TODO: REMOVE
           #print "\nUSING: ". join( ", ", @new_files_for_regions ). "\n";
-          my @multifounder_file_suffixes = map { ( $_ ) = ( $_ =~ /^$fasta_file_very_short(.+)$/ ); $_ } @multifounder_new_files_for_regions;
+          my @multifounder_file_suffixes = map { ( $_ ) = ( $_ =~ /$fasta_file_very_short(.+)$/ ); $_ } @multifounder_new_files_for_regions;
 
-          my $multifounder_suffix_pattern = join( "\.fasta|", @multifounder_file_suffixes ) . "_cluster\d+\.fasta";
+          my $multifounder_suffix_pattern = join( "\\.fasta|", @multifounder_file_suffixes ) . "\\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
-          print "multi-region multi-founder \$multifounder_suffix_pattern: $multifounder_suffix_pattern\n";
+          # print "multi-region multi-founder \$multifounder_suffix_pattern: $multifounder_suffix_pattern\n";
           $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$multifounder_suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
@@ -1626,6 +1643,8 @@ sub identify_founders {
             print OUTPUT_TABLE_FH "\t", "NA"; # num.seqs
             print OUTPUT_TABLE_FH "\t", "NA"; # num.phyml.seqs
             print OUTPUT_TABLE_FH "\t", "NA"; # diversity
+            print OUTPUT_TABLE_FH "\t", "NA"; # inf.sites
+            print OUTPUT_TABLE_FH "\t", "NA"; # priv.sites
             print OUTPUT_TABLE_FH "\t", "NA"; # inf.to.priv.ratio
             print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.diversity.threshold
             print OUTPUT_TABLE_FH "\t", "NA"; # exceeds.ratio.threshold
@@ -1716,13 +1735,16 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_DS_PFitter_upper_starlike_pvalue;
           if( $run_profillic ) {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.clusters"
-            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founder.call"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founders"
           } # End if $run_profillic
+          if( $run_InSites_and_PhyML || $run_PFitter ) {
+            print OUTPUT_TABLE_FH "\t", "NA"; # "insites.clusters"
+          }
           if( $run_InSites_and_PhyML ) {
-            print OUTPUT_TABLE_FH "\t", "NA"; # founder.call
+            print OUTPUT_TABLE_FH "\t", "NA"; # "insites.founders"
           }
           if( $run_PFitter ) {
-            print OUTPUT_TABLE_FH "\t", "NA"; # founder.call.alt
+            print OUTPUT_TABLE_FH "\t", "NA"; # "starphy.founders"
           }
           print OUTPUT_TABLE_FH "\n";
 
