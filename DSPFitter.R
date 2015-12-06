@@ -110,7 +110,12 @@ PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, 
 PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta, log.result = FALSE ) {
     if( log.result ) {
         # First get a sense of what the scale factor should be; look at the peak.
-        .scale.factor = 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = mean( .dta ), maximum = T ) )$objective;
+        .mean.dta <- mean( .dta );
+        if( .mean.dta == 0 ) {
+          .scale.factor <- 0;
+        } else {
+          .scale.factor <- 0 - suppressWarnings( optimize( f = function( .x ) { PoissonDSM.calculatePlausibilityOfSingletons( .x, .dta, log.result = TRUE, scale.result.by.log = 0 ) }, lower = 0, upper = .mean.dta, maximum = T ) )$objective;
+        }
         print( paste( "SCALE FACTOR:", .scale.factor ) );
         # Actually to get a slope for interpolating the larger values, calc a few..
         ## finite.sums.coefs <- NULL;
@@ -135,6 +140,10 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
             exp( .log.rv );
         };
         .foo <- function( y ) {
+          if( y <= 0 ) {
+            return( 0 );
+          } else {
+            
             tryCatch(
               {
                 unname( log( ( integrate( f = .integrated.fn, lower = 0, upper = y, subdivisions = 1000 )$value ) ) - .scale.factor );
@@ -143,6 +152,7 @@ PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function(
                 0;
               }
             );
+          }
        } # .foo
         Vectorize( .foo );
     } else {
@@ -722,7 +732,13 @@ DSPFitter <- function (
       HD.normalizedPlausibilities <- 
           Vectorize( function( y ) { exp( .f( y ) - .maximal.area.so.far ) } );
       ##  NOTE HACK using upper = HD.outrageouslyhighvalue/2
-      HD.quantile <- function( quantile ) { optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = .lowest.nonzero.x, upper = .maximal.x.so.far )$minimum }
+      HD.quantile <- function( quantile ) {
+        if( .lowest.nonzero.x < .maximal.x.so.far ) {
+          optimize( function( y ) { abs( HD.normalizedPlausibilities( y ) - quantile ) }, lower = .lowest.nonzero.x, upper = .maximal.x.so.far )$minimum
+        } else {
+          .maximal.x.so.far
+        }
+      }
       
       DS.lambda.low <- HD.quantile( 0.025 );
       if( DS.lambda.low > DS.lambda ) {
@@ -788,7 +804,7 @@ DSPFitter <- function (
             # Return the average difference.
             return( mean( .abs.diffs ) );
           };
-        if( lambda.low == lambda.high ) {
+        if( lambda.low >= lambda.high ) {
             the.results <- list( "lambda" = lambda.low,
                              "epsilon" = .epsilon.from.lambda.fn( lambda.low ) );
         } else {
