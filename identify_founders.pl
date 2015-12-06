@@ -38,7 +38,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_n $opt_I $opt_i $opt_v $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_I $opt_i $opt_v $opt_T $opt_r );
 use vars qw( $VERBOSE $DEBUG );
 
 sub splitFastaFileOnHeaderPatterns {
@@ -216,15 +216,14 @@ sub identify_founders {
   # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
   # opt_f means fix hypermutated sequences, instead of removing them.
   # opt_w is what we should fix hypermutated sequences with (default: R)
-  # opt_n means mask out nonsynonymous codons (compared to input file consensus) when running PFitter.
   # opt_I means run inSites online (instead of offline)
   # opt_i is the insites threshold to use for all regions except v3 (default: 0.85).
   # opt_v is the insites threshold to use for v3 (default: 0.33).
   # opt_T means don't train the profillic profile, just use the converted alignment directly.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_T, $opt_r ) = ();
-  if( not getopts('DVo:O:CPRFEHfw:nIi:v:Tr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_I, $opt_i, $opt_v, $opt_T, $opt_r ) = ();
+  if( not getopts('DVo:O:CPRFEHfw:Ii:v:Tr') ) {
     identify_founders_usage();
   }
   
@@ -239,16 +238,12 @@ sub identify_founders {
   my $run_Hypermut = !$opt_H;
   my $fix_hypermutated_sequences = $opt_f || 0;
   my $fix_hypermutated_sequences_with = $opt_w || "R";
-  my $mask_out_nonsynonymous_codons_in_PFitter = $opt_n || 0;
   my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
   my $in_sites_ratio_threshold_v3 = $opt_v || 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
   my $train_profillic_profile = !$opt_T;
   my $recurse_on_clusters = $opt_r || 0;
 
-  ## TODO: make into an arg
-  my $run_DSPFitter = 1;
-  
   ## TODO: DEHACKIFY MAGIC #s
   my $mean_diversity_threshold = 0.001;
   my $RAP_pValueThreshold = 0.0007; # Appears to be the suggestion from the output file "(summaryTable)"'s column header, which reads "Pvalues<0.0007".
@@ -345,7 +340,7 @@ sub identify_founders {
        "num.seqs", "num.diversity.seqs", "diversity",
        "inf.sites","priv.sites","inf.to.priv.ratio",
        "exceeds.diversity.threshold", "exceeds.ratio.threshold", "ratio.threshold",
-       "is.one.founder"
+       "InSites.is.one.founder"
       );
   }
 
@@ -371,77 +366,155 @@ sub identify_founders {
      "PFitter.chi.sq.stat",
      "PFitter.chi.sq.df",
      "PFitter.chi.sq.p.value",
-     "is.poisson",
-     "is.starlike",
-     "Bayesian.PFitter.lambda.est",
-     "Bayesian.PFitter.lambda.ci.low",
-     "Bayesian.PFitter.lambda.ci.high",
-     "Bayesian.PFitter.days.est",
-     "Bayesian.PFitter.days.ci.low",
-     "Bayesian.PFitter.days.ci.high",
-     "DS.PFitter.lambda.est",
-     "DS.PFitter.lambda.ci.low",
-     "DS.PFitter.lambda.ci.high",
-     "DS.PFitter.days.est",
-     "DS.PFitter.days.ci.low",
-     "DS.PFitter.days.ci.high",
-     "DS.PFitter.distance.est",
-     "DS.PFitter.distance.ci.low",
-     "DS.PFitter.distance.ci.high",
-     "DS.PFitter.assertion.low",
-     "DS.PFitter.assertion.high",
-     "DS.PFitter.fits",
-     "DS.PFitter.R",
-     "DS.PFitter.is.starlike",
-     "DS.PFitter.starlike.pvalue",
-     "DS.PFitter.lower.is.starlike",
-     "DS.PFitter.lower.starlike.pvalue",
-     "DS.PFitter.upper.is.starlike",
-     "DS.PFitter.upper.starlike.pvalue",
-     "is.one.founder.alt"
+     "PFitter.is.poisson",
+     "PFitter.is.starlike",
+     "Bayesian.StarPhy.lambda.est",
+     "Bayesian.StarPhy.lambda.ci.low",
+     "Bayesian.StarPhy.lambda.ci.high",
+     "Bayesian.StarPhy.days.est",
+     "Bayesian.StarPhy.days.ci.low",
+     "Bayesian.StarPhy.days.ci.high",
+     "DS.Starphy.lambda.est",
+     "DS.Starphy.lambda.ci.low",
+     "DS.Starphy.lambda.ci.high",
+     "DS.Starphy.days.est",
+     "DS.Starphy.days.ci.low",
+     "DS.Starphy.days.ci.high",
+     "DS.Starphy.distance.est",
+     "DS.Starphy.distance.ci.low",
+     "DS.Starphy.distance.ci.high",
+     "DS.Starphy.assertion.low",
+     "DS.Starphy.assertion.high",
+     "DS.Starphy.fits",
+     "DS.Starphy.R",
+     "DS.Starphy.is.starlike",
+     "DS.Starphy.starlike.pvalue",
+     "DS.Starphy.lower.PFitter.is.starlike",
+     "DS.Starphy.lower.starlike.pvalue",
+     "DS.Starphy.upper.PFitter.is.starlike",
+     "DS.Starphy.upper.starlike.pvalue",
+     "Synonymous.PFitter.lambda",
+     "Synonymous.PFitter.se",
+     "Synonymous.PFitter.nseq",
+     "Synonymous.PFitter.nbases",
+     "Synonymous.PFitter.mean.hd",
+     "Synonymous.PFitter.max.hd",
+     "Synonymous.PFitter.time.est",
+     "Synonymous.PFitter.time.ci.low",
+     "Synonymous.PFitter.time.ci.high",
+     "Synonymous.PFitter.chi.sq.stat",
+     "Synonymous.PFitter.chi.sq.df",
+     "Synonymous.PFitter.chi.sq.p.value",
+     "Synonymous.PFitter.is.poisson",
+     "Synonymous.PFitter.is.starlike",
+     "Synonymous.Bayesian.StarPhy.lambda.est",
+     "Synonymous.Bayesian.StarPhy.lambda.ci.low",
+     "Synonymous.Bayesian.StarPhy.lambda.ci.high",
+     "Synonymous.Bayesian.StarPhy.days.est",
+     "Synonymous.Bayesian.StarPhy.days.ci.low",
+     "Synonymous.Bayesian.StarPhy.days.ci.high",
+     "Synonymous.DS.StarPhy.lambda.est",
+     "Synonymous.DS.StarPhy.lambda.ci.low",
+     "Synonymous.DS.StarPhy.lambda.ci.high",
+     "Synonymous.DS.StarPhy.days.est",
+     "Synonymous.DS.StarPhy.days.ci.low",
+     "Synonymous.DS.StarPhy.days.ci.high",
+     "Synonymous.DS.StarPhy.distance.est",
+     "Synonymous.DS.StarPhy.distance.ci.low",
+     "Synonymous.DS.StarPhy.distance.ci.high",
+     "Synonymous.DS.StarPhy.assertion.low",
+     "Synonymous.DS.StarPhy.assertion.high",
+     "Synonymous.DS.StarPhy.fits",
+     "Synonymous.DS.StarPhy.R",
+     "Synonymous.DS.StarPhy.is.starlike",
+     "Synonymous.DS.StarPhy.starlike.pvalue",
+     "Synonymous.DS.StarPhy.lower.PFitter.is.starlike",
+     "Synonymous.DS.StarPhy.lower.starlike.pvalue",
+     "Synonymous.DS.StarPhy.upper.PFitter.is.starlike",
+     "Synonymous.DS.StarPhy.upper.starlike.pvalue",
+     "StarPhy.is.one.founder"
     );
     
     push @table_column_headers,
     (
-     "multifounder.PFitter.lambda",
-     "multifounder.PFitter.se",
-     "multifounder.PFitter.nseq",
-     "multifounder.PFitter.nbases",
-     "multifounder.PFitter.mean.hd",
-     "multifounder.PFitter.max.hd",
-     "multifounder.PFitter.time.est",
-     "multifounder.PFitter.time.ci.low",
-     "multifounder.PFitter.time.ci.high",
-     "multifounder.PFitter.chi.sq.stat",
-     "multifounder.PFitter.chi.sq.df",
-     "multifounder.PFitter.chi.sq.p.value",
-     "multifounder.is.poisson",
-#     "multifounder.is.starlike",
-     "multifounder.Bayesian.PFitter.lambda.est",
-     "multifounder.Bayesian.PFitter.lambda.ci.low",
-     "multifounder.Bayesian.PFitter.lambda.ci.high",
-     "multifounder.Bayesian.PFitter.days.est",
-     "multifounder.Bayesian.PFitter.days.ci.low",
-     "multifounder.Bayesian.PFitter.days.ci.high",
-     "multifounder.DS.PFitter.lambda.est",
-     "multifounder.DS.PFitter.lambda.ci.low",
-     "multifounder.DS.PFitter.lambda.ci.high",
-     "multifounder.DS.PFitter.days.est",
-     "multifounder.DS.PFitter.days.ci.low",
-     "multifounder.DS.PFitter.days.ci.high",
-     "multifounder.DS.PFitter.distance.est",
-     "multifounder.DS.PFitter.distance.ci.low",
-     "multifounder.DS.PFitter.distance.ci.high",
-     "multifounder.DS.PFitter.assertion.low",
-     "multifounder.DS.PFitter.assertion.high",
-     "multifounder.DS.PFitter.fits",
-     "multifounder.DS.PFitter.R",
-     "multifounder.DS.PFitter.is.starlike",
-     "multifounder.DS.PFitter.starlike.pvalue",
-     "multifounder.DS.PFitter.lower.is.starlike",
-     "multifounder.DS.PFitter.lower.starlike.pvalue",
-     "multifounder.DS.PFitter.upper.is.starlike",
-     "multifounder.DS.PFitter.upper.starlike.pvalue"
+     "PFitter.lambda",
+     "PFitter.se",
+     "PFitter.nseq",
+     "PFitter.nbases",
+     "PFitter.mean.hd",
+     "PFitter.max.hd",
+     "PFitter.time.est",
+     "PFitter.time.ci.low",
+     "PFitter.time.ci.high",
+     "PFitter.chi.sq.stat",
+     "PFitter.chi.sq.df",
+     "PFitter.chi.sq.p.value",
+     "PFitter.is.poisson",
+#     "PFitter.is.starlike",
+     "Bayesian.StarPhy.lambda.est",
+     "Bayesian.StarPhy.lambda.ci.low",
+     "Bayesian.StarPhy.lambda.ci.high",
+     "Bayesian.StarPhy.days.est",
+     "Bayesian.StarPhy.days.ci.low",
+     "Bayesian.StarPhy.days.ci.high",
+     "DS.Starphy.lambda.est",
+     "DS.Starphy.lambda.ci.low",
+     "DS.Starphy.lambda.ci.high",
+     "DS.Starphy.days.est",
+     "DS.Starphy.days.ci.low",
+     "DS.Starphy.days.ci.high",
+     "DS.Starphy.distance.est",
+     "DS.Starphy.distance.ci.low",
+     "DS.Starphy.distance.ci.high",
+     "DS.Starphy.assertion.low",
+     "DS.Starphy.assertion.high",
+     "DS.Starphy.fits",
+     "DS.Starphy.R",
+     "DS.Starphy.is.starlike",
+     "DS.Starphy.starlike.pvalue",
+     "DS.Starphy.lower.PFitter.is.starlike",
+     "DS.Starphy.lower.starlike.pvalue",
+     "DS.Starphy.upper.PFitter.is.starlike",
+     "DS.Starphy.upper.starlike.pvalue",
+     "Synonymous.PFitter.lambda",
+     "Synonymous.PFitter.se",
+     "Synonymous.PFitter.nseq",
+     "Synonymous.PFitter.nbases",
+     "Synonymous.PFitter.mean.hd",
+     "Synonymous.PFitter.max.hd",
+     "Synonymous.PFitter.time.est",
+     "Synonymous.PFitter.time.ci.low",
+     "Synonymous.PFitter.time.ci.high",
+     "Synonymous.PFitter.chi.sq.stat",
+     "Synonymous.PFitter.chi.sq.df",
+     "Synonymous.PFitter.chi.sq.p.value",
+     "Synonymous.PFitter.is.poisson",
+#     "Synonymous.PFitter.is.starlike",
+     "Synonymous.Bayesian.StarPhy.lambda.est",
+     "Synonymous.Bayesian.StarPhy.lambda.ci.low",
+     "Synonymous.Bayesian.StarPhy.lambda.ci.high",
+     "Synonymous.Bayesian.StarPhy.days.est",
+     "Synonymous.Bayesian.StarPhy.days.ci.low",
+     "Synonymous.Bayesian.StarPhy.days.ci.high",
+     "Synonymous.DS.StarPhy.lambda.est",
+     "Synonymous.DS.StarPhy.lambda.ci.low",
+     "Synonymous.DS.StarPhy.lambda.ci.high",
+     "Synonymous.DS.StarPhy.days.est",
+     "Synonymous.DS.StarPhy.days.ci.low",
+     "Synonymous.DS.StarPhy.days.ci.high",
+     "Synonymous.DS.StarPhy.distance.est",
+     "Synonymous.DS.StarPhy.distance.ci.low",
+     "Synonymous.DS.StarPhy.distance.ci.high",
+     "Synonymous.DS.StarPhy.assertion.low",
+     "Synonymous.DS.StarPhy.assertion.high",
+     "Synonymous.DS.StarPhy.fits",
+     "Synonymous.DS.StarPhy.R",
+     "Synonymous.DS.StarPhy.is.starlike",
+     "Synonymous.DS.StarPhy.starlike.pvalue",
+     "Synonymous.DS.StarPhy.lower.PFitter.is.starlike",
+     "Synonymous.DS.StarPhy.lower.starlike.pvalue",
+     "Synonymous.DS.StarPhy.upper.PFitter.is.starlike",
+     "Synonymous.DS.StarPhy.upper.starlike.pvalue",
     );
   } # End if $run_PFitter
 
@@ -450,13 +523,13 @@ sub identify_founders {
   } # End if $run_profillic
 
   if( $run_InSites_and_PhyML || $run_PFitter ) {
-    push @table_column_headers, "insites.clusters";
+    push @table_column_headers, "inf.sites.clusters";
   }
   if( $run_InSites_and_PhyML ) {
-    push @table_column_headers, "insites.founders";
+    push @table_column_headers, "InSites.founders";
   }
   if( $run_PFitter ) {
-    push @table_column_headers, "starphy.founders";
+    push @table_column_headers, "StarPhy.founders";
   }
   
   my $table_header = join( "\t", @table_column_headers );
@@ -564,12 +637,6 @@ sub identify_founders {
   
     print "\nInput Fasta file: $fasta_file_short\n";
 
-    my $fasta_file_mask_out_nonsynonymous_codons_in_PFitter = $mask_out_nonsynonymous_codons_in_PFitter;
-    if( $fasta_file_short_nosuffix =~ /^(.+)_NFLG/ ) {
-      # NFLG seqs are not in one reading frame, so codons don't translate, so we don't do it.
-      $fasta_file_mask_out_nonsynonymous_codons_in_PFitter = 0;
-    }
-    
     # First fix/remove hypermutated sequences, using an implementation of the HYPERMUT 2.0 algorithm.
     if( $run_Hypermut ) {
       if( $VERBOSE ) {
@@ -756,7 +823,7 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $diversity_threshold_exceeded;
       print OUTPUT_TABLE_FH "\t", $in_sites_ratio_threshold_exceeded;
       print OUTPUT_TABLE_FH "\t", $the_relevant_in_sites_ratio_threshold;
-      ## "is.one.founder":
+      ## "InSites.is.one.founder":
       print OUTPUT_TABLE_FH "\t", $morgane_calls_one_cluster;
       
       if( $morgane_calls_one_cluster ) {
@@ -804,8 +871,8 @@ sub identify_founders {
     my $PFitter_days_est = 0;
     my $PFitter_days_ci_low = 0;
     my $PFitter_days_ci_high = 0;
-    my $is_poisson = 1;
-    my $is_starlike = 1;
+    my $PFitter_is_poisson = 1;
+    my $PFitter_is_starlike = 1;
     my $Bayesian_PFitter_lambda_est = 0;
     my $Bayesian_PFitter_lambda_ci_low = 0;
     my $Bayesian_PFitter_lambda_ci_high = 0;
@@ -832,57 +899,82 @@ sub identify_founders {
     my $DS_PFitter_assertion_low = 1.5;
     my $DS_PFitter_assertion_high = 2.5;
     my $DS_PFitter_R = "1.0";
-    my ( $DS_starlike_text, $DS_lower_starlike_text, $DS_upper_starlike_text );
+    my ( $DS_PFitter_starlike_text, $DS_PFitter_lower_starlike_text, $DS_PFitter_upper_starlike_text );
+    my $PFitter_synonymous_lambda = 0;
+    my $PFitter_synonymous_se = 0;
+    my $PFitter_synonymous_nseq = 0;
+    my $PFitter_synonymous_nbases = 0;
+    my $PFitter_synonymous_mean_hd = 0;
+    my $PFitter_synonymous_max_hd = 0;
+    my $PFitter_synonymous_chi_sq_stat = 0;
+    my $PFitter_synonymous_chi_sq_df = 0;
+    my $PFitter_synonymous_chi_sq_p_value = 1;
+    my $PFitter_synonymous_days_est_and_ci = "0 (0,0)";
+    my $PFitter_synonymous_days_est = 0;
+    my $PFitter_synonymous_days_ci_low = 0;
+    my $PFitter_synonymous_days_ci_high = 0;
+    my $PFitter_synonymous_is_poisson = 1;
+    my $PFitter_synonymous_is_starlike = 1;
+    my $Bayesian_PFitter_synonymous_lambda_est = 0;
+    my $Bayesian_PFitter_synonymous_lambda_ci_low = 0;
+    my $Bayesian_PFitter_synonymous_lambda_ci_high = 0;
+    my $Bayesian_PFitter_synonymous_days_est = 0;
+    my $Bayesian_PFitter_synonymous_days_ci_low = 0;
+    my $Bayesian_PFitter_synonymous_days_ci_high = 0;
+    my $DS_PFitter_synonymous_lambda_est = 0;
+    my $DS_PFitter_synonymous_lambda_ci_low = 0;
+    my $DS_PFitter_synonymous_lambda_ci_high = 0;
+    my $DS_PFitter_synonymous_days_est = 0;
+    my $DS_PFitter_synonymous_days_ci_low = 0;
+    my $DS_PFitter_synonymous_days_ci_high = 0;
+    my $DS_PFitter_synonymous_distance_mean = 0;
+    my $DS_PFitter_synonymous_distance_ci_low = 0;
+    my $DS_PFitter_synonymous_distance_ci_high = 0;
+    my $DS_PFitter_synonymous_fitstext = "DSPFitter test that intersequence rate = 2 x seq-consensus rate: OK";
+    my $DS_PFitter_synonymous_fits = 1;
+    my $DS_PFitter_synonymous_is_starlike = 1;
+    my $DS_PFitter_synonymous_starlike_pvalue = 1;
+    my $DS_PFitter_synonymous_lower_is_starlike = 1;
+    my $DS_PFitter_synonymous_lower_starlike_pvalue = 1;
+    my $DS_PFitter_synonymous_upper_is_starlike = 1;
+    my $DS_PFitter_synonymous_upper_starlike_pvalue = 1;
+    my $DS_PFitter_synonymous_assertion_low = 1.5;
+    my $DS_PFitter_synonymous_assertion_high = 2.5;
+    my $DS_PFitter_synonymous_R = "1.0";
+    my ( $DS_PFitter_synonymous_starlike_text, $DS_PFitter_synonymous_lower_starlike_text, $DS_PFitter_synonymous_upper_starlike_text );
     my $paul_calls_one_cluster = 1;
-    my $maybe_masked = "";
     if( $run_PFitter ) {
-      #if( $mean_diversity == 0 ) {
-      #  if( $VERBOSE ) {
-      #    print "\nNOT running PoissonFitter because there is no variation whatsoever, and PFitter doesn't handle that case.\n";
-      #  }
-      #  print "PoissonFitter Determination: Degenerate Phylogeny (all seqs are the same)\n";
-      #  print "PoissonFitter Poisson Fit: NA\n";
-      #  print "DS Poisson Fit: $DS_PFitter_fitstext (R=$DS_PFitter_R).\n";
-      #  print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_distance_mean ($DS_PFitter_distance_ci_low, $DS_PFitter_distance_ci_high)\n";
-      #  print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_days_est ($PFitter_days_ci_low, $PFitter_days_ci_high)\n";
-      #  #print "\n$PFitter_fitter_stats_raw\n";
-      #  print "DS Poisson time estimate (95\% CI): $DS_PFitter_days_est ($DS_PFitter_days_ci_low, $DS_PFitter_days_ci_high)\n";
-      #  print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_days_est ($Bayesian_PFitter_days_ci_low, $Bayesian_PFitter_days_ci_high)\n";
-      #} else {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="$run_DSPFitter"; export runPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
         }
-        if( $fasta_file_mask_out_nonsynonymous_codons_in_PFitter ) {
-          $maybe_masked = "maskNonsynonymousCodons_";
-        }
         my $PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         ( $PFitter_lambda, $PFitter_se, $PFitter_nseq, $PFitter_nbases, $PFitter_mean_hd, $PFitter_max_hd, $PFitter_days_est_and_ci, $PFitter_chi_sq_stat, $PFitter_chi_sq_df, $PFitter_chi_sq_p_value  ) =
           (
            $PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
         ( $PFitter_days_est, $PFitter_days_ci_low, $PFitter_days_ci_high ) =
           ( $PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
 
-        $is_poisson = ( defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 ) ) || 0;
+        $PFitter_is_poisson = ( defined( $PFitter_chi_sq_p_value ) && ( $PFitter_chi_sq_p_value > 0.05 ) ) || 0;
         my $starlike_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/CONVOLUTION.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/CONVOLUTION.results.txt`;
         if( $DEBUG ) {
           ## TODO: REMOVE
           # print "PoissonFitter RAW: $starlike_raw\n";
         }
-        my ( $starlike_text ) = ( $starlike_raw =~ /^.+(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*$/m );
-        $is_starlike = "0";
-        if( $starlike_text eq "FOLLOWS" ) {
-          $is_starlike = "1";
+        my ( $PFitter_starlike_text ) = ( $starlike_raw =~ /^.+(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*$/m );
+        $PFitter_is_starlike = "0";
+        if( $PFitter_starlike_text eq "FOLLOWS" ) {
+          $PFitter_is_starlike = "1";
         }
 
         # DS results
-        my $DSPFitter_outfile = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}PoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out";
+        my $DSPFitter_outfile = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_PoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out";
         if( !-e $DSPFitter_outfile ) {
           print( "UH OH: Missing DSPFitter output file \"$DSPFitter_outfile\"\n" );
         } else {
@@ -905,31 +997,31 @@ sub identify_founders {
           ( $DS_PFitter_assertion_low, $DS_PFitter_assertion_high, $DS_PFitter_R ) =
             ( $DSPFitter_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
     
-          ( $DS_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          ( $DS_PFitter_starlike_text, $DS_PFitter_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
           $DS_PFitter_is_starlike = "0";
-          if( $DS_starlike_text eq "FOLLOWS" ) {
+          if( $DS_PFitter_starlike_text eq "FOLLOWS" ) {
             $DS_PFitter_is_starlike = "1";
           }
-          ( $DS_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          ( $DS_PFitter_lower_starlike_text, $DS_PFitter_lower_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
           $DS_PFitter_lower_is_starlike = "0";
-          if( $DS_lower_starlike_text eq "FOLLOWS" ) {
+          if( $DS_PFitter_lower_starlike_text eq "FOLLOWS" ) {
             $DS_PFitter_lower_is_starlike = "1";
           }
-          ( $DS_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          ( $DS_PFitter_upper_starlike_text, $DS_PFitter_upper_starlike_pvalue ) = ( $DSPFitter_fitter_stats_raw =~ /^DSPFitter upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
           $DS_PFitter_upper_is_starlike = "0";
-          if( $DS_upper_starlike_text eq "FOLLOWS" ) {
+          if( $DS_PFitter_upper_starlike_text eq "FOLLOWS" ) {
             $DS_PFitter_upper_is_starlike = "1";
           }
         } # End if the DSPFitter output file exists.
 
         print "PoissonFitter Determination: ";
-        if( $is_starlike ) {
+        if( $PFitter_is_starlike ) {
           print "Star-Like Phylogeny";
         } else {
           print "Non-Star-Like Phylogeny";
         }
         print "\nPoissonFitter Poisson Fit: ";
-        if( $is_poisson ) {
+        if( $PFitter_is_poisson ) {
           print "OK\n";
         } else {
           print "BAD (p = $PFitter_chi_sq_p_value)\n";
@@ -971,8 +1063,8 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
       print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_df;
       print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_p_value;
-      print OUTPUT_TABLE_FH "\t", $is_poisson;
-      print OUTPUT_TABLE_FH "\t", $is_starlike;
+      print OUTPUT_TABLE_FH "\t", $PFitter_is_poisson;
+      print OUTPUT_TABLE_FH "\t", $PFitter_is_starlike;
       print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_est;
       print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_low;
       print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_high;
@@ -999,8 +1091,156 @@ sub identify_founders {
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_is_starlike;
       print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_starlike_pvalue;
 
-      ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter tests, and its diversity is sufficiently high.
-      if( ( ( defined( $mean_diversity ) ? ( ( $mean_diversity > $mean_diversity_threshold ) && ( $mean_diversity > 0 ) ) : 1 ) ) && ( ( $DS_PFitter_fits eq "0" ) || ( ( $DS_PFitter_is_starlike eq "0" ) ) ) ) {
+      ## TODO: Add support for using genecutter to handle NFLGs (and other non-codon-aligned and/or multi-gene input).
+        if( $VERBOSE ) {
+          print "\nCalling R to run PoissonFitter again, masking out nonsynonymous codons..";
+        }
+        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSPFitter="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="TRUE"; R -f runPoissonFitter.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print( $R_output );
+          print( "done.\n" );
+        }
+        my $PFitter_synonymous_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_PoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+        ( $PFitter_synonymous_lambda, $PFitter_synonymous_se, $PFitter_synonymous_nseq, $PFitter_synonymous_nbases, $PFitter_synonymous_mean_hd, $PFitter_synonymous_max_hd, $PFitter_synonymous_days_est_and_ci, $PFitter_synonymous_chi_sq_stat, $PFitter_synonymous_chi_sq_df, $PFitter_synonymous_chi_sq_p_value  ) =
+          (
+           $PFitter_synonymous_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+        ( $PFitter_synonymous_days_est, $PFitter_synonymous_days_ci_low, $PFitter_synonymous_days_ci_high ) =
+          ( $PFitter_synonymous_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+
+        $PFitter_synonymous_is_poisson = ( defined( $PFitter_synonymous_chi_sq_p_value ) && ( $PFitter_synonymous_chi_sq_p_value > 0.05 ) ) || 0;
+        $starlike_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_PoissonFitterDir/CONVOLUTION.results.txt`;
+        if( $DEBUG ) {
+          ## TODO: REMOVE
+          # print "PoissonFitter RAW: $starlike_raw\n";
+        }
+        my ( $PFitter_synonymous_starlike_text ) = ( $starlike_raw =~ /^.+(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*$/m );
+        $PFitter_synonymous_is_starlike = "0";
+        if( $PFitter_synonymous_starlike_text eq "FOLLOWS" ) {
+          $PFitter_synonymous_is_starlike = "1";
+        }
+
+        # DS results
+        my $DSPFitter_synonymous_outfile = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_PoissonFitterDir/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_DSPFitter_synonymous.out";
+        if( !-e $DSPFitter_synonymous_outfile ) {
+          print( "UH OH: Missing DSPFitter_synonymous output file \"$DSPFitter_synonymous_outfile\"\n" );
+        } else {
+          my $DSPFitter_synonymous_fitter_stats_raw =
+            `cat $DSPFitter_synonymous_outfile`;
+          ( $Bayesian_PFitter_synonymous_lambda_est, $Bayesian_PFitter_synonymous_lambda_ci_low, $Bayesian_PFitter_synonymous_lambda_ci_high ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /Bayesian PFitter_synonymous Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+          ( $Bayesian_PFitter_synonymous_days_est, $Bayesian_PFitter_synonymous_days_ci_low, $Bayesian_PFitter_synonymous_days_ci_high ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /Bayesian PFitter_synonymous Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+          ( $DS_PFitter_synonymous_lambda_est, $DS_PFitter_synonymous_lambda_ci_low, $DS_PFitter_synonymous_lambda_ci_high ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /DS PFitter_synonymous Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+          ( $DS_PFitter_synonymous_days_est, $DS_PFitter_synonymous_days_ci_low, $DS_PFitter_synonymous_days_ci_high ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /DS PFitter_synonymous Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+          ( $DS_PFitter_synonymous_distance_mean, $DS_PFitter_synonymous_distance_ci_low, $DS_PFitter_synonymous_distance_ci_high ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+          ( $DS_PFitter_synonymous_fitstext ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+          $DS_PFitter_synonymous_fits =
+            ( ( $DS_PFitter_synonymous_fitstext =~ /^OK$/ ) ? "1" : "0" );
+          ( $DS_PFitter_synonymous_assertion_low, $DS_PFitter_synonymous_assertion_high, $DS_PFitter_synonymous_R ) =
+            ( $DSPFitter_synonymous_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
+    
+          ( $DS_PFitter_synonymous_starlike_text, $DS_PFitter_synonymous_starlike_pvalue ) = ( $DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_synonymous_is_starlike = "0";
+          if( $DS_PFitter_synonymous_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_synonymous_is_starlike = "1";
+          }
+          ( $DS_PFitter_synonymous_lower_starlike_text, $DS_PFitter_synonymous_lower_starlike_pvalue ) = ( $DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_synonymous_lower_is_starlike = "0";
+          if( $DS_PFitter_synonymous_lower_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_synonymous_lower_is_starlike = "1";
+          }
+          ( $DS_PFitter_synonymous_upper_starlike_text, $DS_PFitter_synonymous_upper_starlike_pvalue ) = ( $DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+          $DS_PFitter_synonymous_upper_is_starlike = "0";
+          if( $DS_PFitter_synonymous_upper_starlike_text eq "FOLLOWS" ) {
+            $DS_PFitter_synonymous_upper_is_starlike = "1";
+          }
+        } # End if the DSPFitter_synonymous output file exists.
+
+        print "PoissonFitter Determination (masking out synonymous codons): ";
+        if( $PFitter_synonymous_is_starlike ) {
+          print "Star-Like Phylogeny";
+        } else {
+          print "Non-Star-Like Phylogeny";
+        }
+        print "\nPoissonFitter Poisson Fit: ";
+        if( $PFitter_synonymous_is_poisson ) {
+          print "OK\n";
+        } else {
+          print "BAD (p = $PFitter_synonymous_chi_sq_p_value)\n";
+        }
+        print "Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $DS_PFitter_synonymous_distance_mean ($DS_PFitter_synonymous_distance_ci_low, $DS_PFitter_synonymous_distance_ci_high)\n";
+        print "DS PoissonFitter Determination: ";
+        if( $DS_PFitter_synonymous_is_starlike ) {
+          print "Star-Like Phylogeny (p = $DS_PFitter_synonymous_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $DS_PFitter_synonymous_starlike_pvalue)\n";
+        }
+        print "DS lower PoissonFitter Determination (using 2.5th percentile of epsilon): ";
+        if( $DS_PFitter_synonymous_lower_is_starlike ) {
+          print "Star-Like Phylogeny (p = $DS_PFitter_synonymous_lower_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $DS_PFitter_synonymous_lower_starlike_pvalue)\n";
+        }
+        print "DS upper PoissonFitter Determination (using 97.5th percentile of epsilon): ";
+        if( $DS_PFitter_synonymous_upper_is_starlike ) {
+          print "Star-Like Phylogeny (p = $DS_PFitter_synonymous_upper_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $DS_PFitter_synonymous_upper_starlike_pvalue)\n";
+        }
+        print "DS Poisson Fit: $DS_PFitter_synonymous_fitstext (R=$DS_PFitter_synonymous_R).\n";
+        print "PoissonFitter Poisson time estimate (95\% CI): $PFitter_synonymous_days_est ($PFitter_synonymous_days_ci_low, $PFitter_synonymous_days_ci_high)\n";
+        #print "\n$PFitter_synonymous_fitter_stats_raw\n";
+        print "DS Poisson time estimate (95\% CI): $DS_PFitter_synonymous_days_est ($DS_PFitter_synonymous_days_ci_low, $DS_PFitter_synonymous_days_ci_high)\n";
+        print "Bayesian Poisson time estimate (95\% CI): $Bayesian_PFitter_synonymous_days_est ($Bayesian_PFitter_synonymous_days_ci_low, $Bayesian_PFitter_synonymous_days_ci_high)\n";
+      #} # End if( $mean_diversity > 0 );
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_lambda;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_se;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_nseq;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_nbases;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_mean_hd;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_max_hd;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_est;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_ci_low;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_ci_high;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_stat;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_df;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_p_value;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_is_poisson;
+      print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_is_starlike;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_est;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_ci_low;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_ci_high;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_est;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_ci_low;
+      print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_est;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_est;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_mean;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_ci_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_ci_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_assertion_low;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_assertion_high;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_fits;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_R;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_is_starlike;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_starlike_pvalue;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lower_is_starlike;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lower_starlike_pvalue;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_upper_is_starlike;
+      print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_upper_starlike_pvalue;
+
+      ## I'll call it more than one cluster if it doesn't conform to the model by one of the two DS versions of the PFitter_synonymous tests, and its diversity is sufficiently high.
+      if( ( ( defined( $mean_diversity ) ? ( ( $mean_diversity > $mean_diversity_threshold ) && ( $mean_diversity > 0 ) ) : 1 ) ) && ( ( $DS_PFitter_synonymous_fits eq "0" ) || ( ( $DS_PFitter_synonymous_is_starlike eq "0" ) ) ) ) {
         $paul_calls_one_cluster = 0;
       }
       if( $paul_calls_one_cluster ) {
@@ -1009,7 +1249,7 @@ sub identify_founders {
         print "Number of founders estimated using p-values from DSPfitter is: greater than 1\n";
       }
 
-      ## "is.one.founder.alt":
+      ## "StarPhy.is.one.founder":
       print OUTPUT_TABLE_FH "\t", $paul_calls_one_cluster;
     } # End if( $run_PFitter )
 
@@ -1078,8 +1318,8 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_stat;
         print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_df;
         print OUTPUT_TABLE_FH "\t", $PFitter_chi_sq_p_value;
-        print OUTPUT_TABLE_FH "\t", $is_poisson;
-#        print OUTPUT_TABLE_FH "\t", $is_starlike;
+        print OUTPUT_TABLE_FH "\t", $PFitter_is_poisson;
+#        print OUTPUT_TABLE_FH "\t", $PFitter_is_starlike;
         print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_est;
         print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_low;
         print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_lambda_ci_high;
@@ -1105,39 +1345,82 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $DS_PFitter_lower_starlike_pvalue;
         print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_is_starlike;
         print OUTPUT_TABLE_FH "\t", $DS_PFitter_upper_starlike_pvalue;
+
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_lambda;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_se;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_nseq;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_nbases;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_max_hd;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_is_poisson;
+#        print OUTPUT_TABLE_FH "\t", $PFitter_synonymous_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $Bayesian_PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_mean;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_ci_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_distance_ci_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_assertion_low;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_assertion_high;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_fits;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_R;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_starlike_pvalue;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lower_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_lower_starlike_pvalue;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_upper_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $DS_PFitter_synonymous_upper_starlike_pvalue;
+
       } else {
         die unless( $num_clusters > 1 );
+        ## Do this twice, the second time with "maskOutNonsynonymousCodons".
+
         ## Now run PoissonFitter on the clusters.
         if( $VERBOSE ) {
           print "Calling R to run MultiFounderPoissonFitter..";
         }
-        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
         if( $VERBOSE ) {
           print( $R_output );
           print( "done.\n" );
         }
         my $multifounder_PFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
         #print "\$multifounder_PFitter_fitter_stats_raw: $multifounder_PFitter_fitter_stats_raw\n";
         my ( $multifounder_PFitter_lambda, $multifounder_PFitter_se, $multifounder_PFitter_nseq, $multifounder_PFitter_nbases, $multifounder_PFitter_mean_hd, $multifounder_PFitter_max_hd, $multifounder_PFitter_days_est_and_ci, $multifounder_PFitter_chi_sq_stat, $multifounder_PFitter_chi_sq_df, $multifounder_PFitter_chi_sq_p_value  ) =
           (
            $multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
         my ( $multifounder_PFitter_days_est, $multifounder_PFitter_days_ci_low, $multifounder_PFitter_days_ci_high ) =
           ( $multifounder_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
-        my $multifounder_is_poisson = ( defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
+        my $multifounder_PFitter_is_poisson = ( defined( $multifounder_PFitter_chi_sq_p_value ) && ( $multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
          ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
          # my $multifounder_starlike_raw =
-         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
          # if( $DEBUG ) {
          #   ## TODO: REMOVE
          #   #print "MULTI-FOUNDER PoissonFitter RAW: $multifounder_starlike_raw\n";
          # }
          # my ( $multifounder_starlike_text ) = ( $multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-         # my $multifounder_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
+         # my $multifounder_PFitter_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
  
         # DS results
         my $multifounder_DSPFitter_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_${maybe_masked}DSPFitter.out`;
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSPFitter.out`;
         my ( $multifounder_Bayesian_PFitter_lambda_est, $multifounder_Bayesian_PFitter_lambda_ci_low, $multifounder_Bayesian_PFitter_lambda_ci_high ) =
            ( $multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
         my ( $multifounder_Bayesian_PFitter_days_est, $multifounder_Bayesian_PFitter_days_ci_low, $multifounder_Bayesian_PFitter_days_ci_high ) =
@@ -1174,7 +1457,7 @@ sub identify_founders {
         }
 
          # print "Multi-Founder PoissonFitter Determination: ";
-         # if( $multifounder_is_starlike ) {
+         # if( $multifounder_PFitter_is_starlike ) {
          #   print "Star-Like Phylogenies within clusters";
          # } else {
          #   print "Non-Star-Like Phylogenies within clusters";
@@ -1216,8 +1499,8 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_stat;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_df;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_p_value;
-        print OUTPUT_TABLE_FH "\t", $multifounder_is_poisson;
- #       print OUTPUT_TABLE_FH "\t", $multifounder_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_is_poisson;
+ #       print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_is_starlike;
         print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_est;
         print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_ci_low;
         print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_lambda_ci_high;
@@ -1243,6 +1526,146 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_lower_starlike_pvalue;
         print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_upper_is_starlike;
         print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_upper_starlike_pvalue;
+
+        ## mark
+
+        ## Now run PoissonFitter on the clusters.
+        if( $VERBOSE ) {
+          print "Calling R to run MultiFounderPoissonFitter again, masking out nonsynonymous codons..";
+        }
+        $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix="${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}"; export runMultiFounderPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runMultiFounderPoissonFitter_suffixPattern=""; export runMultiFounderPoissonFitter_runDSPFitter="TRUE"; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="TRUE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+        if( $VERBOSE ) {
+          print( $R_output );
+          print( "done.\n" );
+        }
+        my $multifounder_PFitter_synonymous_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_MultiFounderPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+        #print "\$multifounder_PFitter_synonymous_fitter_stats_raw: $multifounder_PFitter_synonymous_fitter_stats_raw\n";
+        my ( $multifounder_PFitter_synonymous_lambda, $multifounder_PFitter_synonymous_se, $multifounder_PFitter_synonymous_nseq, $multifounder_PFitter_synonymous_nbases, $multifounder_PFitter_synonymous_mean_hd, $multifounder_PFitter_synonymous_max_hd, $multifounder_PFitter_synonymous_days_est_and_ci, $multifounder_PFitter_synonymous_chi_sq_stat, $multifounder_PFitter_synonymous_chi_sq_df, $multifounder_PFitter_synonymous_chi_sq_p_value  ) =
+          (
+           $multifounder_PFitter_synonymous_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
+        my ( $multifounder_PFitter_synonymous_days_est, $multifounder_PFitter_synonymous_days_ci_low, $multifounder_PFitter_synonymous_days_ci_high ) =
+          ( $multifounder_PFitter_synonymous_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
+        my $multifounder_PFitter_synonymous_is_poisson = ( defined( $multifounder_PFitter_synonymous_chi_sq_p_value ) && ( $multifounder_PFitter_synonymous_chi_sq_p_value > 0.05 ) ) || 0;
+         ## NOTE THAT the convolution is not set up to handle multi-founder data because the convolution should be done within each founder; so for now we just exclude these results.  TODO: implement multi-founder version of the convolution.
+         # my $multifounder_starlike_raw =
+         #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_MultiFounderPoissonFitterDir/CONVOLUTION.results.txt`;
+         # if( $DEBUG ) {
+         #   ## TODO: REMOVE
+         #   #print "MULTI-FOUNDER PoissonFitter RAW: $multifounder_starlike_raw\n";
+         # }
+         # my ( $multifounder_starlike_text ) = ( $multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
+         # my $multifounder_PFitter_synonymous_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
+ 
+        # DS results
+        my $multifounder_DSPFitter_synonymous_fitter_stats_raw =
+          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_DSPFitter_synonymous.out`;
+        my ( $multifounder_Bayesian_PFitter_synonymous_lambda_est, $multifounder_Bayesian_PFitter_synonymous_lambda_ci_low, $multifounder_Bayesian_PFitter_synonymous_lambda_ci_high ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /Bayesian PFitter_synonymous Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        my ( $multifounder_Bayesian_PFitter_synonymous_days_est, $multifounder_Bayesian_PFitter_synonymous_days_ci_low, $multifounder_Bayesian_PFitter_synonymous_days_ci_high ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /Bayesian PFitter_synonymous Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        my ( $multifounder_DS_PFitter_synonymous_lambda_est, $multifounder_DS_PFitter_synonymous_lambda_ci_low, $multifounder_DS_PFitter_synonymous_lambda_ci_high ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /DS PFitter_synonymous Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
+        my ( $multifounder_DS_PFitter_synonymous_days_est, $multifounder_DS_PFitter_synonymous_days_ci_low, $multifounder_DS_PFitter_synonymous_days_ci_high ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /DS PFitter_synonymous Estimated Days: (\S+) \((\S+), (\S+)\)/ );
+        my ( $multifounder_DS_PFitter_synonymous_distance_mean, $multifounder_DS_PFitter_synonymous_distance_ci_low, $multifounder_DS_PFitter_synonymous_distance_ci_high ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /It seems that the CDF of the closest Poisson distribution is roughly (\S+)% away from the pepr-sampled empirical CDFs \(middle 95% (\S+) to (\S+)\)./ );
+        my ( $multifounder_DS_PFitter_synonymous_fitstext ) =
+           ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous test that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+        my $multifounder_DS_PFitter_synonymous_fits = "0";
+        if( $multifounder_DS_PFitter_synonymous_fitstext =~ /^OK$/ ) {
+          $multifounder_DS_PFitter_synonymous_fits = "1";
+        }
+        my ( $multifounder_DS_PFitter_synonymous_assertion_low, $multifounder_DS_PFitter_synonymous_assertion_high, $multifounder_DS_PFitter_synonymous_R ) =
+          ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(R \<?= (\S+)\)/ );
+
+          my ( $multifounder_DS_starlike_text, $multifounder_DS_PFitter_synonymous_starlike_pvalue ) = ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multifounder_DS_PFitter_synonymous_is_starlike = "0";
+        if( $multifounder_DS_starlike_text eq "FOLLOWS" ) {
+          $multifounder_DS_PFitter_synonymous_is_starlike = "1";
+        }
+          my ( $multifounder_DS_lower_starlike_text, $multifounder_DS_PFitter_synonymous_lower_starlike_pvalue ) = ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous lower convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multifounder_DS_PFitter_synonymous_lower_is_starlike = "0";
+        if( $multifounder_DS_lower_starlike_text eq "FOLLOWS" ) {
+          $multifounder_DS_PFitter_synonymous_lower_is_starlike = "1";
+        }
+        my ( $multifounder_DS_upper_starlike_text, $multifounder_DS_PFitter_synonymous_upper_starlike_pvalue ) = ( $multifounder_DSPFitter_synonymous_fitter_stats_raw =~ /^DSPFitter_synonymous upper convolution test: (FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY\s*\(P (?:= )?([^\(]+)\)\s*$/m );
+        my $multifounder_DS_PFitter_synonymous_upper_is_starlike = "0";
+        if( $multifounder_DS_upper_starlike_text eq "FOLLOWS" ) {
+          $multifounder_DS_PFitter_synonymous_upper_is_starlike = "1";
+        }
+
+         # print "Multi-Founder PoissonFitter Determination: ";
+         # if( $multifounder_PFitter_synonymous_is_starlike ) {
+         #   print "Star-Like Phylogenies within clusters";
+         # } else {
+         #   print "Non-Star-Like Phylogenies within clusters";
+        # }
+        print "Multi-Founder Average distance to nearest Poisson CDF (2.5%, 97.5% quantiles): $multifounder_DS_PFitter_synonymous_distance_mean ($multifounder_DS_PFitter_synonymous_distance_ci_low, $multifounder_DS_PFitter_synonymous_distance_ci_high)\n";
+        print "Multi-Founder DS PoissonFitter Determination: ";
+        if( $multifounder_DS_PFitter_synonymous_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_starlike_pvalue)\n";
+        }
+        print "Multi-Founder DS lower PoissonFitter Determination (using 2.5th percentile of epsilon): ";
+        if( $multifounder_DS_PFitter_synonymous_lower_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_lower_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_lower_starlike_pvalue)\n";
+        }
+        print "Multi-Founder DS upper PoissonFitter Determination (using 97.5th percentile of epsilon): ";
+        if( $multifounder_DS_PFitter_synonymous_upper_is_starlike ) {
+          print "Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_upper_starlike_pvalue)\n";
+        } else {
+          print "Non-Star-Like Phylogeny (p = $multifounder_DS_PFitter_synonymous_upper_starlike_pvalue)\n";
+        }
+        print "Multi-Founder DS Poisson Fit: $multifounder_DS_PFitter_synonymous_fitstext (R=$multifounder_DS_PFitter_synonymous_R).\n";
+        print "Multi-Founder PoissonFitter Poisson time estimate (95\% CI): $multifounder_PFitter_synonymous_days_est ($multifounder_PFitter_synonymous_days_ci_low, $multifounder_PFitter_synonymous_days_ci_high)\n";
+        print "Multi-Founder DS Poisson time estimate (95\% CI): $multifounder_DS_PFitter_synonymous_days_est ($multifounder_DS_PFitter_synonymous_days_ci_low, $multifounder_DS_PFitter_synonymous_days_ci_high)\n";
+        print "Multi-Founder Bayesian Poisson time estimate (95\% CI): $multifounder_Bayesian_PFitter_synonymous_days_est ($multifounder_Bayesian_PFitter_synonymous_days_ci_low, $multifounder_Bayesian_PFitter_synonymous_days_ci_high)\n";
+        #print "\n$multifounder_PFitter_synonymous_fitter_stats_raw\n";
+        
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_lambda;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_se;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_nseq;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_nbases;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_mean_hd;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_max_hd;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_chi_sq_stat;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_chi_sq_df;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_chi_sq_p_value;
+        print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_is_poisson;
+ #       print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_Bayesian_PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_lambda_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_lambda_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_lambda_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_days_est;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_days_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_days_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_distance_mean;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_distance_ci_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_distance_ci_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_assertion_low;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_assertion_high;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_fits;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_R;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_starlike_pvalue;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_lower_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_lower_starlike_pvalue;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_upper_is_starlike;
+        print OUTPUT_TABLE_FH "\t", $multifounder_DS_PFitter_synonymous_upper_starlike_pvalue;
+        ## endmark
       } # End if $num_clusters > 1
     } # End if $run_PFitter
 
@@ -1374,13 +1797,13 @@ sub identify_founders {
           my $suffix_pattern = join( "\.fasta|", @file_suffixes ) . "\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           # print "\$suffix_pattern: $suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
             print( "done.\n" );
           }
           my $multi_region_PFitter_fitter_stats_raw =
-            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
           my ( $multi_region_PFitter_lambda, $multi_region_PFitter_se, $multi_region_PFitter_nseq, $multi_region_PFitter_nbases, $multi_region_PFitter_mean_hd, $multi_region_PFitter_max_hd, $multi_region_PFitter_days_est_and_ci, $multi_region_PFitter_chi_sq_stat, $multi_region_PFitter_chi_sq_df, $multi_region_PFitter_chi_sq_p_value  ) =
             (
              $multi_region_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
@@ -1389,7 +1812,7 @@ sub identify_founders {
           my $multi_region_is_poisson = ( defined( $multi_region_PFitter_chi_sq_p_value ) && ( $multi_region_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_starlike_raw =
-          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
           # if( $DEBUG ) {
           #   ## TODO: REMOVE
           #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_starlike_raw\n";
@@ -1399,7 +1822,7 @@ sub identify_founders {
 
          # DS results
          my $multi_region_DSPFitter_fitter_stats_raw =
-           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_${maybe_masked}DSPFitter.out`;
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
          my ( $multi_region_Bayesian_PFitter_lambda_est, $multi_region_Bayesian_PFitter_lambda_ci_low, $multi_region_Bayesian_PFitter_lambda_ci_high ) =
             ( $multi_region_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
          my ( $multi_region_Bayesian_PFitter_days_est, $multi_region_Bayesian_PFitter_days_ci_low, $multi_region_Bayesian_PFitter_days_ci_high ) =
@@ -1436,13 +1859,13 @@ sub identify_founders {
         }
           
 #         print "Multi-Region PoissonFitter Determination: ";
-#         if( $is_starlike ) {
+#         if( $PFitter_is_starlike ) {
 #           print "Star-Like Phylogeny\n";
 #         } else {
 #           print "Non-Star-Like Phylogeny\n";
 #         }
         print "Multi-Region PoissonFitter Poisson Fit: ";
-        if( $is_poisson ) {
+        if( $PFitter_is_poisson ) {
           print "OK\n";
         } else {
           print "BAD (p = $PFitter_chi_sq_p_value)\n";
@@ -1526,32 +1949,32 @@ sub identify_founders {
           my $multifounder_suffix_pattern = join( "\\.fasta|", @multifounder_file_suffixes ) . "\\.fasta";
           # print "\$fasta_file_very_short: $fasta_file_very_short\n";
           # print "multi-region multi-founder \$multifounder_suffix_pattern: $multifounder_suffix_pattern\n";
-          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$multifounder_suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="$fasta_file_mask_out_nonsynonymous_codons_in_PFitter"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
+          $R_output = `export runMultiFounderPoissonFitter_inputFilenamePrefix='${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}'; export runMultiFounderPoissonFitter_suffixPattern='$multifounder_suffix_pattern'; export runMultiFounderPoissonFitter_outputDir='$output_path_dir_for_input_fasta_file'; export runMultiFounderPoissonFitter_runDSPFitter='TRUE'; export runMultiFounderPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runMultiFounderPoissonFitter.R --vanilla --slave`;
           if( $VERBOSE ) {
             print $R_output;
             print( "done.\n" );
           }
           my $multi_region_multifounder_PFitter_fitter_stats_raw =
-            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
+            `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/LOG_LIKELIHOOD.results.txt`;
           my ( $multi_region_multifounder_PFitter_lambda, $multi_region_multifounder_PFitter_se, $multi_region_multifounder_PFitter_nseq, $multi_region_multifounder_PFitter_nbases, $multi_region_multifounder_PFitter_mean_hd, $multi_region_multifounder_PFitter_max_hd, $multi_region_multifounder_PFitter_days_est_and_ci, $multi_region_multifounder_PFitter_chi_sq_stat, $multi_region_multifounder_PFitter_chi_sq_df, $multi_region_multifounder_PFitter_chi_sq_p_value  ) =
             (
              $multi_region_multifounder_PFitter_fitter_stats_raw =~ /\n[^\t]+\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t(\S+)\s*$/ );
          my ( $multi_region_multifounder_PFitter_days_est, $multi_region_multifounder_PFitter_days_ci_low, $multi_region_multifounder_PFitter_days_ci_high ) =
            ( $multi_region_multifounder_PFitter_days_est_and_ci =~ /(\S+) \((\S+), (\S+)\)/ );
-          my $multi_region_multifounder_is_poisson = ( defined( $multi_region_multifounder_PFitter_chi_sq_p_value ) && ( $multi_region_multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
+          my $multi_region_multifounder_PFitter_synonymous_is_poisson = ( defined( $multi_region_multifounder_PFitter_chi_sq_p_value ) && ( $multi_region_multifounder_PFitter_chi_sq_p_value > 0.05 ) ) || 0;
           ## NOTE THAT the convolution is not set up to handle multi-region data because the convolution should be done within each region; so for now we just exclude these results.  TODO: implement multi-region version of the convolution.
           # my $multi_region_multifounder_starlike_raw =
-          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_${maybe_masked}MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
+          #   `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiRegionPoissonFitterDir/CONVOLUTION.results.txt`;
           # if( $DEBUG ) {
           #   ## TODO: REMOVE
           #   #print "MULTI-REGION PoissonFitter RAW: $multi_region_multifounder_starlike_raw\n";
           # }
           # my ( $multi_region_multifounder_starlike_text ) = ( $multi_region_multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
-          # my $multi_region_multifounder_is_starlike = ( $multi_region_multifounder_starlike_text eq "FOLLOWS" );
+          # my $multi_region_multifounder_PFitter_synonymous_is_starlike = ( $multi_region_multifounder_starlike_text eq "FOLLOWS" );
 
          # DS results
          my $multi_region_multifounder_DSPFitter_fitter_stats_raw =
-           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_${maybe_masked}MultiRegionPoissonFitterDir/${fasta_file_very_short}_${maybe_masked}DSPFitter.out`;
+           `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_very_short}_MultiRegionPoissonFitterDir/${fasta_file_very_short}_DSPFitter.out`;
          my ( $multi_region_multifounder_Bayesian_PFitter_lambda_est, $multi_region_multifounder_Bayesian_PFitter_lambda_ci_low, $multi_region_multifounder_Bayesian_PFitter_lambda_ci_high ) =
             ( $multi_region_multifounder_DSPFitter_fitter_stats_raw =~ /Bayesian PFitter Estimated Lambda is (\S+) \(95% CI (\S+) to (\S+)\)/ );
          my ( $multi_region_multifounder_Bayesian_PFitter_days_est, $multi_region_multifounder_Bayesian_PFitter_days_ci_low, $multi_region_multifounder_Bayesian_PFitter_days_ci_high ) =
@@ -1588,13 +2011,13 @@ sub identify_founders {
         }
           
 #         print "Multi-Region Multi-Founder PoissonFitter Determination: ";
-#         if( $is_starlike ) {
+#         if( $PFitter_is_starlike ) {
 #           print "Star-Like Phylogeny\n";
 #         } else {
 #           print "Non-Star-Like Phylogeny\n";
 #         }
         print "Multi-Region Multi-Founder PoissonFitter Poisson Fit: ";
-        if( $is_poisson ) {
+        if( $PFitter_is_poisson ) {
           print "OK\n";
         } else {
           print "BAD (p = $PFitter_chi_sq_p_value)\n";
@@ -1674,7 +2097,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_df;
           print OUTPUT_TABLE_FH "\t", $multi_region_PFitter_chi_sq_p_value;
           print OUTPUT_TABLE_FH "\t", $multi_region_is_poisson;
-          print OUTPUT_TABLE_FH "\t", "NA"; # is.starlike
+          print OUTPUT_TABLE_FH "\t", "NA"; # PFitter.is.starlike
           print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_est;
           print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_low;
           print OUTPUT_TABLE_FH "\t", $multi_region_Bayesian_PFitter_lambda_ci_high;
@@ -1713,7 +2136,7 @@ sub identify_founders {
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_stat;
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_df;
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_chi_sq_p_value;
-          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_is_poisson;
+          print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_PFitter_synonymous_is_poisson;
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_est;
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_ci_low;
           print OUTPUT_TABLE_FH "\t", $multi_region_multifounder_Bayesian_PFitter_lambda_ci_high;
@@ -1744,13 +2167,13 @@ sub identify_founders {
             print OUTPUT_TABLE_FH "\t", "NA"; # "profillic.founders"
           } # End if $run_profillic
           if( $run_InSites_and_PhyML || $run_PFitter ) {
-            print OUTPUT_TABLE_FH "\t", "NA"; # "insites.clusters"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "inf.sites.clusters"
           }
           if( $run_InSites_and_PhyML ) {
-            print OUTPUT_TABLE_FH "\t", "NA"; # "insites.founders"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "InSites.founders"
           }
           if( $run_PFitter ) {
-            print OUTPUT_TABLE_FH "\t", "NA"; # "starphy.founders"
+            print OUTPUT_TABLE_FH "\t", "NA"; # "StarPhy.founders"
           }
           print OUTPUT_TABLE_FH "\n";
 
