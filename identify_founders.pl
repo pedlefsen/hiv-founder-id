@@ -1255,7 +1255,7 @@ sub identify_founders {
 
     my $num_clusters = undef;
     if( $run_InSites_and_PhyML || $run_PFitter ) {
-      foreach my $force_one_cluster ( 0, 1 ) {
+      foreach my $force_one_cluster ( 1, 0 ) { ## See NOTE below.
         my $tmp_extra_flags = $extra_flags;
         if( $force_one_cluster ) {
           $tmp_extra_flags .= "-f ";
@@ -1272,6 +1272,7 @@ sub identify_founders {
           ## Now create a single output file with all of the cluster founders.
           if( $num_clusters == 1 ) {
             # Ok so the "multiplefounders" is just the "singlefounder".
+            ### NOTE HERE WE ASSUME THAT $force_one_cluster == 1 is run BEFORE $force_one_cluster == 0.
             `cp ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_singlefounder_cons.fasta ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_multiplefounders_cons.fasta`;
           } else { # if $num_clusters == 1 .. else ..
             # Just append them all together.
