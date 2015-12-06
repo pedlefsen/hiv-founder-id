@@ -220,10 +220,11 @@ sub identify_founders {
   # opt_I means run inSites online (instead of offline)
   # opt_i is the insites threshold to use for all regions except v3 (default: 0.85).
   # opt_v is the insites threshold to use for v3 (default: 0.33).
+  # opt_T means don't train the profillic profile, just use the converted alignment directly.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_r ) = ();
-  if( not getopts('DVo:O:CPRFEHfw:nIi:v:r') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_n, $opt_I, $opt_i, $opt_v, $opt_T, $opt_r ) = ();
+  if( not getopts('DVo:O:CPRFEHfw:nIi:v:Tr') ) {
     identify_founders_usage();
   }
   
@@ -242,6 +243,7 @@ sub identify_founders {
   my $in_sites_ratio_threshold = $opt_i || 0.85; # For Abrahams and RV217
   my $in_sites_ratio_threshold_v3 = $opt_v || 0.33; # For caprisa002
   my $runInSites_online = $opt_I || 0;
+  my $train_profillic_profile = !$opt_T;
   my $recurse_on_clusters = $opt_r || 0;
 
   ## TODO: make into an arg
@@ -1251,7 +1253,11 @@ sub identify_founders {
           print "Running Profillic..\n";
         }
         my $alignment_profiles_output_files_list_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_profillic_AlignmentProfilesList.txt";
-        my $runProfillic_output = `perl runProfillic.pl $extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
+        my $profillic_extra_flags = $extra_flags;
+        if( $train_profillic_profile ) {
+          $profillic_extra_flags .= " -t";
+        }
+        my $runProfillic_output = `perl runProfillic.pl $profillic_extra_flags $fasta_file $alignment_profiles_output_files_list_file $output_path_dir_for_input_fasta_file`;
         if( $VERBOSE ) {
           print( $runProfillic_output );
         }
