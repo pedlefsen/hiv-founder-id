@@ -15,4 +15,4 @@ export outputFile=${outputDir}/identify_founders.out
 export errFile=${outputDir}/${patient}.err
 touch $errFile
 export listFile=${mainDir}/processed_${patient}.list
-perl -w ./identify_founders.pl -HRT -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+perl -w ./identify_founders.pl -HRP -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
