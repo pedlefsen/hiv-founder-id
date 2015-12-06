@@ -7,8 +7,9 @@
 # TAH 11/15
 ##
 export mainDir=$1
-export patient=$2
-export outputDir=./hiv_founder_id_processed_${patient}
+export outDir=$2
+export patient=$3
+export outputDir=${outDir}/hiv_founder_id_processed_${patient}
 rm -rf ${outputDir}
 mkdir ${outputDir}
 export outputFile=${outputDir}/identify_founders.out

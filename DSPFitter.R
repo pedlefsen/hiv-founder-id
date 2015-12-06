@@ -110,6 +110,7 @@ PoissonDSM.calculatePlausibilityOfSingletons <- function ( xs, observed.counts, 
 PoissonDSM.calculatePlausibilityOfSingletons.integratedPlausibility <- function( .dta, log.result = FALSE ) {
     if( log.result ) {
         # First get a sense of what the scale factor should be; look at the peak.
+        .mean.dta <- mean( .dta );
         if( .mean.dta == 0 ) {
           .scale.factor <- 0;
         } else {
