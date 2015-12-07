@@ -142,9 +142,15 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             return( 1 );
         }
     } # evaluateOneAlignedPair (..)
-    computeRelevantDistancesForOneAAFile <- function ( filename ) {
-        fasta.in <-
-            readAAMultipleAlignment( filename, "fasta" );
+    
+    computeRelevantDistancesForOneFile <- function ( filename, file.is.aa ) {
+        if( file.is.aa ) {
+            fasta.in <-
+                readAAMultipleAlignment( filename, "fasta" );
+        } else {
+            fasta.in <-
+                readDNAMultipleAlignment( filename, "fasta" );
+        }
         fasta.mat <- t( apply( as.matrix( 1:nrow( fasta.in ) ), 1, function ( i ) {
             s2c( as.character( unmasked( fasta.in )[ i, ] ) )
         } ) );
@@ -189,65 +195,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             } # End foreach ref.j
         } # End foreach est.i
         return( list( HD.includingGaps = hamming.distances.including.gaps, denominator.includingGaps = denominator.including.gaps, HD.ignoringGaps = hamming.distances.ignoring.gaps, denominator.ignoringGaps = denominator.ignoring.gaps ) );
-    } # computeRelevantDistancesForOneAAFile (..)
-
-    ## WAAY TOO HARD.
-#     # A recursive function that maintains a list of options to consider, maintained in the form of rows of a matrix, in which columns are the subsolution, represented as estimated-founder indices wherever the subsolution has mapped a true founder to an estimated founder.  So the matrix.of.HDs has as many columns as the matrix.of.HDs, and as many rows as there are tied-subsolutions so far.  Return value is a matrix of best solutions and their value.
-#     recursivelyChoooseBestPairing <- function ( matrix.of.mean.HDs, matrix.of.best.subsolutions = NULL, value.of.best.subsolutions = 0 ) {
-#         if( is.null( matrix.of.best.subsolutions ) {
-#             new.value.of.best.subsolutions <-
-#                 base::min( matrix.of.mean.HDs, na.rm = TRUE );
-#             new.best.subsolutions.list <-
-#                 lapply( 1:ncol( matrix.of.mean.HDs ), function( .column.of.mean.HDs.j ) {
-#                     .column.of.mean.HDs <- matrix.of.mean.HDs[ , .column.of.mean.HDs.j ];
-#                     .number.of.best.subsolutions.in.column <-
-#                         sum( .column.of.mean.HDs == new.value.of.best.subsolutions );
-#                     ## Ok so each solution is a row with all NAs except one value, which is the estimates index (row of matrix.of.mean.HDs). the index of the non-NA value indicates the truths index (column) to which it matches.
-#                     .rv <- matrix( NA, ncol = length( .column.of.mean.HDs ), nrow = .number.of.best.subsolutions.in.column );
-#                     for( .new.solution.i in 1:.number.of.best.subsolutions.in.column ) {
-#                         .rv[ .new.solution.i, .column.of.mean.HDs.j ] <-
-#                             which( .column.of.mean.HDs == new.value.of.best.subsolutions )[ .new.solution.i ];
-#                     }
-#                     return( .rv );
-#                 } );
-#             new.best.subsolutions <-
-#                 do.call( rbind, new.best.subsolutions.list );
-#         } else {
-#             min.values.by.best.subsolution <-
-#                 apply( matrix.of.best.subsolutions, 1, function( .best.subsolution ) {
-#                     .remaining.matrix <- matrix.of.mean.HDs;
-#                     .remaining.matrix[ , !is.na( .best.subsolution ) ] <- NA;
-#                     return( base::min( .remaining.matrix, na.rm = TRUE ) );
-#                 } );
-#             best.new.value <-
-#                 base::min( min.values.by.best.subsolution, na.rm = TRUE );
-#             new.value.of.best.subsolutions <-
-#                 value.of.best.subsolutions + best.new.value;
-#             ## ERE I AM modifying the below by masking out with each subsolution in turn...f
-#             new.best.subsolutions.list <-
-#                 lapply( 1:ncol( matrix.of.mean.HDs ), function( .column.of.mean.HDs.j ) {
-#                     .column.of.mean.HDs <- matrix.of.mean.HDs[ , .column.of.mean.HDs.j ];
-#                     .number.of.best.subsolutions.in.column <-
-#                         sum( .column.of.mean.HDs == new.value.of.best.subsolutions );
-#                     ## Ok so each solution is a row with all NAs except one value, which is the estimates index (row of matrix.of.mean.HDs). the index of the non-NA value indicates the truths index (column) to which it matches.
-#                     .rv <- matrix( NA, ncol = length( .column.of.mean.HDs ), nrow = .number.of.best.subsolutions.in.column );
-#                     for( .new.solution.i in 1:.number.of.best.subsolutions.in.column ) {
-#                         .rv[ .new.solution.i, .column.of.mean.HDs.j ] <-
-#                             which( .column.of.mean.HDs == new.value.of.best.subsolutions )[ .new.solution.i ];
-#                     }
-#                     return( .rv );
-#                 } );
-#             new.best.subsolutions <-
-#                 do.call( rbind, new.best.subsolutions.list );
-#         }
-#         # Eliminate solutions incompatible with the min.value.
-#         #### ERE I AM
-#         if( sum( is.na( new.best.subsolutions ) == 0 ) ) {
-#             return( list( best.solutions.matrix = new.best.subsolutions, best.solutions.value = new.value.of.best.subsolutions ) );
-#         } else {
-#             return( recursivelyChoooseBestPairing( matrix.of.HDs, new.best.subsolutions, new.value.of.best.subsolutions ) );
-#         }
-#     }
+    } # computeRelevantDistancesForOneFile (..)
 
     ## When there is no non-gap sequence data for a gene or another error occurs, the specific fasta file will not contain fasta but instead will contain the error message.
     ## This returns TRUE if the file is a real fasta file (that is, if its first character is ">")
@@ -260,8 +208,9 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         }
     } # checkFastaFileIsReal (..)
     
-    evaluateOneAAFile <- function ( filename ) {
-        relevant.distances <- computeRelevantDistancesForOneAAFile( filename );
+    evaluateOneFile <- function ( filename, file.is.aa ) {
+        relevant.distances <-
+            computeRelevantDistancesForOneFile( filename, file.is.aa );
 
         ## includingGaps:
          average.HD.includingGaps <-
@@ -300,20 +249,31 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         # print( nearest.founder.average.HD.ignoringGaps );
 
         return( sapply( c( truths.perspective.ignoringGaps = truths.nearest.founder.average.HD.ignoringGaps, estimates.perspective.ignoringGaps = estimates.nearest.founder.average.HD.ignoringGaps, average.ignoringGaps = nearest.founder.average.HD.ignoringGaps, truths.perspective.includingGaps = truths.nearest.founder.average.HD.includingGaps, estimates.perspective.includingGaps = estimates.nearest.founder.average.HD.includingGaps, average.includingGaps = nearest.founder.average.HD.includingGaps ), function( .avg ) { sprintf( "%1.4f", .avg ) } ) );
-    } # evaluateOneAAFile (..)
+    } # evaluateOneFile (..)
 
     evaluate.results.by.protein.file <- 
         lapply( dir( proteins.dir, full.names = T ), function ( .file ) {
             if( checkFastaFileIsReal( .file ) ) {
-                return( evaluateOneAAFile( .file ) );
+                return( evaluateOneFile( .file, file.is.aa = TRUE ) );
             } else {
                 return( c( truths.perspective.ignoringGaps = NA, estimates.perspective.ignoringGaps = NA, average.ignoringGaps = NA, truths.perspective.includingGaps = NA, estimates.perspective.includingGaps = NA, average.includingGaps = NA ) );
             }
         } );
     names( evaluate.results.by.protein.file ) <-
         gsub( ".FASTA", "", dir( proteins.dir, full.names = F ) );
+
+    evaluate.results.by.nucleotide.file <- 
+        lapply( dir( nucleotides.dir, full.names = T ), function ( .file ) {
+            if( checkFastaFileIsReal( .file ) ) {
+                return( evaluateOneFile( .file, file.is.aa = FALSE ) );
+            } else {
+                return( c( truths.perspective.ignoringGaps = NA, estimates.perspective.ignoringGaps = NA, average.ignoringGaps = NA, truths.perspective.includingGaps = NA, estimates.perspective.includingGaps = NA, average.includingGaps = NA ) );
+            }
+        } );
+    names( evaluate.results.by.nucleotide.file ) <-
+        gsub( ".FASTA", "", dir( nucleotides.dir, full.names = F ) );
     
-    output.table.row.columns <- c( "estimates.file" = estimates.fasta.file.short, "truths.file" = truths.fasta.file.short, unlist( evaluate.results.by.protein.file[ names( evaluate.results.by.protein.file ) != "FULL_SEQUENCE.AA" ] ) );
+    output.table.row.columns <- c( "estimates.file" = estimates.fasta.file.short, "truths.file" = truths.fasta.file.short, unlist( evaluate.results.by.protein.file[ names( evaluate.results.by.protein.file ) != "FULL_SEQUENCE.AA" ] ), unlist( evaluate.results.by.nucleotide.file ) );
     
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
