@@ -278,7 +278,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
 
-    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = output.file.append, row.names = FALSE, col.names = !file.exists( output.table.path ), sep = "\t" );
+    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = output.file.append, row.names = FALSE, col.names = !file.exists( output.table.path ), sep = "\t", quote = FALSE );
 
     # Return the file name.
     return( output.table.path );
@@ -295,6 +295,12 @@ output.dir <- Sys.getenv( "evaluateFounders_outputDir" );
 if( nchar( output.dir ) == 0 ) {
     output.dir <- NULL;
 }
+append.to.output.file <- Sys.getenv( "evaluateFounders_append" );
+if( ( nchar( append.to.output.file ) == 0 ) || ( append.to.output.file == "0" ) || ( toupper( append.to.output.file ) == "F" ) || ( toupper( append.to.output.file ) == "FALSE" ) ) {
+    append.to.output.file <- FALSE;
+} else {
+    append.to.output.file <- TRUE;
+}
 
 ## TODO: REMOVE
 # warning( paste( "estimates fasta file:", estimates.fasta.file ) );
@@ -307,7 +313,7 @@ if( nchar( output.dir ) == 0 ) {
 # }
 if( file.exists( estimates.fasta.file ) ) {
     if( file.exists( truths.fasta.file ) ) {
-        print( evaluateFounders( estimates.fasta.file, truths.fasta.file, output.dir = output.dir, output.file = output.table.file ) );
+        print( evaluateFounders( estimates.fasta.file, truths.fasta.file, output.dir = output.dir, output.file = output.table.file, output.file.append = append.to.output.file ) );
     } else {
         stop( paste( "'truths' fasta file does not exist:", truths.fasta.file ) );
     }

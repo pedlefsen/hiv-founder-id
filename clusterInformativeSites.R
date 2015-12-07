@@ -173,7 +173,7 @@ if( output.dir == "" ) {
     output.dir <- NULL;
 }
 force.one.cluster <- Sys.getenv( "clusterInformativeSites_forceOneCluster" ); # don't actually cluster?
-if( force.one.cluster == "" ) {
+if( ( nchar( force.one.cluster ) == 0 ) || ( force.one.cluster == "0" ) || ( toupper( force.one.cluster ) == "F" ) || ( toupper( force.one.cluster ) == "FALSE" ) ) {
     force.one.cluster <- FALSE;
 } else {
     force.one.cluster <- TRUE;
