@@ -5,7 +5,8 @@ library( "Biostrings" ) # for "pairwiseAlignment"
 
 # This compares two nucleotide fasta files, each containing one or more sequences (aligned or not, it doesn't matter; gaps will be stripped internally).  The comparison is conducted in both nucleotide and amino acid space after gene-cutting, codon-aligning, and translating the sequences using GeneCutter at LANL (see runGeneCutterOnline.pl).
 # If the output file exists and append is true, the output will be appended without printing out a new header row.
-evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72 ) {
+# set recreate.ungapped.fastas = TRUE to force recreation of ungapped versions of the input file (in the same dir as the input file) in the event that it's already there (by default it'll use the existing file).
+evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72, recreate.ungapped.fastas = FALSE ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", estimates.fasta.file ) ) == 0 ) {
         estimates.fasta.file.path <- ".";
@@ -71,14 +72,14 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
     ## Make an ungapped version, if it doesn't already exist.
     estimates.fasta.file.ungapped <- paste( estimates.fasta.file.path, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
-    if( !file.exists( estimates.fasta.file.ungapped ) ) {
+    if( recreate.ungapped.fastas || !file.exists( estimates.fasta.file.ungapped ) ) {
         # Create an ungapped version, and save it.
         .estimates.fasta.as.character <- as.character( estimates.fasta );
         .result.ignored <- lapply( 1:nrow( .estimates.fasta.as.character ), function( .row.i ) {
             .row.seq.chars <- .estimates.fasta.as.character[ .row.i, ];
-            .row.seq.ungapped <- as.DNAbin( matrix( .row[ .row != "-" ], nrow = 1 ) );
+            .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
             rownames( .row.seq.ungapped ) <- rownames( estimates.fasta )[ .row.i ];
-            write.dna( .row.seq.ungapped, file = estimates.fasta.file.ungapped, format = "fasta", append = TRUE, colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
+            write.dna( .row.seq.ungapped, file = estimates.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
             return( NULL );
         } );
     }
@@ -87,14 +88,14 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
     ## Make an ungapped version, if it doesn't already exist.
     truths.fasta.file.ungapped <- paste( truths.fasta.file.path, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
-    if( !file.exists( truths.fasta.file.ungapped ) ) {
+    if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
         # Create an ungapped version, and save it.
         .truths.fasta.as.character <- as.character( truths.fasta );
         .result.ignored <- lapply( 1:nrow( .truths.fasta.as.character ), function( .row.i ) {
             .row.seq.chars <- .truths.fasta.as.character[ .row.i, ];
-            .row.seq.ungapped <- as.DNAbin( matrix( .row[ .row != "-" ], nrow = 1 ) );
+            .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
             rownames( .row.seq.ungapped ) <- rownames( truths.fasta )[ .row.i ];
-            write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = TRUE, colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
+            write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
             return( NULL );
         } );
     }
@@ -108,7 +109,6 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     ## TODO: Add other comparison seqs first, eg CON_M
     system( paste( "perl runGeneCutterOnline.pl -V ", combined.ungapped.fasta.file, output.dir ) );
     
-    ## ERE I AM.
     nucleotides.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs.zip", sep = "" );
     proteins.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins.zip", sep = "" );
     stopifnot( file.exists( nucleotides.zipfile ) );
@@ -248,7 +248,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         # print( estimates.nearest.founder.average.HD.ignoringGaps );
         # print( nearest.founder.average.HD.ignoringGaps );
 
-        return( sapply( c( truths.perspective.ignoringGaps = truths.nearest.founder.average.HD.ignoringGaps, estimates.perspective.ignoringGaps = estimates.nearest.founder.average.HD.ignoringGaps, average.ignoringGaps = nearest.founder.average.HD.ignoringGaps, truths.perspective.includingGaps = truths.nearest.founder.average.HD.includingGaps, estimates.perspective.includingGaps = estimates.nearest.founder.average.HD.includingGaps, average.includingGaps = nearest.founder.average.HD.includingGaps ), function( .avg ) { sprintf( "%1.4f", .avg ) } ) );
+        return( sapply( c( truths.perspective.ignoringGaps = truths.nearest.founder.average.HD.ignoringGaps, estimates.perspective.ignoringGaps = estimates.nearest.founder.average.HD.ignoringGaps, average.ignoringGaps = nearest.founder.average.HD.ignoringGaps, truths.perspective.includingGaps = truths.nearest.founder.average.HD.includingGaps, estimates.perspective.includingGaps = estimates.nearest.founder.average.HD.includingGaps, average.includingGaps = nearest.founder.average.HD.includingGaps ), function( .avg ) { sprintf( "%1.8f", .avg ) } ) );
     } # evaluateOneFile (..)
 
     evaluate.results.by.protein.file <- 
