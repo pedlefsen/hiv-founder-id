@@ -24,9 +24,10 @@ timings.results.by.study.and.time <-
              if( the.study == "v3" ) {
                  sample.dates.in <- sample.dates.in[ grep( "^100\\d\\d\\d", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
              }
-             days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) -  ifelse( the.study == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
+             days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.study == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
              names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
-             
+
+             ## identify-founder results
              results.in <- read.delim( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, "/", the.time, "/identify_founders.tab", sep = "" ) ), sep = "\t" );
              # Hack to fix a bug in which the colnames don't have "multifounder." on them (but instead, because of how read.delim works, they have ".1" at the end).
              colnames( results.in ) <- gsub( "^(.+)\\.1$", "multifounder.\\1", colnames( results.in ) );
@@ -38,13 +39,39 @@ timings.results.by.study.and.time <-
              if( the.study == "v3" ) {
                  results <- results[ grep( "^100\\d\\d\\d", rownames( results ) ), , drop = FALSE ];
              }
+
+             results <- results[ , identify.founders.date.estimates, drop = FALSE ];
+
+             ## Add to results: get the anchre, infer results.
+             # ERE I AM.  founder-inference-bakeoff_10066/bakeoff_analysis_rv217_10066_1M_RH.outtoi.csv
+             infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+             infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
+             infer.results <- do.call( rbind,
+                 lapply( unlist( infer.results.files ), function( .file ) {
+                     return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
+                 } ) );
+             colnames( infer.results ) <- c( "MatsenWarth", "MatsenWarth.CI.low", "MatsenWarth.CI.high" );
+             rownames( infer.results ) <-
+                 gsub( "^.+_(\\d+)$", "\\1", names( unlist( infer.results.files ) ) );
+             # Special: for v3, only use caprisa seqs (not rv144, for now).
+             if( the.study == "v3" ) {
+                 infer.results <-
+                     infer.results[ grep( "^100\\d\\d\\d", rownames( infer.results ) ), , drop = FALSE ];
+             }
+             # Add just the estimate from infer.
+             sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+             names( sample.dates ) <- sample.dates.in[ , 1 ];
+             infer.days.before.sample <- sapply( 1:nrow( infer.results ), function( .i ) { 0 - as.numeric( as.Date( infer.results[ .i, 1 ] ) - sample.dates[ rownames( infer.results )[ .i ] ] ) } );
+             names( infer.days.before.sample ) <- rownames( infer.results );
+
+             results <- cbind( results, infer.days.before.sample );
+             colnames( results )[ ncol( results ) ] <- "MatsenWarth";
              
              diffs.by.stat <-
-                 lapply( identify.founders.date.estimates, function( .stat ) {
-                     
-                     results[ , .stat ] - days.since.infection[ rownames( results ) ];
+                 lapply( colnames( results ), function( .stat ) {
+                     as.numeric( results[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results ) ] );
                  } );
-             names( diffs.by.stat ) <- identify.founders.date.estimates;
+             names( diffs.by.stat ) <- colnames( results );
              
              return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), rmse = lapply( diffs.by.stat, sd, na.rm = T ) ) );
          } ); # End foreach the.time
