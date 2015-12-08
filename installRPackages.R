@@ -1,6 +1,6 @@
 # Look for, and also install, packages in "~/R/library"
 .libPaths( c( "~/R/Library", .libPaths() ) );
-source( "https://bioconductor.org/biocLite.R" );
+source( "http://bioconductor.org/biocLite.R" );
 
 install.packages( pkgs = "binom", dependencies = TRUE, quiet = TRUE );
 if( !require( "binom" ) ) {

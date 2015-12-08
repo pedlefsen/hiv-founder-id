@@ -68,6 +68,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     output.dir <-
       gsub( "^(.*?)\\/+$", "\\1", output.dir );
 
+    combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
     if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
@@ -104,7 +105,6 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
       }
       
       ## Put together the two fasta files, the lazy way.
-      combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
       combined.ungapped.fasta.file <- paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
       system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
       system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
