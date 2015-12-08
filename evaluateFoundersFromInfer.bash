@@ -12,7 +12,7 @@ export outputDir=$3
 export patient=$4
 export inputDir=${estimateDir}/founder-inference-bakeoff_${patient}
 export truthDir=${mainDir}/true_founders/${patient}
-rm -rf ${outputDir}
+#rm -rf ${outputDir}
 mkdir ${outputDir}
 export truthListFile=${mainDir}/processed_${patient}.list
 export listFile=${estimateDir}/processed_${patient}.list
