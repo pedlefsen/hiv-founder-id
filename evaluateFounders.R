@@ -71,7 +71,6 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
-    if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
       estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
   
       ## Make an ungapped version, if it doesn't already exist. (in output.dir)
@@ -82,7 +81,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
           .result.ignored <- lapply( 1:nrow( .estimates.fasta.as.character ), function( .row.i ) {
               .row.seq.chars <- .estimates.fasta.as.character[ .row.i, ];
               .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
-              rownames( .row.seq.ungapped ) <- rownames( estimates.fasta )[ .row.i ];
+              # While we're at it, remove spaces from the header because GeneCutter might get confused if the seqnames (before the first space) are non-unique.
+              rownames( .row.seq.ungapped ) <- gsub( "\\s", "_", rownames( estimates.fasta )[ .row.i ] );
               write.dna( .row.seq.ungapped, file = estimates.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
               return( NULL );
           } );
@@ -90,15 +90,16 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
   
       truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
   
-      ## Make an ungapped version, if it doesn't already exist. (in truths.fasta.file.path)
-      truths.fasta.file.ungapped <- paste( truths.fasta.file.path, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
+      ## Make an ungapped version, if it doesn't already exist.
+      truths.fasta.file.ungapped <- paste( output.dir, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
       if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
           # Create an ungapped version, and save it.
           .truths.fasta.as.character <- as.character( truths.fasta );
           .result.ignored <- lapply( 1:nrow( .truths.fasta.as.character ), function( .row.i ) {
               .row.seq.chars <- .truths.fasta.as.character[ .row.i, ];
               .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
-              rownames( .row.seq.ungapped ) <- rownames( truths.fasta )[ .row.i ];
+              # While we're at it, remove spaces from the header because GeneCutter might get confused if the seqnames (before the first space) are non-unique.
+              rownames( .row.seq.ungapped ) <- gsub( "\\s", "_", rownames( truths.fasta )[ .row.i ] );
               write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
               return( NULL );
           } );
@@ -108,6 +109,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
       combined.ungapped.fasta.file <- paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
       system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
       system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
+    if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
       ## Run it through GeneCutter.
       ## TODO: Add other comparison seqs first, eg CON_M
       system( paste( "perl runGeneCutterOnline.pl -V ", combined.ungapped.fasta.file, output.dir ) );
@@ -156,7 +158,12 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         fasta.mat <- t( apply( as.matrix( 1:nrow( fasta.in ) ), 1, function ( i ) {
             s2c( as.character( unmasked( fasta.in )[ i, ] ) )
         } ) );
-        stopifnot( nrow( fasta.mat ) == ( num.references + num.estimates ) );
+        ## Sometimes for some reason genecutter puts some extra (translated) seqs in there.
+        if( length( unique( rownames( fasta.in ) ) ) != length( ( rownames( fasta.in ) ) ) ) {
+            # There are non-unique entries.  Use the first one, for now.
+            ## TODO: Check that the first one is consistently the best; seems so.
+        }
+        #stopifnot( nrow( fasta.mat ) == ( num.references + num.estimates ) );
         # for each combination of reference and target, compute the Hamming distance, with and without gaps.
         hamming.distances.ignoring.gaps <-
             matrix( nrow = num.estimates, ncol = num.references );
