@@ -50,7 +50,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
           output.dir <- output.file.path;
       } else if( is.null( output.dir ) ) {
         if( is.null( output.file.path ) ) {
-            output.dir <- estimates.fasta.file.path;
+            output.dir <- ".";
         } else {
             output.dir <- output.file.path;
         }
@@ -70,8 +70,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
     estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
 
-    ## Make an ungapped version, if it doesn't already exist.
-    estimates.fasta.file.ungapped <- paste( estimates.fasta.file.path, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
+    ## Make an ungapped version, if it doesn't already exist. (in output.dir)
+    estimates.fasta.file.ungapped <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
     if( recreate.ungapped.fastas || !file.exists( estimates.fasta.file.ungapped ) ) {
         # Create an ungapped version, and save it.
         .estimates.fasta.as.character <- as.character( estimates.fasta );
@@ -86,7 +86,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
     truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
 
-    ## Make an ungapped version, if it doesn't already exist.
+    ## Make an ungapped version, if it doesn't already exist. (in truths.fasta.file.path)
     truths.fasta.file.ungapped <- paste( truths.fasta.file.path, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
     if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
         # Create an ungapped version, and save it.
@@ -214,8 +214,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
         ## includingGaps:
          average.HD.includingGaps <-
-             relevant.distances$HD.includingGaps[ , -1 ] /
-                 relevant.distances$denominator.includingGaps[ , -1 ];
+             relevant.distances$HD.includingGaps[ , -1, drop = FALSE ] /
+                 relevant.distances$denominator.includingGaps[ , -1, drop = FALSE ];
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
         truths.nearest.founder.average.HD.includingGaps <-
             mean( apply( average.HD.includingGaps, 2, base::min, na.rm = T ) );
@@ -232,8 +232,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         
         ## ignoringGaps:
          average.HD.ignoringGaps <-
-             relevant.distances$HD.ignoringGaps[ , -1 ] /
-                 relevant.distances$denominator.ignoringGaps[ , -1 ];
+             relevant.distances$HD.ignoringGaps[ , -1, drop = FALSE ] /
+                 relevant.distances$denominator.ignoringGaps[ , -1, drop = FALSE ];
   
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
         truths.nearest.founder.average.HD.ignoringGaps <-
@@ -253,6 +253,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
 
     evaluate.results.by.protein.file <- 
         lapply( dir( proteins.dir, full.names = T ), function ( .file ) {
+            print( .file );
             if( checkFastaFileIsReal( .file ) ) {
                 return( evaluateOneFile( .file, file.is.aa = TRUE ) );
             } else {
