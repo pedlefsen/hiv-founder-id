@@ -9,7 +9,7 @@
 ##
 for f in  `find hiv_founder_id_* -name identify_founders.tab`
 do
-   patient=`echo $f |  cut -d_ -f4 | cut -d"/" -f1`
+   patient=`echo $f |  cut -d_ -f4 | cut -d"/" -f1 | sort -u`
    rm processed_${patient}.list 
    touch processed_${patient}.list
    for g in `tail -n +2 $f | cut -f4`

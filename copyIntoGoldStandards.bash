@@ -12,7 +12,6 @@
 ##
 export mainDir=$1
 export patient=$2
-#export inputDir=./hiv_founder_id_processed_${patient}
 export inputDir=${mainDir}/hiv_founder_id_processed_${patient}
 export outputDir=${mainDir}/true_founders/${patient}
 rm -rf ${outputDir}
