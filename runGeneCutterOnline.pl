@@ -20,7 +20,7 @@ use WWW::Mechanize;
 use LWP::Simple;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_e $opt_p );
+use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R );
 use vars qw( $VERBOSE $DEBUG );
 
 sub runGeneCutterOnline {
@@ -29,18 +29,20 @@ sub runGeneCutterOnline {
   my $DEFAULT_EMAIL_ADDRESS = "pedlefsen\@gmail.com";
 
   sub runGeneCutterOnline_usage {
-    print "\trunGeneCutterOnline [-DVp] [-e <youremail\@ddr.ess>] <input_fasta_file> [<output_dir>]\n";
+    print "\trunGeneCutterOnline [-DVp] [-P <proteins_list>] [-R <region>] [-e <youremail\@ddr.ess>] <input_fasta_file> [<output_dir>]\n";
     exit;
   }
 
-  # This means -D and -V are ok, but nothin' else.
+  # This means -D and -V, -p, -e, -P, -S are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_V means be verbose.
   # opt_p means that the input files are pre-aligned.
   # opt_e means use a different email address than the default.
+  # opt_P changes the proteins to evaluate string (default: "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF")a
+  # opt_R changes the region of the genome that is being evaluated (default: "ALL")
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_e, $opt_p ) = ();
-  if( not getopts('DVep') ) {
+  ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R ) = ();
+  if( not getopts('DVpe:P:R:') ) {
     runGeneCutterOnline_usage();
   }
   
@@ -49,6 +51,13 @@ sub runGeneCutterOnline {
 
   my $is_prealigned = $opt_p || 0;
   my $emailAddress = $opt_e || $DEFAULT_EMAIL_ADDRESS;
+  my $proteins_to_evaluate = $opt_P || "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF";
+  # NOTE: -FULL_SEQUENCE seems to not ever give work without giving the in-fasta-file-output message eg "Error: I can't open file /tmp/download/GENE_CUTTER/30488/FULL_SEQUENCE.NA.RAW.: No such file or directory"
+  my $region = $opt_R || "ALL";
+  
+#  if( $proteins_to_evaluate !~ /^-/ ) {
+#    stop( "The -P argument must be formatted as '-GENE1-GENE2-GENE3' eg '-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF'" );
+#  }
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -84,10 +93,10 @@ sub runGeneCutterOnline {
                                                 ORGANISM => "HIV-1",
                                                 UPLOAD => $fasta_file_readyForGeneCutter,
                                                 PREALIGNED => ( $is_prealigned ? "YES" : "NO" ),
-                                                SEG => "ALL",
+                                                SEG => $region,
                                                 INSERTSTDSEQ => "YES",
                                                 REMOVESTDSEQ => "NO",
-                                                ALIGN => "YES", # TODO: TRY NO? THIS IS FOR CODON-ALIGNING THE REGION; I THINK IT'S JUST TWEAKING IT.
+                                                ALIGN => "YES", # THIS IS FOR CODON-ALIGNING THE REGION; I THINK IT'S JUST TWEAKING IT IF IT'S PREALIGNED.
                                                 PROTEIN => "YES3", # THIS TOLERATES SOME AMBIGUITY I GUESS
                                                 ACTION => "DOWNPC",
                                                 VIEW => "YES"
@@ -156,9 +165,9 @@ sub runGeneCutterOnline {
   #my $nuc_results_content = $mech->content();
   $mech->submit_form( 
                                   fields    => {
-                                                REGION => "ALL",
+                                                REGION => $region,
                                                 OUTFORMAT => "FASTA",
-                                                PROTEINLIST => "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF-FULL_SEQUENCE",
+                                                PROTEINLIST => $proteins_to_evaluate,
                                                 PROTEIN_FLAG => "NO",
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
@@ -175,9 +184,9 @@ sub runGeneCutterOnline {
 
   $mech->submit_form( 
                                   fields    => {
-                                                REGION => "ALL",
+                                                REGION => $region,
                                                 OUTFORMAT => "FASTA",
-                                                PROTEINLIST => "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF-FULL_SEQUENCE",
+                                                PROTEINLIST => $proteins_to_evaluate,
                                                 PROTEIN_FLAG => "YES",
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }

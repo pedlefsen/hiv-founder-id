@@ -42,15 +42,14 @@ timings.results.by.study.and.time <-
 
              results <- results[ , identify.founders.date.estimates, drop = FALSE ];
 
-             ## Add to results: get the anchre, infer results.
-             # ERE I AM.  founder-inference-bakeoff_10066/bakeoff_analysis_rv217_10066_1M_RH.outtoi.csv
+             ## Add to results: "infer" results.
              infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
              infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
              infer.results <- do.call( rbind,
                  lapply( unlist( infer.results.files ), function( .file ) {
                      return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
                  } ) );
-             colnames( infer.results ) <- c( "MatsenWarth", "MatsenWarth.CI.low", "MatsenWarth.CI.high" );
+             colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
              rownames( infer.results ) <-
                  gsub( "^.+_(\\d+)$", "\\1", names( unlist( infer.results.files ) ) );
              # Special: for v3, only use caprisa seqs (not rv144, for now).
@@ -65,8 +64,34 @@ timings.results.by.study.and.time <-
              names( infer.days.before.sample ) <- rownames( infer.results );
 
              results <- cbind( results, infer.days.before.sample );
-             colnames( results )[ ncol( results ) ] <- "MatsenWarth";
+             colnames( results )[ ncol( results ) ] <- "Infer";
+
+             ## mark
+             ## Add to results: "anchre" results.
+             anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/", the.time, sep = "" ), "founder-anchreence-bakeoff_", full.name = TRUE );
+             anchre.results.files <- sapply( anchre.results.directories, dir, "outtoi.csv", full.name = TRUE );
+             anchre.results <- do.call( rbind,
+                 lapply( unlist( anchre.results.files ), function( .file ) {
+                     return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
+                 } ) );
+             colnames( anchre.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
+             rownames( anchre.results ) <-
+                 gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
+             # Special: for v3, only use caprisa seqs (not rv144, for now).
+             if( the.study == "v3" ) {
+                 anchre.results <-
+                     anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
+             }
+             # Add just the estimate from anchre.
+             sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+             names( sample.dates ) <- sample.dates.in[ , 1 ];
+             anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+             names( anchre.days.before.sample ) <- rownames( anchre.results );
+
+             results <- cbind( results, anchre.days.before.sample );
+             colnames( results )[ ncol( results ) ] <- "Anchre";
              
+
              diffs.by.stat <-
                  lapply( colnames( results ), function( .stat ) {
                      as.numeric( results[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results ) ] );

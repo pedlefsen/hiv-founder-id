@@ -6,7 +6,7 @@ library( "Biostrings" ) # for "pairwiseAlignment"
 # This compares two nucleotide fasta files, each containing one or more sequences (aligned or not, it doesn't matter; gaps will be stripped internally).  The comparison is conducted in both nucleotide and amino acid space after gene-cutting, codon-aligning, and translating the sequences using GeneCutter at LANL (see runGeneCutterOnline.pl).
 # If the output file exists and append is true, the output will be appended without printing out a new header row.
 # set recreate.ungapped.fastas = TRUE to force recreation of ungapped versions of the input file (in the same dir as the input file) in the event that it's already there (by default it'll use the existing file).
-evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72, recreate.ungapped.fastas = FALSE ) {
+evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72, recreate.ungapped.fastas = FALSE, genecutter.proteins.list = "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF", genecutter.genome.region = "ALL" ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", estimates.fasta.file ) ) == 0 ) {
         estimates.fasta.file.path <- ".";
@@ -71,11 +71,15 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
-      estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
-  
-      ## Make an ungapped version, if it doesn't already exist. (in output.dir)
-      estimates.fasta.file.ungapped <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
-      if( recreate.ungapped.fastas || !file.exists( estimates.fasta.file.ungapped ) ) {
+    estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
+    if( is.null( estimates.fasta ) || ( nrow( estimates.fasta ) == 0 ) ) {
+        warning( paste( "No results in file", estimates.fasta.file ) );
+        return( NULL );
+    }
+    
+    ## Make an ungapped version, if it doesn't already exist. (in output.dir)
+    estimates.fasta.file.ungapped <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
+    if( recreate.ungapped.fastas || !file.exists( estimates.fasta.file.ungapped ) ) {
           # Create an ungapped version, and save it.
           .estimates.fasta.as.character <- as.character( estimates.fasta );
           .result.ignored <- lapply( 1:nrow( .estimates.fasta.as.character ), function( .row.i ) {
@@ -88,11 +92,14 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
           } );
       }
   
-      truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
+    truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
+    if( nrow( truths.fasta ) == 0 ) {
+        stop( paste( "There are NO TRUE FOUNDERS in file", truths.fasta.file ) );
+    }
   
-      ## Make an ungapped version, if it doesn't already exist.
-      truths.fasta.file.ungapped <- paste( output.dir, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
-      if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
+    ## Make an ungapped version, if it doesn't already exist.
+    truths.fasta.file.ungapped <- paste( output.dir, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
+    if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
           # Create an ungapped version, and save it.
           .truths.fasta.as.character <- as.character( truths.fasta );
           .result.ignored <- lapply( 1:nrow( .truths.fasta.as.character ), function( .row.i ) {
@@ -103,29 +110,36 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
               write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
               return( NULL );
           } );
-      }
+    }
       
-      ## Put together the two fasta files, the lazy way.
-      combined.ungapped.fasta.file <- paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
-      system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
-      system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
+    ## Put together the two fasta files, the lazy way.
+    combined.ungapped.fasta.file <- paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
+    system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
+    system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
     if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
       ## Run it through GeneCutter.
       ## TODO: Add other comparison seqs first, eg CON_M
-      system( paste( "perl runGeneCutterOnline.pl -V ", combined.ungapped.fasta.file, output.dir ) );
+      system( paste( "perl runGeneCutterOnline.pl -P", genecutter.proteins.list, "-R", genecutter.genome.region, "-V", combined.ungapped.fasta.file, output.dir ) );
       
       nucleotides.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs.zip", sep = "" );
       proteins.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins.zip", sep = "" );
       stopifnot( file.exists( nucleotides.zipfile ) );
       stopifnot( file.exists( proteins.zipfile ) );
-  
+
       ## Now unzip them.
       system( paste( "rm -rf", nucleotides.dir ) );
       system( paste( "rm -rf", proteins.dir ) );
-      system( paste( "unzip", nucleotides.zipfile, "-d", nucleotides.dir, sep = " " ) )
-      system( paste( "unzip", proteins.zipfile, "-d", proteins.dir, sep = " " ) )
+      ## NOTE: IF the protein list has only one element, this isn't a zipfile, it's just a fasta file.
+      if( sum( sapply( strsplit( genecutter.proteins.list, "-" )[[1]], function( .x ) { nchar( .x ) > 0 } ) == 1 ) ) {
+          dir.create( nucleotides.dir );
+          cat( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ), fill = F );
+          dir.create( proteins.dir );
+          cat( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ), fill = F );
+      } else {
+          system( paste( "unzip", nucleotides.zipfile, "-d", nucleotides.dir, sep = " " ) )
+          system( paste( "unzip", proteins.zipfile, "-d", proteins.dir, sep = " " ) )
+      }
     } # End if the dirs don't already exist ...
-
     # We use the fact that the first num.reference.sequences sequences are the HXB2 and then the "truths" (rather than use sequence names, which can get mangled).
     num.references <- 1 + nrow( truths.fasta );
     num.estimates <- nrow( estimates.fasta );
@@ -148,13 +162,18 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     } # evaluateOneAlignedPair (..)
     
     computeRelevantDistancesForOneFile <- function ( filename, file.is.aa ) {
+        tryCatch( {
         if( file.is.aa ) {
             fasta.in <-
                 readAAMultipleAlignment( filename, "fasta" );
         } else {
             fasta.in <-
                 readDNAMultipleAlignment( filename, "fasta" );
-        }
+        } }, error = function( e ) {
+            warning( e );
+            return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
+        } );
+
         fasta.mat <- t( apply( as.matrix( 1:nrow( fasta.in ) ), 1, function ( i ) {
             s2c( as.character( unmasked( fasta.in )[ i, ] ) )
         } ) );
@@ -311,6 +330,14 @@ if( ( nchar( append.to.output.file ) == 0 ) || ( append.to.output.file == "0" ) 
 } else {
     append.to.output.file <- TRUE;
 }
+genecutter.proteins.list <- Sys.getenv( "evaluateFounders_proteinsList" );
+if( nchar( genecutter.proteins.list ) == 0 ) {
+    genecutter.proteins.list <- "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF";
+}
+genecutter.region <- Sys.getenv( "evaluateFounders_genomeRegion" );
+if( nchar( genecutter.region ) == 0 ) {
+    genecutter.region <- "ALL";
+}
 
 ## TODO: REMOVE
 # warning( paste( "estimates fasta file:", estimates.fasta.file ) );
@@ -323,7 +350,7 @@ if( ( nchar( append.to.output.file ) == 0 ) || ( append.to.output.file == "0" ) 
 # }
 if( file.exists( estimates.fasta.file ) ) {
     if( file.exists( truths.fasta.file ) ) {
-        print( evaluateFounders( estimates.fasta.file, truths.fasta.file, output.dir = output.dir, output.file = output.table.file, output.file.append = append.to.output.file ) );
+        print( evaluateFounders( estimates.fasta.file, truths.fasta.file, output.dir = output.dir, output.file = output.table.file, output.file.append = append.to.output.file, genecutter.proteins.list = genecutter.proteins.list, genecutter.genome.region = genecutter.region ) );
     } else {
         stop( paste( "'truths' fasta file does not exist:", truths.fasta.file ) );
     }

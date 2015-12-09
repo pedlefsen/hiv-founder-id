@@ -8,30 +8,25 @@
 ##
 export mainDir=$1
 export estimateDir=$2
-mkdir ${3}
-export outputDir=${3}/${patient}
+export outputDir=$3
+export patient=$4
+export inputDir=${estimateDir}/hiv_founder_id_processed_${patient}
+export truthDir=${mainDir}/true_founders/${patient}
 rm -rf ${outputDir}
 mkdir ${outputDir}
-export patient=$4
-export inputDir=${estimateDir}/founder-inference-bakeoff_${patient}
-export truthDir=${mainDir}/true_founders/${patient}
 export truthListFile=${mainDir}/processed_${patient}.list
 export listFile=${estimateDir}/processed_${patient}.list
+# For V3 we do just V3 and get output for just ENV.
+export evaluateFounders_proteinsList="V3";
+export evaluateFounders_genomeRegion="V3";
 # Ok, so do all four kinds.  Append as we go.
 export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
 export evaluateFounders_append="TRUE";
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
     echo ${fasta_prefix}
-    ## Fix the suffixes first. Note the fixed files are put in the _output_ directory.
-    if [ -e "${inputDir}/${fasta_prefix}.outsingle.fa" ]; then
-          cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
-    fi
-    if [ -e "${inputDir}/${fasta_prefix}.outmultiple.fa" ]; then
-          cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
-    fi
-    export evaluateFounders_estimatesFilename_single="${outputDir}/${fasta_prefix}_outsingle.fa";
-    export evaluateFounders_estimatesFilename_multiple="${outputDir}/${fasta_prefix}_outmultiple.fa";
+    export evaluateFounders_estimatesFilename_single="${inputDir}/${fasta_prefix}_singlefounder_cons.fasta";
+    export evaluateFounders_estimatesFilename_multiple="${inputDir}/${fasta_prefix}_multiplefounders_cons.fasta";
     
     for truth_fasta_prefix in  `cat ${truthListFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
     do
@@ -45,6 +40,7 @@ do
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
