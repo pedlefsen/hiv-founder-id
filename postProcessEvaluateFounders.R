@@ -3,7 +3,7 @@
 # eg cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/evaluateFounders.tbl
 # then open and remove the extra instances of the first (header) line.
 
-## TODO: Rerun the evaluateFoundersFromInfer.bash script (and Cap variant).
+## TODO: Rerun the evaluateFoundersFromInfer.bash script (and Cap variant). [RUNNING]
 ## TODO: Gather the results as described at the top of this file.
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
@@ -55,6 +55,7 @@ colnames( rv217.nflg.1m.results ) <-
 # These should be removed methought, now not so sure: rv217.nflg.1m.results[ ( rv217.nflg.1m.truths.file.region == "LH" & rv217.nflg.1m.estimates.file.region == "RH" ) | ( rv217.nflg.1m.truths.file.region == "RH" & rv217.nflg.1m.estimates.file.region == "LH" ), ]
 ## THINKING KEEP.  JUSTIFICATION IS THAT IF THEY ALIGN THEY COUNT. WHY NOT?
 ### BUT DO WE NEED TO WEIGH THEM WHEN AVERAGING OVER REGIONS?  by number of seqs, I guess, to mimic what we would have gotten if we made one alignment and computed the HD.  yes?  yes.  so we need the number of seqs yarg.  that means an additional output or two in evaluateFounders.R.. Ok.
+## NO we do not need to weigh them.  Oh wait, hmm.  ... ..  we need the denominators.
 
 stopifnot( length( rv217.nflg.1m.truths.file.region ) == nrow( rv217.nflg.1m.results ) );
 ## Here we do the sanity check to ensure that every ( from, to ) pair appears at most once.

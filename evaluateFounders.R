@@ -134,9 +134,9 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
       ## NOTE: IF the protein list has only one element, this isn't a zipfile, it's just a fasta file.
       if( sum( sapply( strsplit( genecutter.proteins.list, "-" )[[1]], function( .x ) { nchar( .x ) > 0 } ) ) == 1 ) {
           dir.create( nucleotides.dir );
-          cat( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ), fill = F );
+          cat( unlist( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ) ), fill = F );
           dir.create( proteins.dir );
-          cat( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ), fill = F );
+          cat( unlist( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ) ), fill = F );
       } else {
           system( paste( "unzip", nucleotides.zipfile, "-d", nucleotides.dir, sep = " " ) )
           system( paste( "unzip", proteins.zipfile, "-d", proteins.dir, sep = " " ) )
@@ -146,6 +146,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     num.references <- 1 + nrow( truths.fasta );
     num.estimates <- nrow( estimates.fasta );
     evaluateOneAlignedPair <- function ( pair.of.chars, include.gaps = FALSE ) {
+        stopifnot( length( pair.of.chars ) == 2 );
         if( all( pair.of.chars == "-" ) ) {
             return( NA );
         }                            
@@ -164,6 +165,10 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     } # evaluateOneAlignedPair (..)
     
     computeRelevantDistancesForOneFile <- function ( filename, file.is.aa ) {
+        if( !file.exists( filename ) ) {
+            stop( "ERROR: FILE MISSING" );
+            return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
+        }
         tryCatch( {
         if( file.is.aa ) {
             fasta.in <-
@@ -172,7 +177,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             fasta.in <-
                 readDNAMultipleAlignment( filename, "fasta" );
         } }, error = function( e ) {
-            warning( e );
+            #cat( unlist( e ), fill = TRUE );
             return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
         } );
 
@@ -182,6 +187,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         ## Sometimes for some reason genecutter puts some extra (translated) seqs in there.
         if( length( unique( rownames( fasta.in ) ) ) != length( ( rownames( fasta.in ) ) ) ) {
             # There are non-unique entries.  Use the first one, for now.
+            ## TODO: ?
+            warning( paste( "Duplicate sequence names in fasta file", fasta.in ) );
             ## TODO: Check that the first one is consistently the best; seems so.
         }
         #stopifnot( nrow( fasta.mat ) == ( num.references + num.estimates ) );
@@ -246,14 +253,28 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
          average.HD.includingGaps <-
              relevant.distances$HD.includingGaps[ , -1, drop = FALSE ] /
                  relevant.distances$denominator.includingGaps[ , -1, drop = FALSE ];
+        ## ignoringGaps:
+         average.HD.ignoringGaps <-
+             relevant.distances$HD.ignoringGaps[ , -1, drop = FALSE ] /
+                 relevant.distances$denominator.ignoringGaps[ , -1, drop = FALSE ];
+  
+        ## includingGaps:
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
+        nearest.founder.index.by.reference <- apply( average.HD.includingGaps, 2, base::which.min );
+        nearest.founder.index.by.estimate <- apply( average.HD.includingGaps, 1, base::which.min );
+        # For this, skip col 1, HXB2.
+        truths.nearest.founder.HD.sum.includingGaps <-
+            sum( sapply( 2:ncol( relevant.distances$HD.includingGaps ), function( .i ) { relevant.distances$HD.includingGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
+        truths.nearest.founder.denominator.sum.includingGaps <-
+            sum( sapply( 2:ncol( relevant.distances$denominator.includingGaps ), function( .i ) { relevant.distances$denominator.includingGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
         truths.nearest.founder.average.HD.includingGaps <-
-            mean( apply( average.HD.includingGaps, 2, base::min, na.rm = T ) );
+            truths.nearest.founder.HD.sum.includingGaps / truths.nearest.founder.denominator.sum.includingGaps;
+        estimates.nearest.founder.HD.sum.includingGaps <-
+            sum( sapply( 1:nrow( relevant.distances$HD.includingGaps ), function( .i ) { relevant.distances$HD.includingGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+        estimates.nearest.founder.denominator.sum.includingGaps <-
+            sum( sapply( 1:nrow( relevant.distances$denominator.includingGaps ), function( .i ) { relevant.distances$denominator.includingGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.average.HD.includingGaps <-
-            mean( apply( average.HD.includingGaps, 1, base::min, na.rm = T ) );
-        nearest.founder.average.HD.includingGaps <-
-            mean( c( truths.nearest.founder.average.HD.includingGaps,
-                    estimates.nearest.founder.average.HD.includingGaps ) );
+            estimates.nearest.founder.HD.sum.includingGaps / estimates.nearest.founder.denominator.sum.includingGaps;
         
         ## TODO: REMOVE
         # print( truths.nearest.founder.average.HD.includingGaps );
@@ -261,24 +282,31 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         # print( nearest.founder.average.HD.includingGaps );
         
         ## ignoringGaps:
-         average.HD.ignoringGaps <-
-             relevant.distances$HD.ignoringGaps[ , -1, drop = FALSE ] /
-                 relevant.distances$denominator.ignoringGaps[ , -1, drop = FALSE ];
-  
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
+        nearest.founder.index.by.reference <- apply( average.HD.ignoringGaps, 2, base::which.min );
+        nearest.founder.index.by.estimate <- apply( average.HD.ignoringGaps, 1, base::which.min );
+        # For this, skip col 1, HXB2.
+        truths.nearest.founder.HD.sum.ignoringGaps <-
+            sum( sapply( 2:ncol( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
+        truths.nearest.founder.denominator.sum.ignoringGaps <-
+            sum( sapply( 2:ncol( relevant.distances$denominator.ignoringGaps ), function( .i ) { relevant.distances$denominator.ignoringGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
         truths.nearest.founder.average.HD.ignoringGaps <-
-            mean( apply( average.HD.ignoringGaps, 2, base::min, na.rm = T ) );
+            truths.nearest.founder.HD.sum.ignoringGaps / truths.nearest.founder.denominator.sum.ignoringGaps;
+        estimates.nearest.founder.HD.sum.ignoringGaps <-
+            sum( sapply( 1:nrow( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+        estimates.nearest.founder.denominator.sum.ignoringGaps <-
+            sum( sapply( 1:nrow( relevant.distances$denominator.ignoringGaps ), function( .i ) { relevant.distances$denominator.ignoringGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.average.HD.ignoringGaps <-
-            mean( apply( average.HD.ignoringGaps, 1, base::min, na.rm = T ) );
-        nearest.founder.average.HD.ignoringGaps <-
-            mean( c( truths.nearest.founder.average.HD.ignoringGaps,
-                    estimates.nearest.founder.average.HD.ignoringGaps ) );
+            estimates.nearest.founder.HD.sum.ignoringGaps / estimates.nearest.founder.denominator.sum.ignoringGaps;
+        
         ## TODO: REMOVE
         # print( truths.nearest.founder.average.HD.ignoringGaps );
         # print( estimates.nearest.founder.average.HD.ignoringGaps );
         # print( nearest.founder.average.HD.ignoringGaps );
 
-        return( sapply( c( truths.perspective.ignoringGaps = truths.nearest.founder.average.HD.ignoringGaps, estimates.perspective.ignoringGaps = estimates.nearest.founder.average.HD.ignoringGaps, average.ignoringGaps = nearest.founder.average.HD.ignoringGaps, truths.perspective.includingGaps = truths.nearest.founder.average.HD.includingGaps, estimates.perspective.includingGaps = estimates.nearest.founder.average.HD.includingGaps, average.includingGaps = nearest.founder.average.HD.includingGaps ), function( .avg ) { sprintf( "%1.8f", .avg ) } ) );
+        .list <- c( truths.perspective.HD.average.ignoringGaps = truths.nearest.founder.average.HD.ignoringGaps, truths.perspective.HD.sum.ignoringGaps = truths.nearest.founder.HD.sum.ignoringGaps, truths.perspective.denominator.sum.ignoringGaps = truths.nearest.founder.denominator.sum.ignoringGaps, estimates.perspective.HD.average.ignoringGaps = estimates.nearest.founder.average.HD.ignoringGaps, estimates.perspective.HD.sum.ignoringGaps = estimates.nearest.founder.HD.sum.ignoringGaps, estimates.perspective.denominator.sum.ignoringGaps = estimates.nearest.founder.denominator.sum.ignoringGaps,
+                   truths.perspective.HD.average.includingGaps = truths.nearest.founder.average.HD.includingGaps, truths.perspective.HD.sum.includingGaps = truths.nearest.founder.HD.sum.includingGaps, truths.perspective.denominator.sum.includingGaps = truths.nearest.founder.denominator.sum.includingGaps, estimates.perspective.HD.average.includingGaps = estimates.nearest.founder.average.HD.includingGaps, estimates.perspective.HD.sum.includingGaps = estimates.nearest.founder.HD.sum.includingGaps, estimates.perspective.denominator.sum.includingGaps = estimates.nearest.founder.denominator.sum.includingGaps );
+        return( sapply( .list, function( .avg ) { sprintf( "%1.8f", .avg ) } ) );
     } # evaluateOneFile (..)
 
     evaluate.results.by.protein.file <- 
@@ -287,7 +315,10 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             if( checkFastaFileIsReal( .file ) ) {
                 return( evaluateOneFile( .file, file.is.aa = TRUE ) );
             } else {
-                return( c( truths.perspective.ignoringGaps = NA, estimates.perspective.ignoringGaps = NA, average.ignoringGaps = NA, truths.perspective.includingGaps = NA, estimates.perspective.includingGaps = NA, average.includingGaps = NA ) );
+                return( c(
+                    truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
+                    truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
+                ) );
             }
         } );
     names( evaluate.results.by.protein.file ) <-
@@ -298,7 +329,10 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             if( checkFastaFileIsReal( .file ) ) {
                 return( evaluateOneFile( .file, file.is.aa = FALSE ) );
             } else {
-                return( c( truths.perspective.ignoringGaps = NA, estimates.perspective.ignoringGaps = NA, average.ignoringGaps = NA, truths.perspective.includingGaps = NA, estimates.perspective.includingGaps = NA, average.includingGaps = NA ) );
+                return( c(
+                    truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
+                    truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
+                ) );
             }
         } );
     names( evaluate.results.by.nucleotide.file ) <-
@@ -309,7 +343,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
 
-    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = output.file.append, row.names = FALSE, col.names = !file.exists( output.table.path ), sep = "\t", quote = FALSE );
+    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = output.file.append, row.names = FALSE, col.names = ( !output.file.append || !file.exists( output.table.path ) ), sep = "\t", quote = FALSE );
 
     # Return the file name.
     return( output.table.path );

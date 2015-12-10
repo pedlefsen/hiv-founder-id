@@ -12,16 +12,18 @@ export outputDir=$3
 export patient=$4
 export inputDir=${estimateDir}/hiv_founder_id_processed_${patient}
 export truthDir=${mainDir}/true_founders/${patient}
-rm -rf ${outputDir}
+#rm -rf ${outputDir}
 mkdir ${outputDir}
 export truthListFile=${mainDir}/processed_${patient}.list
 export listFile=${estimateDir}/processed_${patient}.list
 # Ok, so do all four kinds.  Append as we go.
 export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
-export evaluateFounders_append="TRUE";
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
-    echo ${fasta_prefix}
+    echo ${fasta_prefix};
+    
+    rm ${evaluateFounders_outputFilename};
+    
     export evaluateFounders_estimatesFilename_single="${inputDir}/${fasta_prefix}_singlefounder_cons.fasta";
     export evaluateFounders_estimatesFilename_multiple="${inputDir}/${fasta_prefix}_multiplefounders_cons.fasta";
     
@@ -31,9 +33,13 @@ do
         export evaluateFounders_truthsFilename_single="${truthDir}/${truth_fasta_prefix}_singlefounder.fasta";
         export evaluateFounders_truthsFilename_multiple="${truthDir}/${truth_fasta_prefix}_multifounder.fasta";
         
+        export evaluateFounders_append="FALSE";
+        
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
         R -f ./evaluateFounders.R --vanilla --slave
+        
+        export evaluateFounders_append="TRUE";
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
