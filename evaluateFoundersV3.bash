@@ -24,7 +24,10 @@ export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
 export evaluateFounders_append="TRUE";
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
-    echo ${fasta_prefix}
+    echo ${fasta_prefix};
+
+    rm ${evaluateFounders_outputFilename};
+
     export evaluateFounders_estimatesFilename_single="${inputDir}/${fasta_prefix}_singlefounder_cons.fasta";
     export evaluateFounders_estimatesFilename_multiple="${inputDir}/${fasta_prefix}_multiplefounders_cons.fasta";
     
