@@ -8,11 +8,11 @@
 ##
 export mainDir=$1
 export estimateDir=$2
+export patient=$4
 mkdir ${3}
 export outputDir=${3}/${patient}
 rm -rf ${outputDir}
 mkdir ${outputDir}
-export patient=$4
 export inputDir=${estimateDir}/founder-inference-bakeoff_${patient}
 export truthDir=${mainDir}/true_founders/${patient}
 export truthListFile=${mainDir}/processed_${patient}.list

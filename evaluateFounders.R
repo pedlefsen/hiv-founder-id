@@ -72,13 +72,14 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
     estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
-    if( is.null( estimates.fasta ) || ( nrow( estimates.fasta ) == 0 ) ) {
+    if( is.null( estimates.fasta ) || is.null( nrow( estimates.fasta ) ) || ( nrow( estimates.fasta ) == 0 ) ) {
         warning( paste( "No results in file", estimates.fasta.file ) );
         return( NULL );
     }
     
     ## Make an ungapped version, if it doesn't already exist. (in output.dir)
-    estimates.fasta.file.ungapped <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
+    estimates.fasta.file.ungapped <-
+      paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
     if( recreate.ungapped.fastas || !file.exists( estimates.fasta.file.ungapped ) ) {
           # Create an ungapped version, and save it.
           .estimates.fasta.as.character <- as.character( estimates.fasta );
@@ -117,20 +118,21 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
     system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
     if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
-      ## Run it through GeneCutter.
-      ## TODO: Add other comparison seqs first, eg CON_M
-      system( paste( "perl runGeneCutterOnline.pl -P", genecutter.proteins.list, "-R", genecutter.genome.region, "-V", combined.ungapped.fasta.file, output.dir ) );
-      
       nucleotides.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs.zip", sep = "" );
       proteins.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins.zip", sep = "" );
-      stopifnot( file.exists( nucleotides.zipfile ) );
-      stopifnot( file.exists( proteins.zipfile ) );
+      if( !file.exists( nucleotides.zipfile ) || !file.exists( proteins.zipfile ) ) {
+        ## Run it through GeneCutter.
+        ## TODO: Add other comparison seqs first, eg CON_M
+        system( paste( "perl runGeneCutterOnline.pl -P", genecutter.proteins.list, "-R", genecutter.genome.region, "-V", combined.ungapped.fasta.file, output.dir ) );
+        stopifnot( file.exists( nucleotides.zipfile ) );
+        stopifnot( file.exists( proteins.zipfile ) );
+      }
 
       ## Now unzip them.
       system( paste( "rm -rf", nucleotides.dir ) );
       system( paste( "rm -rf", proteins.dir ) );
       ## NOTE: IF the protein list has only one element, this isn't a zipfile, it's just a fasta file.
-      if( sum( sapply( strsplit( genecutter.proteins.list, "-" )[[1]], function( .x ) { nchar( .x ) > 0 } ) == 1 ) ) {
+      if( sum( sapply( strsplit( genecutter.proteins.list, "-" )[[1]], function( .x ) { nchar( .x ) > 0 } ) ) == 1 ) {
           dir.create( nucleotides.dir );
           cat( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ), fill = F );
           dir.create( proteins.dir );
@@ -302,7 +304,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     names( evaluate.results.by.nucleotide.file ) <-
         gsub( ".FASTA", "", dir( nucleotides.dir, full.names = F ) );
     
-    output.table.row.columns <- c( "estimates.file" = estimates.fasta.file.short, "truths.file" = truths.fasta.file.short, unlist( evaluate.results.by.protein.file[ names( evaluate.results.by.protein.file ) != "FULL_SEQUENCE.AA" ] ), unlist( evaluate.results.by.nucleotide.file ) );
+    output.table.row.columns <- c( "estimates.file" = estimates.fasta.file.short, "truths.file" = truths.fasta.file.short, unlist( evaluate.results.by.protein.file ), unlist( evaluate.results.by.nucleotide.file ) );
     
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
