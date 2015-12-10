@@ -136,9 +136,9 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
       ## NOTE: IF the protein list has only one element, this isn't a zipfile, it's just a fasta file.
       if( sum( sapply( strsplit( genecutter.proteins.list, "-" )[[1]], function( .x ) { nchar( .x ) > 0 } ) ) == 1 ) {
           dir.create( nucleotides.dir );
-          cat( unlist( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ) ), fill = F );
+          cat( unlist( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", genecutter.proteins.list, ".NA.FASTA", sep = "" ), sep = " " ) ) ), fill = F );
           dir.create( proteins.dir );
-          cat( unlist( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", genecutter.proteins.list, ".FASTA", sep = "" ), sep = " " ) ) ), fill = F );
+          cat( unlist( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", genecutter.proteins.list, ".AA.FASTA", sep = "" ), sep = " " ) ) ), fill = F );
       } else {
           system( paste( "unzip", nucleotides.zipfile, "-d", nucleotides.dir, sep = " " ) )
           system( paste( "unzip", proteins.zipfile, "-d", proteins.dir, sep = " " ) )
