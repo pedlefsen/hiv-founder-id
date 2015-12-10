@@ -26,31 +26,9 @@ stopifnot( all( rv217.nflg.1m.results.in.estimates.ptid == rv217.nflg.1m.results
 rv217.nflg.1m.results.in.ptids <-
     unique( rv217.nflg.1m.results.in.truths.ptid );
 
-## NOTE: for the file sets with multiple overlapping regions (ie, RV217 when there is a "left-half" (LH) and/or "right-half" (RH) sometimes with NFLGs and on occasion additional Envs), we accidentally computed all pairs, rather than just the matching pairs.  So here we try to subset to the matching pairs, if possible. However there are cases in which there is no match.  Note that the only pair of (env, LH, RH, nflg) that do not appreciably overlap are LH and RH.  
-## Also, while we are culling, we need to make sure there's exactly one of each kind (sanity check / there's reason to believe that sometimes for unknown reasons there are multiple).
-rv217.nflg.1m.estimates.file.region <-
-    gsub( ".*_(LH|NFLG|RH|env).+", "\\1", as.character( rv217.nflg.1m.results.in[ , "estimates.file" ] ) );
-rv217.nflg.1m.truths.file.region <-
-    gsub( ".*_(LH|NFLG|RH|env).+", "\\1", as.character( rv217.nflg.1m.results.in[ , "truths.file" ] ) );
+## Note that we do not subset to same-region results, since the regions overlap, we can aggregate HDs (ignoring gaps) by summing numerator and denominators.  This solidifies my thinking that the one that includes gaps does not make sense here, and gaps might be inserted by geneCutter to make codons work as reasonable AAs in translation, which is really no fault of the estimation, as it might be context-dependent (eg if a substitution in one homolgous pair results in that pair being not-aligned after codon-alignment because the placement leads to different best-guesses of the functional codon [though my thinking is that this should be exceedingly rare]).
 
-## ptids for whom no same-region results exist:
-ptids.with.no.sameregion.results <- 
-    setdiff(
-        rv217.nflg.1m.results.in.ptids,
-        rv217.nflg.1m.results.in.estimates.ptid[ rv217.nflg.1m.estimates.file.region == rv217.nflg.1m.truths.file.region ]
-    );
-## Note that we do not subset to same-region results, since the regions overlap, the region-specific averages of the HDs (ignoring gaps) can be legally averaged.  This solidifies my thinking that the one that includes gaps does not make sense here, and gaps might be inserted by geneCutter to make codons work as reasonable AAs in translation, which is really no fault of the estimation, as it might be context-dependent (eg if a substitution in one homolgous pair results in that pair being not-aligned after codon-alignment because the placement leads to different best-guesses of the functional codon [though my thinking is that this should be exceedingly rare]).
 rv217.nflg.1m.results.fromto <- rv217.nflg.1m.results.in[ , 1:2, drop = FALSE ];
-## Also (in addition to the includingGaps results; see above), we remove the interesting (but not for reporting) perspectives results, which are components of the result that we use: truths.perspective is the average over true founders of the HD of the smallest-HD estimate for that true founder (even if it is the same as another one).
-rv217.nflg.1m.results <- as.matrix( rv217.nflg.1m.results.in[ , 3:ncol( rv217.nflg.1m.results.in ) ] );
-suppressWarnings( mode( rv217.nflg.1m.results ) <- "numeric" );
-
-rv217.nflg.1m.cols.to.keep <-
-    grep( "\\.average\\.ignoringGaps", colnames( rv217.nflg.1m.results ), value = TRUE );
-rv217.nflg.1m.results <- rv217.nflg.1m.results[ , rv217.nflg.1m.cols.to.keep ];
-colnames( rv217.nflg.1m.results ) <-
-    gsub( "\\.average\\.ignoringGaps", "\\1", rv217.nflg.1m.cols.to.keep );
-
 ###### ERE I AM UPDATING FIXING ETC.
 # These should be removed methought, now not so sure: rv217.nflg.1m.results[ ( rv217.nflg.1m.truths.file.region == "LH" & rv217.nflg.1m.estimates.file.region == "RH" ) | ( rv217.nflg.1m.truths.file.region == "RH" & rv217.nflg.1m.estimates.file.region == "LH" ), ]
 ## THINKING KEEP.  JUSTIFICATION IS THAT IF THEY ALIGN THEY COUNT. WHY NOT?
@@ -78,10 +56,46 @@ rv217.nflg.1m.truths.file.is.multiple <-
 rv217.nflg.1m.truths.matches.gold.is.multiple <- ( rv217.nflg.1m.truths.file.is.multiple == rv217.gold.is.multiple[ rv217.nflg.1m.truths.file.ptid ] );
 rv217.nflg.1m.estimates.matches.gold.is.multiple <- ( rv217.nflg.1m.estimates.file.is.multiple == rv217.gold.is.multiple[ rv217.nflg.1m.truths.file.ptid ] );
 
+rv217.nflg.1m.results.matches.gold.is.multiple <-
+    rv217.nflg.1m.results.in[ ( rv217.nflg.1m.truths.matches.gold.is.multiple & rv217.nflg.1m.estimates.matches.gold.is.multiple ), , drop = FALSE ];
+rv217.nflg.1m.results.matches.gold.is.multiple.truths.ptid <-
+    rv217.nflg.1m.truths.file.ptid[ ( rv217.nflg.1m.truths.matches.gold.is.multiple & rv217.nflg.1m.estimates.matches.gold.is.multiple ) ];
+
+# Stop if we lost any ptids.
+stopifnot( length( unique( rv217.nflg.1m.estimates.file.ptid[ ( rv217.nflg.1m.truths.matches.gold.is.multiple & rv217.nflg.1m.estimates.matches.gold.is.multiple ) ] ) ) == length( rv217.nflg.1m.results.in.ptids ) );
+
 # ## TODO: Read this in, use all the "fits" and "is.starlike" etc options to choose whether to use single or multiple in the estimated set.  NOTE: FOR NOW we just use the "right" one for the job, ie the same one we use for the "truth".
 # rv217.nflg.1m.identifyfounders.in <- read.delim( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab", sep = "\t" );
 # rv217.nflg.1m.identifyfounders <- as.matrix( rv217.nflg.1m.identifyfounders.in );
 # suppressWarnings( mode( rv217.nflg.1m.identifyfounders ) <- "numeric" );
+
+## Also (in addition to the includingGaps results; see above), we remove the interesting (but not for reporting) perspectives results, which are components of the result that we use: truths.perspective is the average over true founders of the HD of the smallest-HD estimate for that true founder (even if it is the same as another one).
+rv217.nflg.1m.results.prep <- as.matrix( rv217.nflg.1m.results.matches.gold.is.multiple[ , 3:ncol( rv217.nflg.1m.results.matches.gold.is.multiple ) ] );
+suppressWarnings( mode( rv217.nflg.1m.results.prep ) <- "numeric" );
+
+rv217.nflg.1m.cols.to.keep <-
+    grep( "FULL_SEQUENCE", grep( "\\.sum\\.ignoringGaps", colnames( rv217.nflg.1m.results.prep ), value = TRUE ), invert = TRUE, value = TRUE );
+rv217.nflg.1m.cols.to.keep.prefixes <- gsub( "^(.+)\\.perspective.+", "\\1", rv217.nflg.1m.cols.to.keep );
+## Ok so now we need to recompute per-ptid averages; first we sum like columns for a ptid.
+rv217.nflg.1m.results.prep2 <- t(
+    sapply( rv217.nflg.1m.results.in.ptids, function( .ptid ) {
+        .ptid.sums <- 
+            apply( rv217.nflg.1m.results.prep[ rv217.nflg.1m.results.matches.gold.is.multiple.truths.ptid == .ptid, rv217.nflg.1m.cols.to.keep, drop = FALSE ], 2, sum, na.rm = T );
+        .rv <- sapply( unique( rv217.nflg.1m.cols.to.keep.prefixes ), function( .prefix ) {
+            .ptid.sums[ paste( .prefix, "perspective.HD.sum.ignoringGaps", sep = "." ) ] /
+            .ptid.sums[ paste( .prefix, "perspective.denominator.sum.ignoringGaps", sep = "." ) ]
+        } );
+        names( .rv ) <- unique( rv217.nflg.1m.cols.to.keep.prefixes );
+        return( .rv );
+    } ) );
+## And finally replace it all with averages (we average the truths-perspective and the estimates-perspective).
+rv217.nflg.1m.results.prep2.prefixes <- gsub( "^(.+)\\.(truths|estimates)", "\\1", colnames( rv217.nflg.1m.results.prep2 ) );
+
+rv217.nflg.1m.results <- sapply( unique( rv217.nflg.1m.results.prep2.prefixes ), function( .prefix ) {
+    apply( rv217.nflg.1m.results.prep2[ , paste( .prefix, c( "truths", "estimates" ), sep = "." ), drop = FALSE ], 1, mean, na.rm = T )
+} );
+
+#### ERE I AM. THAT SEEMS TO HAVE WORKED OUT OK, BUT MAYBE IF an is.multiple match isn't available, have a fallback option?  Anyway, this works enough for now.
 
 rv217.nflg.6m.results.in <- read.delim( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/6m/evaluateFounders.tbl", sep = "\t" );
 rv217.nflg.6m.results <- as.matrix( rv217.nflg.6m.results.in );
