@@ -71,10 +71,12 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
-    estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
-    if( is.null( estimates.fasta ) || is.null( nrow( estimates.fasta ) ) || ( nrow( estimates.fasta ) == 0 ) ) {
-        warning( paste( "No results in file", estimates.fasta.file ) );
-        return( NULL );
+    estimates.fasta <- NULL;
+    
+    while( is.null( estimates.fasta ) || is.null( nrow( estimates.fasta ) ) || ( nrow( estimates.fasta ) == 0 ) ) {
+      estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
+      warning( paste( "Trouble reading results in file", estimates.fasta.file, ".. trying again in a second." ) );
+      Sys.sleep( 1 );
     }
     
     ## Make an ungapped version, if it doesn't already exist. (in output.dir)
@@ -169,6 +171,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             stop( "ERROR: FILE MISSING" );
             return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
         }
+        
+        fasta.in <- NULL;
         tryCatch( {
         if( file.is.aa ) {
             fasta.in <-
@@ -181,6 +185,10 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
         } );
 
+        if( is.null( fasta.in ) || ( nrow( fasta.in ) == 0 ) ) {
+          # no sequences in the file?!
+          return( list( HD.includingGaps = NA, denominator.includingGaps = NA, HD.ignoringGaps = NA, denominator.ignoringGaps = NA ) );
+        }
         fasta.mat <- t( apply( as.matrix( 1:nrow( fasta.in ) ), 1, function ( i ) {
             s2c( as.character( unmasked( fasta.in )[ i, ] ) )
         } ) );

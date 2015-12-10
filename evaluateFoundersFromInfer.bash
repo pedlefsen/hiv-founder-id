@@ -11,7 +11,7 @@ export estimateDir=$2
 export patient=$4
 mkdir ${3}
 export outputDir=${3}/${patient}
-rm -rf ${outputDir}
+#rm -rf ${outputDir}
 mkdir ${outputDir}
 export inputDir=${estimateDir}/founder-inference-bakeoff_${patient}
 export truthDir=${mainDir}/true_founders/${patient}
