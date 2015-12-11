@@ -1,6 +1,9 @@
 ## First gather the tab files eg:
 # cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/nflg/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab 
 # cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/identify_founders.tab
+## Also run the evaluateTimings.sh script eg
+# ./evaluateTimings.sh /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/ > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/sampleDates.tbl
+# ./evaluateTimings.sh /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/nflg/1m/ > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/sampleDates.tbl
 
 identify.founders.date.estimates <- c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
 
@@ -139,7 +142,63 @@ timings.results.by.study.and.time <-
 names( timings.results.by.study.and.time ) <- studies;
 
 # Make a table out of it. (one per study).
-# the.study <- "nflg"
+results.tables <- 
+lapply( studies, function( the.study ) {
+.tbl <- do.call( cbind, lapply( timings.results.by.study.and.time[[ the.study ]], function( .lst.by.time ) {
+  unlist( list( Bias = .lst.by.time[[ "bias" ]], RMSE = .lst.by.time[[ "rmse" ]] ) )
+} ) );
+return( .tbl );
+} );
+names( results.tables ) <- studies;
+results.tables
+# $nflg
+#                                                       1m         6m      1m6m
+# Bias.PFitter.time.est                          43.250000  -26.36986  91.62162
+# Bias.Synonymous.PFitter.time.est              -23.625000 -145.23288 -11.10811
+# Bias.multifounder.PFitter.time.est              6.137255  -66.92593  21.83333
+# Bias.multifounder.Synonymous.PFitter.time.est -30.843137 -151.38889 -25.23333
+# Bias.Infer                                     88.531250   82.11111  72.65000
+# Bias.Anchre.r2t                               120.393666  121.64161  75.26316
+# Bias.Anchre.bst                                28.133187   29.92886 291.21053
+# RMSE.PFitter.time.est                          61.020331   91.80863 135.82308
+# RMSE.Synonymous.PFitter.time.est               16.371161   28.42296  32.30822
+# RMSE.multifounder.PFitter.time.est              4.607038   12.27091  70.30431
+# RMSE.multifounder.Synonymous.PFitter.time.est  43.250000  -26.36986  20.79072
+# RMSE.Infer                                    -23.625000 -145.23288  24.31433
+# RMSE.Anchre.r2t                                 6.137255  -66.92593 174.86371
+# RMSE.Anchre.bst                               -30.843137 -151.38889 714.73403
+# 
+# $v3
+#                                                       1m         6m
+# Bias.PFitter.time.est                         179.200000  139.27778
+# Bias.Synonymous.PFitter.time.est               -4.200000 -120.77778
+# Bias.multifounder.PFitter.time.est              5.900000  -25.88889
+# Bias.multifounder.Synonymous.PFitter.time.est -40.900000 -144.77778
+# Bias.Infer                                     77.450000   93.38889
+# Bias.Anchre.r2t                               351.525937  203.41953
+# Bias.Anchre.bst                               113.694234   73.17309
+# RMSE.PFitter.time.est                          76.814815  156.67121
+# RMSE.Synonymous.PFitter.time.est               35.936933   55.60528
+# RMSE.multifounder.PFitter.time.est              5.296225   12.71469
+# RMSE.multifounder.Synonymous.PFitter.time.est 179.200000  139.27778
+# RMSE.Infer                                     -4.200000 -120.77778
+# RMSE.Anchre.r2t                                 5.900000  -25.88889
+# RMSE.Anchre.bst                               -40.900000 -144.77778
+#                                                        1m6m
+# Bias.PFitter.time.est                            259.411765
+# Bias.Synonymous.PFitter.time.est                   2.705882
+# Bias.multifounder.PFitter.time.est               123.411765
+# Bias.multifounder.Synonymous.PFitter.time.est    -18.588235
+# Bias.Infer                                       101.352941
+# Bias.Anchre.r2t                                  695.529412
+# Bias.Anchre.bst                               321256.235294
+# RMSE.PFitter.time.est                            360.149632
+# RMSE.Synonymous.PFitter.time.est                  96.109810
+# RMSE.multifounder.PFitter.time.est               319.683644
+# RMSE.multifounder.Synonymous.PFitter.time.est     72.516428
+# RMSE.Infer                                        24.264020
+# RMSE.Anchre.r2t                                 1604.720736
+# RMSE.Anchre.bst                               333778.988566
 
 # ------- FOR THE RECORD ---------
 # timings.results.by.study.and.time
