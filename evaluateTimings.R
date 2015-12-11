@@ -14,6 +14,7 @@ names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.go
 
 studies <- c( "nflg", "v3" );
 times <- c( "1m", "6m", "1m6m" );
+#times <- c( "1m6m" );
 
 timings.results.by.study.and.time <- 
  lapply( studies, function( the.study ) {
@@ -25,6 +26,8 @@ timings.results.by.study.and.time <-
              cat( the.time, fill = T );
              sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
              colnames( sample.dates.in ) <- c( "ptid", "date" );
+             ## Remove anything that's not really a ptid/date combo
+             sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
              # remove anything with a missing date.
              sample.dates.in <-
                  sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
@@ -57,7 +60,7 @@ timings.results.by.study.and.time <-
                  lapply( unlist( infer.results.files ), function( .file ) {
                      return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
                  } );
-             print( infer.results.list ); ## TODO REMOVE
+             #print( infer.results.list ); ## TODO REMOVE
              infer.results <- do.call( rbind, infer.results.list );
              colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
              rownames( infer.results ) <-
@@ -68,7 +71,8 @@ timings.results.by.study.and.time <-
                      infer.results[ grep( "^100\\d\\d\\d", rownames( infer.results ) ), , drop = FALSE ];
              }
              # Add just the estimate from infer.
-             sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+             sample.dates.char <- as.character( sample.dates.in[ , 2 ] );
+             sample.dates <- as.Date( sample.dates.char );
              names( sample.dates ) <- sample.dates.in[ , 1 ];
              infer.days.before.sample <- sapply( 1:nrow( infer.results ), function( .i ) { 0 - as.numeric( as.Date( infer.results[ .i, 1 ] ) - sample.dates[ rownames( infer.results )[ .i ] ] ) } );
              names( infer.days.before.sample ) <- rownames( infer.results );
@@ -76,7 +80,6 @@ timings.results.by.study.and.time <-
              results <- cbind( results, infer.days.before.sample );
              colnames( results )[ ncol( results ) ] <- "Infer";
 
-             ## mark
              if( the.time == "1m6m" ) {
                ## Add to results: "anchre" results. (only at 1m6m)
                anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
