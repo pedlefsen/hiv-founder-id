@@ -58,7 +58,9 @@ timings.results.by.study.and.time <-
              infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
              infer.results.list <-
                  lapply( unlist( infer.results.files ), function( .file ) {
-                     return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
+                     .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
+                     stopifnot( ncol( .rv ) == 3 );
+                     return( .rv );
                  } );
              #print( infer.results.list ); ## TODO REMOVE
              infer.results <- do.call( rbind, infer.results.list );
@@ -100,6 +102,7 @@ timings.results.by.study.and.time <-
                        .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
                        ## No negative dates!
                        .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { "0001-01-01" } else { .str } } );
+                       stopifnot( ncol( .rv ) == 4 );
                        return( .rv );
                    } ) );
                colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
@@ -135,10 +138,11 @@ timings.results.by.study.and.time <-
  } ); # End foreach the.study
 names( timings.results.by.study.and.time ) <- studies;
 
+# Make a table out of it. (one per study).
+# the.study <- "nflg"
 
-
-
-timings.results.by.study.and.time
+# ------- FOR THE RECORD ---------
+# timings.results.by.study.and.time
 # $nflg
 # $nflg$`1m`
 # $nflg$`1m`$bias
@@ -154,6 +158,9 @@ timings.results.by.study.and.time
 # $nflg$`1m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -30.84314
 # 
+# $nflg$`1m`$bias$Infer
+# [1] 88.53125
+# 
 # 
 # $nflg$`1m`$rmse
 # $nflg$`1m`$rmse$PFitter.time.est
@@ -167,6 +174,9 @@ timings.results.by.study.and.time
 # 
 # $nflg$`1m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 16.37116
+# 
+# $nflg$`1m`$rmse$Infer
+# [1] 4.607038
 # 
 # 
 # 
@@ -184,6 +194,9 @@ timings.results.by.study.and.time
 # $nflg$`6m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -151.3889
 # 
+# $nflg$`6m`$bias$Infer
+# [1] 82.11111
+# 
 # 
 # $nflg$`6m`$rmse
 # $nflg$`6m`$rmse$PFitter.time.est
@@ -197,6 +210,9 @@ timings.results.by.study.and.time
 # 
 # $nflg$`6m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 28.42296
+# 
+# $nflg$`6m`$rmse$Infer
+# [1] 12.27091
 # 
 # 
 # 
@@ -214,6 +230,15 @@ timings.results.by.study.and.time
 # $nflg$`1m6m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -25.23333
 # 
+# $nflg$`1m6m`$bias$Infer
+# [1] 76.05
+# 
+# $nflg$`1m6m`$bias$Anchre.r2t
+# [1] 12
+# 
+# $nflg$`1m6m`$bias$Anchre.bst
+# [1] 100.7059
+# 
 # 
 # $nflg$`1m6m`$rmse
 # $nflg$`1m6m`$rmse$PFitter.time.est
@@ -227,6 +252,15 @@ timings.results.by.study.and.time
 # 
 # $nflg$`1m6m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 20.79072
+# 
+# $nflg$`1m6m`$rmse$Infer
+# [1] 21.87157
+# 
+# $nflg$`1m6m`$rmse$Anchre.r2t
+# [1] 32.39792
+# 
+# $nflg$`1m6m`$rmse$Anchre.bst
+# [1] 323.2957
 # 
 # 
 # 
@@ -246,6 +280,9 @@ timings.results.by.study.and.time
 # $v3$`1m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -40.9
 # 
+# $v3$`1m`$bias$Infer
+# [1] 77.45
+# 
 # 
 # $v3$`1m`$rmse
 # $v3$`1m`$rmse$PFitter.time.est
@@ -259,6 +296,9 @@ timings.results.by.study.and.time
 # 
 # $v3$`1m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 35.93693
+# 
+# $v3$`1m`$rmse$Infer
+# [1] 5.296225
 # 
 # 
 # 
@@ -276,6 +316,9 @@ timings.results.by.study.and.time
 # $v3$`6m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -144.7778
 # 
+# $v3$`6m`$bias$Infer
+# [1] 93.38889
+# 
 # 
 # $v3$`6m`$rmse
 # $v3$`6m`$rmse$PFitter.time.est
@@ -289,6 +332,9 @@ timings.results.by.study.and.time
 # 
 # $v3$`6m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 55.60528
+# 
+# $v3$`6m`$rmse$Infer
+# [1] 12.71469
 # 
 # 
 # 
@@ -306,6 +352,15 @@ timings.results.by.study.and.time
 # $v3$`1m6m`$bias$multifounder.Synonymous.PFitter.time.est
 # [1] -18.58824
 # 
+# $v3$`1m6m`$bias$Infer
+# [1] 101.3529
+# 
+# $v3$`1m6m`$bias$Anchre.r2t
+# [1] 695.5294
+# 
+# $v3$`1m6m`$bias$Anchre.bst
+# [1] 321256.2
+# 
 # 
 # $v3$`1m6m`$rmse
 # $v3$`1m6m`$rmse$PFitter.time.est
@@ -319,3 +374,12 @@ timings.results.by.study.and.time
 # 
 # $v3$`1m6m`$rmse$multifounder.Synonymous.PFitter.time.est
 # [1] 72.51643
+# 
+# $v3$`1m6m`$rmse$Infer
+# [1] 24.26402
+# 
+# $v3$`1m6m`$rmse$Anchre.r2t
+# [1] 1604.721
+# 
+# $v3$`1m6m`$rmse$Anchre.bst
+# [1] 333779
