@@ -285,9 +285,11 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
   
         ## includingGaps:
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
-        nearest.founder.index.by.reference <- apply( average.HD.includingGaps, 2, base::which.min );
-        nearest.founder.index.by.estimate <- apply( average.HD.includingGaps, 1, base::which.min );
+        nearest.founder.index.by.reference <- apply( average.HD.includingGaps, 2, function( .col ) { if( all( is.na( .col ) ) ) { return( 1 ); } else { return( base::which.min( .col ) ) } } );
+        nearest.founder.index.by.estimate <- apply( average.HD.includingGaps, 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
         # For this, skip col 1, HXB2.
+        ## TODO: REMOVE
+        #print( c( estimates.fasta.file, truths.fasta.file, genecutter.proteins.list, genecutter.genome.region ) );
         truths.nearest.founder.HD.sum.includingGaps <-
             sum( sapply( 2:ncol( relevant.distances$HD.includingGaps ), function( .i ) { relevant.distances$HD.includingGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
         truths.nearest.founder.denominator.sum.includingGaps <-
@@ -308,8 +310,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         
         ## ignoringGaps:
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
-        nearest.founder.index.by.reference <- apply( average.HD.ignoringGaps, 2, base::which.min );
-        nearest.founder.index.by.estimate <- apply( average.HD.ignoringGaps, 1, base::which.min );
+        nearest.founder.index.by.reference <- apply( average.HD.ignoringGaps, 2, function( .col ) { if( all( is.na( .col ) ) ) { return( 1 ); } else { return( base::which.min( .col ) ) } } );
+        nearest.founder.index.by.estimate <- apply( average.HD.ignoringGaps, 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
         # For this, skip col 1, HXB2.
         truths.nearest.founder.HD.sum.ignoringGaps <-
             sum( sapply( 2:ncol( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
@@ -324,8 +326,6 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         estimates.nearest.founder.average.HD.ignoringGaps <-
             estimates.nearest.founder.HD.sum.ignoringGaps / estimates.nearest.founder.denominator.sum.ignoringGaps;
 
-        ## ERE I AM TRYING TO TRACK DOWN APPARENTLY GREATER assymetry than I would have anticipated; shouldn't the perspectives give the same results (as each other) when there is a single-vs-single founder comparison?
-        
         ## TODO: REMOVE
         # print( truths.nearest.founder.average.HD.ignoringGaps );
         # print( estimates.nearest.founder.average.HD.ignoringGaps );
@@ -370,7 +370,7 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
 
-    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = output.file.append, row.names = FALSE, col.names = ( !output.file.append || !file.exists( output.table.path ) ), sep = "\t", quote = FALSE );
+    write.table( t( as.matrix( output.table.row.columns ) ), file = output.table.path, append = ( file.exists( output.table.path ) && output.file.append ), row.names = FALSE, col.names = ( !output.file.append || !file.exists( output.table.path ) ), sep = "\t", quote = FALSE );
 
     # Return the file name.
     return( output.table.path );
