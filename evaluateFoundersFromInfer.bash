@@ -26,9 +26,17 @@ do
     ## Fix the suffixes first. Note the fixed files are put in the _output_ directory.
     if [ -e "${inputDir}/${fasta_prefix}.outsingle.fa" ]; then
           cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
+   else 
+        if [ -e "${inputDir}/${fasta_prefix}.outmultiple.fa" ]; then
+          cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
+        fi
     fi
     if [ -e "${inputDir}/${fasta_prefix}.outmultiple.fa" ]; then
           cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
+    else
+        if [ -e "${inputDir}/${fasta_prefix}.outsingle.fa" ]; then
+            cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
+        fi
     fi
     export evaluateFounders_estimatesFilename_single="${outputDir}/${fasta_prefix}_outsingle.fa";
     export evaluateFounders_estimatesFilename_multiple="${outputDir}/${fasta_prefix}_outmultiple.fa";
