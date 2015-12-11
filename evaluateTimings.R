@@ -1,3 +1,7 @@
+## First gather the tab files eg:
+# cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/nflg/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab 
+# cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/identify_founders.tab
+
 identify.founders.date.estimates <- c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
 
 rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
@@ -10,13 +14,20 @@ names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.go
 
 studies <- c( "nflg", "v3" );
 times <- c( "1m", "6m", "1m6m" );
+#times <- c( "1m6m" );
 
 timings.results.by.study.and.time <- 
  lapply( studies, function( the.study ) {
+             ## TODO: REMOVE
+             cat( the.study, fill = T );
      timings.results.by.time <- 
          lapply( times, function( the.time ) {
+             ## TODO: REMOVE
+             cat( the.time, fill = T );
              sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
              colnames( sample.dates.in ) <- c( "ptid", "date" );
+             ## Remove anything that's not really a ptid/date combo
+             sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
              # remove anything with a missing date.
              sample.dates.in <-
                  sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
@@ -45,10 +56,12 @@ timings.results.by.study.and.time <-
              ## Add to results: "infer" results.
              infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
              infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
-             infer.results <- do.call( rbind,
+             infer.results.list <-
                  lapply( unlist( infer.results.files ), function( .file ) {
                      return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
-                 } ) );
+                 } );
+             #print( infer.results.list ); ## TODO REMOVE
+             infer.results <- do.call( rbind, infer.results.list );
              colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
              rownames( infer.results ) <-
                  gsub( "^.+_(\\d+)$", "\\1", names( unlist( infer.results.files ) ) );
@@ -58,7 +71,8 @@ timings.results.by.study.and.time <-
                      infer.results[ grep( "^100\\d\\d\\d", rownames( infer.results ) ), , drop = FALSE ];
              }
              # Add just the estimate from infer.
-             sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+             sample.dates.char <- as.character( sample.dates.in[ , 2 ] );
+             sample.dates <- as.Date( sample.dates.char );
              names( sample.dates ) <- sample.dates.in[ , 1 ];
              infer.days.before.sample <- sapply( 1:nrow( infer.results ), function( .i ) { 0 - as.numeric( as.Date( infer.results[ .i, 1 ] ) - sample.dates[ rownames( infer.results )[ .i ] ] ) } );
              names( infer.days.before.sample ) <- rownames( infer.results );
@@ -66,32 +80,48 @@ timings.results.by.study.and.time <-
              results <- cbind( results, infer.days.before.sample );
              colnames( results )[ ncol( results ) ] <- "Infer";
 
-             ## mark
-             ## Add to results: "anchre" results.
-             anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/", the.time, sep = "" ), "founder-anchreence-bakeoff_", full.name = TRUE );
-             anchre.results.files <- sapply( anchre.results.directories, dir, "outtoi.csv", full.name = TRUE );
-             anchre.results <- do.call( rbind,
-                 lapply( unlist( anchre.results.files ), function( .file ) {
-                     return( as.matrix( read.csv( .file, header = FALSE ), nrow = 1 ) );
-                 } ) );
-             colnames( anchre.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
-             rownames( anchre.results ) <-
-                 gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
-             # Special: for v3, only use caprisa seqs (not rv144, for now).
-             if( the.study == "v3" ) {
-                 anchre.results <-
-                     anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
-             }
-             # Add just the estimate from anchre.
-             sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
-             names( sample.dates ) <- sample.dates.in[ , 1 ];
-             anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
-             names( anchre.days.before.sample ) <- rownames( anchre.results );
-
-             results <- cbind( results, anchre.days.before.sample );
-             colnames( results )[ ncol( results ) ] <- "Anchre";
+             if( the.time == "1m6m" ) {
+               ## Add to results: "anchre" results. (only at 1m6m)
+               anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+               anchre.results.files <-
+                   sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
+               anchre.results <- do.call( rbind,
+                   lapply( unlist( anchre.results.files ), function( .file ) {
+                       stopifnot( file.exists( .file ) );
+                       .file.short <-
+                           gsub( "^.*?\\/?([^\\/]+?)$", "\\1", .file, perl = TRUE );
+                       .file.short.nosuffix <-
+                           gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
+                       .file.converted <-
+                           paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
+                       # convert it.
+                       system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
+                       stopifnot( file.exists( .file.converted ) );
+                       .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
+                       ## No negative dates!
+                       .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { "0001-01-01" } else { .str } } );
+                       return( .rv );
+                   } ) );
+               colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
+               rownames( anchre.results ) <-
+                   gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
+               # Special: for v3, only use caprisa seqs (not rv144, for now).
+               if( the.study == "v3" ) {
+                   anchre.results <-
+                       anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
+               }
+               # Add just the estimate from anchre.
+               sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+               names( sample.dates ) <- sample.dates.in[ , 1 ];
+               anchre.r2t.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+               names( anchre.r2t.days.before.sample ) <- rownames( anchre.results );
+               anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 2 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+               names( anchre.days.before.sample ) <- rownames( anchre.results );
+  
+               results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
+               colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t", "Anchre.bst" ) ;
+             } # End if 1m6m, add anchre results too.
              
-
              diffs.by.stat <-
                  lapply( colnames( results ), function( .stat ) {
                      as.numeric( results[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results ) ] );
