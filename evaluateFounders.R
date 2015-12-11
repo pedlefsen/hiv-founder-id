@@ -6,7 +6,7 @@ library( "Biostrings" ) # for "pairwiseAlignment"
 # This compares two nucleotide fasta files, each containing one or more sequences (aligned or not, it doesn't matter; gaps will be stripped internally).  The comparison is conducted in both nucleotide and amino acid space after gene-cutting, codon-aligning, and translating the sequences using GeneCutter at LANL (see runGeneCutterOnline.pl).
 # If the output file exists and append is true, the output will be appended without printing out a new header row.
 # set recreate.ungapped.fastas = TRUE to force recreation of ungapped versions of the input file (in the same dir as the input file) in the event that it's already there (by default it'll use the existing file).
-evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72, recreate.ungapped.fastas = FALSE, genecutter.proteins.list = "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF", genecutter.genome.region = "ALL" ) {
+evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.dir = NULL, output.file = NULL, output.file.append = FALSE, output.fasta.width = 72, recreate.ungapped.fastas = TRUE, genecutter.proteins.list = "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF", genecutter.genome.region = "ALL" ) {
 
     if( length( grep( "^(.*?)\\/[^\\/]+$", estimates.fasta.file ) ) == 0 ) {
         estimates.fasta.file.path <- ".";
