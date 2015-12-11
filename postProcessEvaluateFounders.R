@@ -59,23 +59,50 @@ stopifnot( all( truths.file.ptid == estimates.file.ptid ) );
 stopifnot( all( truths.file.ptid %in% names( gold.is.multiple ) ) );
 
 estimates.file.is.multiple <-
-    sapply( as.character( results.fromto[ , "estimates.file" ] ), function( .str ) { length( grep( ".*_single.+", .str, invert = TRUE ) ) > 0 } );
+    sapply( as.character( results.fromto[ , "estimates.file" ] ), function( .str ) { return( length( grep( "single", .str, invert = TRUE ) ) > 0 ) } );
 truths.file.is.multiple <-
-    sapply( as.character( results.fromto[ , "truths.file" ] ), function( .str ) { length( grep( ".*_single.+", .str, invert = TRUE ) ) > 0 } );
+    sapply( as.character( results.fromto[ , "truths.file" ] ), function( .str ) { return( length( grep( "single", .str, invert = TRUE ) ) > 0 ) } );
 
 ## Ok here is where we subset to use just the "single" or "multiple" results, depending on the value of gold.is.multiple.  Note that we prefer to use the matching result, but if it is not there our next best result is the one with the matching "truth" is.multiple.  That is, we can compare a multi-founder estimate to a single-founder truth, if there is only a multi-founder estimate.
 truths.matches.gold.is.multiple <-
     ( truths.file.is.multiple == gold.is.multiple[ truths.file.ptid ] );
 estimates.matches.gold.is.multiple <- ( estimates.file.is.multiple == gold.is.multiple[ truths.file.ptid ] );
 
+### Some ptids are missing the gold-matching pair, so we choose a different match-state for these, preferring truths-matches over estimates-matches.
+.ptids.with.matching.estimates <- unique( estimates.file.ptid[ ( truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ) ] );
+.missing.ptids <- setdiff( results.in.ptids, .ptids.with.matching.estimates );
+.ptids.with.mismatching.estimates <- intersect( .missing.ptids, estimates.file.ptid[ ( truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ) ] );
+.missing.ptids <- setdiff( .missing.ptids, .ptids.with.mismatching.estimates );
+.ptids.with.mismatching.truths <- intersect( .missing.ptids, estimates.file.ptid[ ( !truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ) ] );
+.missing.ptids <- setdiff( .missing.ptids, .ptids.with.mismatching.estimates );
+.ptids.with.mismatching.both <- intersect( .missing.ptids, estimates.file.ptid[ ( !truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ) ] );
+.missing.ptids <- setdiff( .missing.ptids, .ptids.with.mismatching.estimates );
+## All ptids should be in one of these groups (not missing the gold-matching valu of is.multiple; or one of the .ptids.with.missing* -- note that a ptid would possibly qualify for multiple groups but we have a hierarchy, prefering matches to truth, for instance).
+stopifnot( length( .missing.ptids ) == 0 ); 
+
 results.matches.gold.is.multiple <-
     results.in[ ( truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ), , drop = FALSE ];
 results.matches.gold.is.multiple.truths.ptid <-
     truths.file.ptid[ ( truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ) ];
+results.matches.gold.is.multiple.in.truths.but.not.estimates <-
+    results.in[ ( results.in.truths.ptid %in% .ptids.with.mismatching.estimates ) & ( truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ), , drop = FALSE ];
+results.matches.gold.is.multiple.in.truths.but.not.estimates.truths.ptid <- 
+    truths.file.ptid[ ( results.in.truths.ptid %in% .ptids.with.mismatching.estimates ) & ( truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ) ];
+results.matches.gold.is.multiple.in.estimates.but.not.truths <-
+    results.in[ ( results.in.truths.ptid %in% .ptids.with.mismatching.truths ) & ( !truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ), , drop = FALSE ];
+results.matches.gold.is.multiple.in.estimates.but.not.truths.truths.ptid <- 
+    truths.file.ptid[ ( results.in.truths.ptid %in% .ptids.with.mismatching.truths ) & ( !truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ) ];
+results.doesnt.match.gold.is.multiple.in.either <-
+    results.in[ ( results.in.truths.ptid %in% .ptids.with.mismatching.both ) & ( !truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ), , drop = FALSE ];
+results.doesnt.match.gold.is.multiple.in.either.truths.ptid <- 
+    truths.file.ptid[ ( results.in.truths.ptid %in% .ptids.with.mismatching.both ) & ( !truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ) ];
 
-# Stop if we lost any ptids.
-### ERE I AM.  There is one case where this fails, and I think we should just implement a workaround.
-#stopifnot( length( unique( estimates.file.ptid[ ( truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ) ] ) ) == length( results.in.ptids ) );
+## The ptids won't have changed but their order may have.
+results.ptids <- c( results.matches.gold.is.multiple.truths.ptid, results.matches.gold.is.multiple.in.truths.but.not.estimates.truths.ptid, results.matches.gold.is.multiple.in.estimates.but.not.truths.truths.ptid, results.doesnt.match.gold.is.multiple.in.either.truths.ptid );
+stopifnot( length( unique( results.ptids ) ) == length( results.in.ptids ) );
+    
+results.prep <- as.matrix( rbind( results.matches.gold.is.multiple, results.matches.gold.is.multiple.in.truths.but.not.estimates, results.matches.gold.is.multiple.in.estimates.but.not.truths, results.doesnt.match.gold.is.multiple.in.either ) )[ , 3:ncol( results.matches.gold.is.multiple ) ];
+suppressWarnings( mode( results.prep ) <- "numeric" );
 
 # ## TODO: Read this in, use all the "fits" and "is.starlike" etc options to choose whether to use single or multiple in the estimated set.  NOTE: FOR NOW we just use the "right" one for the job, ie the same one we use for the "truth".
 # identifyfounders.in <- read.delim( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab", sep = "\t" );
@@ -83,17 +110,14 @@ results.matches.gold.is.multiple.truths.ptid <-
 # suppressWarnings( mode( identifyfounders ) <- "numeric" );
 
 ## Also (in addition to the includingGaps results; see above), we remove the interesting (but not for reporting) perspectives results, which are components of the result that we use: truths.perspective is the average over true founders of the HD of the smallest-HD estimate for that true founder (even if it is the same as another one).
-results.prep <- as.matrix( results.matches.gold.is.multiple[ , 3:ncol( results.matches.gold.is.multiple ) ] );
-suppressWarnings( mode( results.prep ) <- "numeric" );
-
 cols.to.keep <-
     grep( "FULL_SEQUENCE", grep( "\\.sum\\.ignoringGaps", colnames( results.prep ), value = TRUE ), invert = TRUE, value = TRUE );
 cols.to.keep.prefixes <- gsub( "^(.+)\\.perspective.+", "\\1", cols.to.keep );
-## Ok so now we need to recompute per-ptid averages; first we sum like columns for a ptid.
+## Ok so now we need to recompute per-ptid averages over the "truths" and "esimtates" 'perspectives'; first we sum like columns for a ptid.  There may be multiple rows for the rv217 "nflg" data (LH, RH, env, NFLG) but not for caprisa002 "v3".
 results.prep2 <- t(
-    sapply( results.in.ptids, function( .ptid ) {
+    sapply( results.ptids, function( .ptid ) {
         .ptid.sums <- 
-            apply( results.prep[ results.matches.gold.is.multiple.truths.ptid == .ptid, cols.to.keep, drop = FALSE ], 2, sum, na.rm = T );
+            apply( results.prep[ results.ptids == .ptid, cols.to.keep, drop = FALSE ], 2, sum, na.rm = T );
         .rv <- sapply( unique( cols.to.keep.prefixes ), function( .prefix ) {
             .ptid.sums[ paste( .prefix, "perspective.HD.sum.ignoringGaps", sep = "." ) ] /
             .ptid.sums[ paste( .prefix, "perspective.denominator.sum.ignoringGaps", sep = "." ) ]
@@ -101,6 +125,9 @@ results.prep2 <- t(
         names( .rv ) <- unique( cols.to.keep.prefixes );
         return( .rv );
     } ) );
+
+    #### ERE I AM.  NEED TO SANITY CHECK BECAUSE SHOULDN'T TRUTHS perspective equal the estimates perspective when both are single-founder?
+    
 ## And finally replace it all with averages (we average the truths-perspective and the estimates-perspective).
 results.prep2.prefixes <- gsub( "^(.+)\\.(truths|estimates)", "\\1", colnames( results.prep2 ) );
 
