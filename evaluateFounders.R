@@ -71,14 +71,20 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     combined.ungapped.fasta.file.nosuffix <- paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped_with_", truths.fasta.file.short.nosuffix, "_ungapped_combined", sep = "" );
     nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
     proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
+    
     estimates.fasta <- NULL;
-    
-    while( is.null( estimates.fasta ) || is.null( nrow( estimates.fasta ) ) || ( nrow( estimates.fasta ) == 0 ) ) {
-      estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
-      warning( paste( "Trouble reading results in file", estimates.fasta.file, ".. trying again in a second." ) );
-      Sys.sleep( 1 );
+    try.count <- 0;
+    TOO.MANY.TRIES <- 100;
+    while( ( try.count < TOO.MANY.TRIES ) && ( is.null( estimates.fasta ) || is.null( nrow( estimates.fasta ) ) || ( nrow( estimates.fasta ) == 0 ) ) ) {
+       if( try.count > 0 ) {
+           warning( paste( "Trouble reading results in file", estimates.fasta.file, ".. trying again in a second." ) );
+           Sys.sleep( 1 );
+       }
+       estimates.fasta <- read.dna( estimates.fasta.file, format = "fasta" );
     }
-    
+    if( try.count >= TOO.MANY.TRIES ) {
+        stop( paste( "COULD NOT READ results in file", estimates.fasta.file, ".. GIVING UP." ) );
+    }
     ## Make an ungapped version, if it doesn't already exist. (in output.dir)
     estimates.fasta.file.ungapped <-
       paste( output.dir, "/", estimates.fasta.file.short.nosuffix, "_ungapped", estimates.fasta.file.suffix, sep = "" );
@@ -93,9 +99,19 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
               write.dna( .row.seq.ungapped, file = estimates.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
               return( NULL );
           } );
-      }
-  
-    truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
+    }
+
+    ## This is a hex to ward off the bad juju in the filesystem (#voodoo)
+    truths.fasta <- NULL;
+    try.count <- 0;
+    TOO.MANY.TRIES <- 100;
+    while( ( try.count < TOO.MANY.TRIES ) && ( is.null( truths.fasta ) || is.null( nrow( truths.fasta ) ) || ( nrow( truths.fasta ) == 0 ) ) ) {
+       if( try.count > 0 ) {
+           warning( paste( "Trouble reading results in file", truths.fasta.file, ".. trying again in a second." ) );
+           Sys.sleep( 1 );
+       }
+       truths.fasta <- read.dna( truths.fasta.file, format = "fasta" );
+    }
     if( nrow( truths.fasta ) == 0 ) {
         stop( paste( "There are NO TRUE FOUNDERS in file", truths.fasta.file ) );
     }
@@ -103,20 +119,21 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
     ## Make an ungapped version, if it doesn't already exist.
     truths.fasta.file.ungapped <- paste( output.dir, "/", truths.fasta.file.short.nosuffix, "_ungapped", truths.fasta.file.suffix, sep = "" );
     if( recreate.ungapped.fastas || !file.exists( truths.fasta.file.ungapped ) ) {
-          # Create an ungapped version, and save it.
-          .truths.fasta.as.character <- as.character( truths.fasta );
-          .result.ignored <- lapply( 1:nrow( .truths.fasta.as.character ), function( .row.i ) {
-              .row.seq.chars <- .truths.fasta.as.character[ .row.i, ];
-              .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
-              # While we're at it, remove spaces from the header because GeneCutter might get confused if the seqnames (before the first space) are non-unique.
-              rownames( .row.seq.ungapped ) <- gsub( "\\s", "_", rownames( truths.fasta )[ .row.i ] );
-              write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
-              return( NULL );
-          } );
+        # Create an ungapped version, and save it.
+        .truths.fasta.as.character <- as.character( truths.fasta );
+        .result.ignored <- lapply( 1:nrow( .truths.fasta.as.character ), function( .row.i ) {
+            .row.seq.chars <- .truths.fasta.as.character[ .row.i, ];
+            .row.seq.ungapped <- as.DNAbin( matrix( .row.seq.chars[ .row.seq.chars != "-" ], nrow = 1 ) );
+            # While we're at it, remove spaces from the header because GeneCutter might get confused if the seqnames (before the first space) are non-unique.
+            rownames( .row.seq.ungapped ) <- gsub( "\\s", "_", rownames( truths.fasta )[ .row.i ] );
+            write.dna( .row.seq.ungapped, file = truths.fasta.file.ungapped, format = "fasta", append = ( .row.i > 1 ), colsep = "", indent = "", blocksep = 0, nbcol = 1, colw = output.fasta.width );
+            return( NULL );
+        } );
     }
       
     ## Put together the two fasta files, the lazy way.
-    combined.ungapped.fasta.file <- paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
+    combined.ungapped.fasta.file <-
+        paste( combined.ungapped.fasta.file.nosuffix, truths.fasta.file.suffix, sep = "" );
     system( paste( "cp", truths.fasta.file.ungapped, combined.ungapped.fasta.file ) );
     system( paste( "cat", estimates.fasta.file.ungapped, ">>", combined.ungapped.fasta.file ) );
     if( !file.exists( nucleotides.dir ) || !file.exists( proteins.dir ) ) {
@@ -306,6 +323,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             sum( sapply( 1:nrow( relevant.distances$denominator.ignoringGaps ), function( .i ) { relevant.distances$denominator.ignoringGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.average.HD.ignoringGaps <-
             estimates.nearest.founder.HD.sum.ignoringGaps / estimates.nearest.founder.denominator.sum.ignoringGaps;
+
+        ## ERE I AM TRYING TO TRACK DOWN APPARENTLY GREATER assymetry than I would have anticipated; shouldn't the perspectives give the same results (as each other) when there is a single-vs-single founder comparison?
         
         ## TODO: REMOVE
         # print( truths.nearest.founder.average.HD.ignoringGaps );
