@@ -142,7 +142,14 @@ timings.results.by.study.and.time <-
 names( timings.results.by.study.and.time ) <- studies;
 
 # Make a table out of it. (one per study).
-results.tables <- 
+results.tables <-
+    lapply( names( timings.results.by.study.and.time ), function( the.study ) {
+        .rv <- 
+        lapply( names( timings.results.by.study.and.time[[ the.study ]] ), function( the.time ) { sapply( timings.results.by.study.and.time[[ the.study ]][[ the.time ]], function( results.list ) { results.list } ) } );
+        names( .rv ) <- times;
+        return( .rv );
+    } );
+names( results.tables ) <- studies;
 lapply( studies, function( the.study ) {
 .tbl <- do.call( cbind, lapply( timings.results.by.study.and.time[[ the.study ]], function( .lst.by.time ) {
   unlist( list( Bias = .lst.by.time[[ "bias" ]], RMSE = .lst.by.time[[ "rmse" ]] ) )
