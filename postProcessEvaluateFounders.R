@@ -3,9 +3,6 @@
 # eg cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/evaluateFounders.tbl
 # then open and remove the extra instances of the first (header) line.
 
-## TODO: Rerun the evaluateFoundersFromInfer.bash script (and Cap variant). [RUNNING]
-## TODO: Gather the results as described at the top of this file.
-
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
 rv217.gold.standards.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/RV217_gold_standards.csv" );
 rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
@@ -33,7 +30,9 @@ results.in.estimates.ptid <-
     gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
 results.in.truths.ptid <-
     gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "truths.file" ] ) );
-stopifnot( all( results.in.estimates.ptid == results.in.truths.ptid ) );
+if( !all( results.in.estimates.ptid == results.in.truths.ptid ) ) {
+  warning( paste( "ptids mismatch?:", paste( results.in.estimates.ptid, collapse = ", " ), "not same as", paste( results.in.truths.ptid, collapse = ", " )  ) );
+}
 results.in.ptids <-
     unique( results.in.truths.ptid );
 
@@ -78,7 +77,10 @@ estimates.matches.gold.is.multiple <- ( estimates.file.is.multiple == gold.is.mu
 .ptids.with.mismatching.both <- intersect( .missing.ptids, estimates.file.ptid[ ( !truths.matches.gold.is.multiple & !estimates.matches.gold.is.multiple ) ] );
 .missing.ptids <- setdiff( .missing.ptids, .ptids.with.mismatching.estimates );
 ## All ptids should be in one of these groups (not missing the gold-matching valu of is.multiple; or one of the .ptids.with.missing* -- note that a ptid would possibly qualify for multiple groups but we have a hierarchy, prefering matches to truth, for instance).
-stopifnot( length( .missing.ptids ) == 0 ); 
+#stopifnot( length( .missing.ptids ) == 0 );
+if( length( .missing.ptids ) > 0 ) {
+  warning( paste( "After filtering, we are missing ptids:", paste( .missing.ptids, collapse = ", " ) ) );
+}
 
 results.matches.gold.is.multiple <-
     results.in[ ( truths.matches.gold.is.multiple & estimates.matches.gold.is.multiple ), , drop = FALSE ];
@@ -135,16 +137,59 @@ results <- sapply( unique( results.prep2.prefixes ), function( .prefix ) {
     apply( results.prep2[ , paste( .prefix, c( "truths", "estimates" ), sep = "." ), drop = FALSE ], 1, mean, na.rm = T )
 } );
 
-#### ERE I AM. THAT SEEMS TO HAVE WORKED OUT OK, BUT MAYBE IF an is.multiple match isn't available, have a fallback option?  Anyway, this works enough for now.
 return( results );
 } # postProcessEvaluateFounders (..)
 
+# These have only two results: V3 for AA and for NA.
 caprisa002.v3.1m.results <- postProcessEvaluateFounders( "v3", "1m" );
 caprisa002.v3.1m.results.infer <- postProcessEvaluateFounders( "v3", "1m", use.infer = TRUE );
 caprisa002.v3.6m.results <- postProcessEvaluateFounders( "v3", "6m" );
 caprisa002.v3.6m.results.infer <- postProcessEvaluateFounders( "v3", "6m", use.infer = TRUE );
 caprisa002.v3.1m6m.results <- postProcessEvaluateFounders( "v3", "1m6m" );
 caprisa002.v3.1m6m.results.infer <- postProcessEvaluateFounders( "v3", "1m6m", use.infer = TRUE );
+
+pdf( file = "caprisa002.v3.1m.results.pdf" )
+boxplot( caprisa002.v3.1m.results[,1], caprisa002.v3.1m.results[,2 ], names = colnames( caprisa002.v3.1m.results ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.1m.results.infer.pdf" )
+boxplot( caprisa002.v3.1m.results.infer[,1], caprisa002.v3.1m.results.infer[,2 ], names = colnames( caprisa002.v3.1m.results.infer ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.6m.results.pdf" )
+boxplot( caprisa002.v3.6m.results[,1], caprisa002.v3.6m.results[,2 ], names = colnames( caprisa002.v3.6m.results ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.6m.results.infer.pdf" )
+boxplot( caprisa002.v3.6m.results.infer[,1], caprisa002.v3.6m.results.infer[,2 ], names = colnames( caprisa002.v3.6m.results.infer ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.1m6m.results.pdf" )
+boxplot( caprisa002.v3.1m6m.results[,1], caprisa002.v3.1m6m.results[,2 ], names = colnames( caprisa002.v3.1m6m.results ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.1m6m.results.infer.pdf" )
+boxplot( caprisa002.v3.1m6m.results.infer[,1], caprisa002.v3.1m6m.results.infer[,2 ], names = colnames( caprisa002.v3.1m6m.results.infer ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.NA.over.time.pdf" )
+boxplot( caprisa002.v3.1m.results[,1 ], caprisa002.v3.6m.results[,1 ], caprisa002.v3.1m6m.results[,1 ], names = c( "1m.V3.NA", "6m.V3.NA", "1m6m.V3.NA" ) )
+dev.off()
+
+pdf( file = "caprisa002.v3.AA.over.time.pdf" )
+boxplot( caprisa002.v3.1m.results[,2 ], caprisa002.v3.6m.results[,2 ], caprisa002.v3.1m6m.results[,2 ], names = c( "1m.V3.AA", "6m.V3.AA", "1m6m.V3.AA" ) )
+dev.off()
+
+## For like subjects, take diffs
+.shared.ptids.6m <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.6m.results ) );
+.shared.ptids.1m6m <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.1m6m.results ) );
+pdf( file = "caprisa002.v3.NA.over.time.within.subjects.pdf" )
+boxplot( caprisa002.v3.6m.results[.shared.ptids.6m,1 ] - caprisa002.v3.1m.results[.shared.ptids.6m,1 ], caprisa002.v3.1m6m.results[.shared.ptids.1m6m,1 ] - caprisa002.v3.1m.results[.shared.ptids.1m6m,1 ], names = c( "6m.V3.AA-1m.V3.AA", "1m6m.V3.AA-1m.V3.AA" ) )
+dev.off()
+.shared.ptids <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.6m.results ) );
+pdf( file = "caprisa002.v3.AA.over.time.within.subjects.pdf" )
+boxplot( caprisa002.v3.6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], caprisa002.v3.1m6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], names = c( "6m.V3.AA-1m.V3.AA", "1m6m.V3.AA-1m.V3.AA" ) )
+dev.off()
 
 rv217.nflg.1m.results <- postProcessEvaluateFounders( "nflg", "1m" );
 rv217.nflg.1m.results.infer <- postProcessEvaluateFounders( "nflg", "1m", use.infer = TRUE );
@@ -153,3 +198,35 @@ rv217.nflg.6m.results.infer <- postProcessEvaluateFounders( "nflg", "6m", use.in
 rv217.nflg.1m6m.results <- postProcessEvaluateFounders( "nflg", "1m6m" );
 rv217.nflg.1m6m.results.infer <- postProcessEvaluateFounders( "nflg", "1m6m", use.infer = TRUE );
 
+pdf( file = "rv217.nflg.1m.NA.methods.scatter" )
+boxplot( c( rv217.nflg.1m.results.infer[, 1:9 ] ), c( rv217.nflg.1m.results[, 1:9 ] ), names = c( "nflg.1m.NA.mean", "nflg.1m.NA.infer.mean" ) )
+dev.off()
+pdf( file = "rv217.nflg.1m.AA.methods.scatter" )
+boxplot( c( rv217.nflg.1m.results.infer[, 10:18 ] ), c( rv217.nflg.1m.results[, 10:18 ] ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
+dev.off()
+
+pdf( file = "rv217.nflg.1m.NA.methods" )
+boxplot( apply( rv217.nflg.1m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.1m.NA.infer.mean", "nflg.1m.NA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
+pdf( file = "rv217.nflg.1m.AA.methods" )
+boxplot( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
+
+
+pdf( file = "rv217.nflg.6m.NA.methods.scatter" )
+boxplot( c( rv217.nflg.6m.results.infer[, 1:9 ] ), c( rv217.nflg.6m.results[, 1:9 ] ), names = c( "nflg.6m.NA.mean", "nflg.6m.NA.infer.mean" ) )
+dev.off()
+pdf( file = "rv217.nflg.6m.AA.methods.scatter" )
+boxplot( c( rv217.nflg.6m.results.infer[, 10:18 ] ), c( rv217.nflg.6m.results[, 10:18 ] ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
+dev.off()
+
+pdf( file = "rv217.nflg.6m.NA.methods" )
+boxplot( apply( rv217.nflg.6m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.6m.NA.infer.mean", "nflg.6m.NA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
+pdf( file = "rv217.nflg.6m.AA.methods" )
+boxplot( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )

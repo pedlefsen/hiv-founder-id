@@ -25,14 +25,18 @@ do
     echo ${fasta_prefix}
     ## Fix the suffixes first. Note the fixed files are put in the _output_ directory.  Also note that we take this opporunity to somewhat recover if Infer didn't create the multiple-founder output file.
     if [ -e "${inputDir}/${fasta_prefix}.outsingle.fa" ]; then
-        cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
-    else
-        cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
+          cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
+   else 
+        if [ -e "${inputDir}/${fasta_prefix}.outmultiple.fa" ]; then
+          cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outsingle.fa";
+        fi
     fi
     if [ -e "${inputDir}/${fasta_prefix}.outmultiple.fa" ]; then
-        cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
+          cp "${inputDir}/${fasta_prefix}.outmultiple.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
     else
-        cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
+        if [ -e "${inputDir}/${fasta_prefix}.outsingle.fa" ]; then
+            cp "${inputDir}/${fasta_prefix}.outsingle.fa" "${outputDir}/${fasta_prefix}_outmultiple.fa";
+        fi
     fi
     export evaluateFounders_estimatesFilename_single="${outputDir}/${fasta_prefix}_outsingle.fa";
     export evaluateFounders_estimatesFilename_multiple="${outputDir}/${fasta_prefix}_outmultiple.fa";
