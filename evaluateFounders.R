@@ -286,7 +286,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         ## includingGaps:
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
         nearest.founder.index.by.reference <- apply( average.HD.includingGaps, 2, function( .col ) { if( all( is.na( .col ) ) ) { return( 1 ); } else { return( base::which.min( .col ) ) } } );
-        nearest.founder.index.by.estimate <- apply( average.HD.includingGaps, 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
+        # exclude col 1, HXB2.
+        nearest.founder.index.by.estimate <- apply( average.HD.includingGaps[ , -1, drop = FALSE ], 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
         # For this, skip col 1, HXB2.
         ## TODO: REMOVE
         #print( c( estimates.fasta.file, truths.fasta.file, genecutter.proteins.list, genecutter.genome.region ) );
@@ -296,10 +297,11 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             sum( sapply( 2:ncol( relevant.distances$denominator.includingGaps ), function( .i ) { relevant.distances$denominator.includingGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
         truths.nearest.founder.average.HD.includingGaps <-
             truths.nearest.founder.HD.sum.includingGaps / truths.nearest.founder.denominator.sum.includingGaps;
+        # Skip the first col for this.
         estimates.nearest.founder.HD.sum.includingGaps <-
-            sum( sapply( 1:nrow( relevant.distances$HD.includingGaps ), function( .i ) { relevant.distances$HD.includingGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+            sum( sapply( 1:nrow( relevant.distances$HD.includingGaps ), function( .i ) { relevant.distances$HD.includingGaps[ .i, 1 + nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.denominator.sum.includingGaps <-
-            sum( sapply( 1:nrow( relevant.distances$denominator.includingGaps ), function( .i ) { relevant.distances$denominator.includingGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+            sum( sapply( 1:nrow( relevant.distances$denominator.includingGaps ), function( .i ) { relevant.distances$denominator.includingGaps[ .i, 1 + nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.average.HD.includingGaps <-
             estimates.nearest.founder.HD.sum.includingGaps / estimates.nearest.founder.denominator.sum.includingGaps;
         
@@ -311,7 +313,8 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         ## ignoringGaps:
         ## These are the two "perspectives": average of nearest estimate over truths, or average of nearest truth over estimates.
         nearest.founder.index.by.reference <- apply( average.HD.ignoringGaps, 2, function( .col ) { if( all( is.na( .col ) ) ) { return( 1 ); } else { return( base::which.min( .col ) ) } } );
-        nearest.founder.index.by.estimate <- apply( average.HD.ignoringGaps, 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
+        # exclude col 1, HXB2.
+        nearest.founder.index.by.estimate <- apply( average.HD.ignoringGaps[ , -1, drop = FALSE ], 1, function( .row ) { if( all( is.na( .row ) ) ) { return( 1 ); } else { return( base::which.min( .row ) ) } } );
         # For this, skip col 1, HXB2.
         truths.nearest.founder.HD.sum.ignoringGaps <-
             sum( sapply( 2:ncol( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ nearest.founder.index.by.reference[ .i - 1 ], .i ] } ) );
@@ -320,9 +323,9 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
         truths.nearest.founder.average.HD.ignoringGaps <-
             truths.nearest.founder.HD.sum.ignoringGaps / truths.nearest.founder.denominator.sum.ignoringGaps;
         estimates.nearest.founder.HD.sum.ignoringGaps <-
-            sum( sapply( 1:nrow( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+            sum( sapply( 1:nrow( relevant.distances$HD.ignoringGaps ), function( .i ) { relevant.distances$HD.ignoringGaps[ .i, 1 + nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.denominator.sum.ignoringGaps <-
-            sum( sapply( 1:nrow( relevant.distances$denominator.ignoringGaps ), function( .i ) { relevant.distances$denominator.ignoringGaps[ .i, nearest.founder.index.by.estimate[ .i ] ] } ) );
+            sum( sapply( 1:nrow( relevant.distances$denominator.ignoringGaps ), function( .i ) { relevant.distances$denominator.ignoringGaps[ .i, 1 + nearest.founder.index.by.estimate[ .i ] ] } ) );
         estimates.nearest.founder.average.HD.ignoringGaps <-
             estimates.nearest.founder.HD.sum.ignoringGaps / estimates.nearest.founder.denominator.sum.ignoringGaps;
 
