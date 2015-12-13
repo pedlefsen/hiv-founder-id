@@ -20,7 +20,7 @@ use WWW::Mechanize;
 use LWP::Simple;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R );
+use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R $opt_x );
 use vars qw( $VERBOSE $DEBUG );
 
 sub runGeneCutterOnline {
@@ -29,20 +29,21 @@ sub runGeneCutterOnline {
   my $DEFAULT_EMAIL_ADDRESS = "pedlefsen\@gmail.com";
 
   sub runGeneCutterOnline_usage {
-    print "\trunGeneCutterOnline [-DVp] [-P <proteins_list>] [-R <region>] [-e <youremail\@ddr.ess>] <input_fasta_file> [<output_dir>]\n";
+    print "\trunGeneCutterOnline [-DVp] [-P <proteins_list>] [-R <region>] [-e <youremail\@ddr.ess>] [-x <output_zipfile_prefix>] <input_fasta_file> [<output_dir>]\n";
     exit;
   }
 
-  # This means -D and -V, -p, -e, -P, -S are ok, but nothin' else.
+  # This means -D and -V, -p, -e, -P, -R, -x are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_V means be verbose.
   # opt_p means that the input files are pre-aligned.
   # opt_e means use a different email address than the default.
   # opt_P changes the proteins to evaluate string (default: "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF")a
   # opt_R changes the region of the genome that is being evaluated (default: "ALL")
+  # opt_x is an optional prefix to add before the "_allnucs.zip" and "_allproteins.zip"
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R ) = ();
-  if( not getopts('DVpe:P:R:') ) {
+  ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R, $opt_x ) = ();
+  if( not getopts('DVpe:P:R:x:') ) {
     runGeneCutterOnline_usage();
   }
   
@@ -54,7 +55,12 @@ sub runGeneCutterOnline {
   my $proteins_to_evaluate = $opt_P || "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF";
   # NOTE: -FULL_SEQUENCE seems to not ever give work without giving the in-fasta-file-output message eg "Error: I can't open file /tmp/download/GENE_CUTTER/30488/FULL_SEQUENCE.NA.RAW.: No such file or directory"
   my $region = $opt_R || "ALL";
-  
+  my $output_zip_prefix = $opt_x || "";
+  if( length( $output_zip_prefix ) > 0 ) {
+    unless( $output_zip_prefix =~ /^_/ ) {
+      $output_zip_prefix = '_' . $output_zip_prefix;
+    }
+  }
 #  if( $proteins_to_evaluate !~ /^-/ ) {
 #    stop( "The -P argument must be formatted as '-GENE1-GENE2-GENE3' eg '-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF'" );
 #  }
@@ -172,7 +178,7 @@ sub runGeneCutterOnline {
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
  );
-  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}_allnucs.zip" );
+  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}${output_zip_prefix}_allnucs.zip" );
   #my $content3 = $mech->content();
   if( $DEBUG ) {
     print "OK3\n";# \$content3 is $content3\n";
@@ -191,7 +197,7 @@ sub runGeneCutterOnline {
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
  );
-  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}_allproteins.zip" );
+  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}${output_zip_prefix}_allproteins.zip" );
   #my $content4 = $mech->content();
   if( $DEBUG ) {
     print "OK4\n";# \$content4 is $content4\n";

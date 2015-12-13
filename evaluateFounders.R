@@ -269,6 +269,28 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             return( FALSE );
         }
     } # checkFastaFileIsReal (..)
+
+    retryRegion <- function ( region ) {
+        # note the additional "-x $region", which causes the output names to be as so:
+        nucleotides.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_", region, "_allnucs.zip", sep = "" );
+        proteins.zipfile <- paste( combined.ungapped.fasta.file.nosuffix, "_", region, "_allproteins.zip", sep = "" );
+        system( paste( "perl runGeneCutterOnline.pl -P", region, "-R", region, "-x", region, "-V", combined.ungapped.fasta.file, output.dir ) );
+        
+        stopifnot( file.exists( nucleotides.zipfile ) );
+        stopifnot( file.exists( proteins.zipfile ) );
+        
+        # Note that we expand the zipfiles to the same (non-region-specific) dir as used for the original attempt at genecutting.
+        nucleotides.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allnucs", sep = "" );
+        proteins.dir <- paste( combined.ungapped.fasta.file.nosuffix, "_allproteins", sep = "" );
+
+        ## NOTE: SINCE the protein list has only one element, this isn't a zipfile, it's just a fasta file.
+        dir.create( nucleotides.dir, showWarnings = FALSE );
+        cat( unlist( system( paste( "cp", nucleotides.zipfile, paste( nucleotides.dir, "/", region, ".NA.FASTA", sep = "" ), sep = " " ) ) ), fill = F );
+        dir.create( proteins.dir, showWarnings = FALSE );
+        cat( unlist( system( paste( "cp", proteins.zipfile, paste( proteins.dir, "/", region, ".AA.FASTA", sep = "" ), sep = " " ) ) ), fill = F );
+
+        return( NULL );
+    } # retryRegion (..) 
     
     evaluateOneFile <- function ( filename, file.is.aa ) {
         relevant.distances <-
@@ -345,25 +367,46 @@ evaluateFounders <- function ( estimates.fasta.file, truths.fasta.file, output.d
             if( checkFastaFileIsReal( .file ) ) {
                 return( evaluateOneFile( .file, file.is.aa = TRUE ) );
             } else {
-                return( c(
-                    truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
-                    truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
-                ) );
-            }
+                ## Try the region again.
+                .file.region <- gsub( "^.+\\/([^\\.\\/]+)\\.AA.*", "\\1", .file );
+                cat( "Retrying region: ", .file.region, sep = "", fill = T );
+                retryRegion( .file.region );
+                if( checkFastaFileIsReal( .file ) ) {
+                    cat( "It worked to retry region: ", .file.region, sep = "", fill = T );
+                    return( evaluateOneFile( .file, file.is.aa = TRUE ) );
+                } else {
+                  cat( "Despite retrying, we still do not have results for region: ", .file.region, sep = "", fill = T );
+                  return( c(
+                      truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
+                      truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
+                  ) );
+                }
+            } # End if( checkFastaFileIsReal( .file ) .. else [retry] ..
         } );
     names( evaluate.results.by.protein.file ) <-
         gsub( ".FASTA", "", dir( proteins.dir, full.names = F ) );
 
     evaluate.results.by.nucleotide.file <- 
         lapply( dir( nucleotides.dir, full.names = T ), function ( .file ) {
+            print( .file );
             if( checkFastaFileIsReal( .file ) ) {
                 return( evaluateOneFile( .file, file.is.aa = FALSE ) );
             } else {
-                return( c(
-                    truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
-                    truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
-                ) );
-            }
+                ## Try the region again.
+                .file.region <- gsub( "^.+\\/([^\\.\\/]+)\\.NA.*", "\\1", .file );
+                cat( "Retrying region: ", .file.region, sep = "", fill = T );
+                retryRegion( .file.region );
+                if( checkFastaFileIsReal( .file ) ) {
+                    cat( "It worked to retry region: ", .file.region, sep = "", fill = T );
+                    return( evaluateOneFile( .file, file.is.aa = FALSE ) );
+                } else {
+                  cat( "Despite retrying, we still do not have results for region: ", .file.region, sep = "", fill = T );
+                  return( c(
+                      truths.perspective.HD.average.ignoringGaps = NA, truths.perspective.HD.sum.ignoringGaps = NA, truths.perspective.denominator.sum.ignoringGaps = NA, estimates.perspective.HD.average.ignoringGaps = NA, estimates.perspective.HD.sum.ignoringGaps = NA, estimates.perspective.denominator.sum.ignoringGaps = NA,
+                      truths.perspective.HD.average.includingGaps = NA, truths.perspective.HD.sum.includingGaps = NA, truths.perspective.denominator.sum.includingGaps = NA, estimates.perspective.HD.average.includingGaps = NA, estimates.perspective.HD.sum.includingGaps = NA, estimates.perspective.denominator.sum.includingGaps = NA
+                  ) );
+                }
+            } # End if( checkFastaFileIsReal( .file ) .. else [retry] ..
         } );
     names( evaluate.results.by.nucleotide.file ) <-
         gsub( ".FASTA", "", dir( nucleotides.dir, full.names = F ) );
