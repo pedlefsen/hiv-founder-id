@@ -755,3 +755,82 @@ pdf( file = "rv217.nflg.1m6m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify.
+=======
+##
+pdf( file = "rv217.nflg.1m.results.pdf" )
+boxplot( rv217.nflg.1m.results[,1], rv217.nflg.1m.results[,2 ], names = colnames( rv217.nflg.1m.results ) )
+dev.off()
+
+pdf( file = "rv217.nflg.1m.results.infer.pdf" )
+boxplot( rv217.nflg.1m.results.infer[,1], rv217.nflg.1m.results.infer[,2 ], names = colnames( rv217.nflg.1m.results.infer ) )
+dev.off()
+
+pdf( file = "rv217.nflg.6m.results.pdf" )
+boxplot( rv217.nflg.6m.results[,1], rv217.nflg.6m.results[,2 ], names = colnames( rv217.nflg.6m.results ) )
+dev.off()
+
+pdf( file = "rv217.nflg.6m.results.infer.pdf" )
+boxplot( rv217.nflg.6m.results.infer[,1], rv217.nflg.6m.results.infer[,2 ], names = colnames( rv217.nflg.6m.results.infer ) )
+dev.off()
+
+pdf( file = "rv217.nflg.1m6m.results.pdf" )
+boxplot( rv217.nflg.1m6m.results[,1], rv217.nflg.1m6m.results[,2 ], names = colnames( rv217.nflg.1m6m.results ) )
+dev.off()
+
+pdf( file = "rv217.nflg.1m6m.results.infer.pdf" )
+boxplot( rv217.nflg.1m6m.results.infer[,1], rv217.nflg.1m6m.results.infer[,2 ], names = colnames( rv217.nflg.1m6m.results.infer ) )
+dev.off()
+
+pdf( file = "rv217.nflg.NA.over.time.pdf" )
+boxplot( rv217.nflg.1m.results[,1 ], rv217.nflg.6m.results[,1 ], rv217.nflg.1m6m.results[,1 ], names = c( "1m.NFLG.NA", "6m.NFLG.NA", "1m6m.NFLG.NA" ) )
+dev.off()
+
+pdf( file = "rv217.nflg.AA.over.time.pdf" )
+boxplot( rv217.nflg.1m.results[,2 ], rv217.nflg.6m.results[,2 ], rv217.nflg.1m6m.results[,2 ], names = c( "1m.NFLG.AA", "6m.NFLG.AA", "1m6m.NFLG.AA" ) )
+dev.off()
+
+## For like subjects, take diffs
+.shared.ptids.6m <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.6m.results ) );
+.shared.ptids.1m6m <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.1m6m.results ) );
+pdf( file = "rv217.nflg.NA.over.time.within.subjects.pdf" )
+boxplot( rv217.nflg.6m.results[.shared.ptids.6m,1 ] - rv217.nflg.1m.results[.shared.ptids.6m,1 ], rv217.nflg.1m6m.results[.shared.ptids.1m6m,1 ] - rv217.nflg.1m.results[.shared.ptids.1m6m,1 ], names = c( "6m.NFLG.AA-1m.NFLG.AA", "1m6m.NFLG.AA-1m.NFLG.AA" ) )
+dev.off()
+.shared.ptids <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.6m.results ) );
+pdf( file = "rv217.nflg.AA.over.time.within.subjects.pdf" )
+boxplot( rv217.nflg.6m.results[.shared.ptids,2 ] - rv217.nflg.1m.results[.shared.ptids,2 ], rv217.nflg.1m6m.results[.shared.ptids,2 ] - rv217.nflg.1m.results[.shared.ptids,2 ], names = c( "6m.NFLG.AA-1m.NFLG.AA", "1m6m.NFLG.AA-1m.NFLG.AA" ) )
+dev.off()
+##
+
+pdf( file = "rv217.nflg.1m.NA.methods.scatter.pdf" )
+boxplot( c( rv217.nflg.1m.results.infer[, 1:9 ] ), c( rv217.nflg.1m.results[, 1:9 ] ), names = c( "nflg.1m.NA.mean", "nflg.1m.NA.infer.mean" ) )
+dev.off()
+pdf( file = "rv217.nflg.1m.AA.methods.scatter.pdf" )
+boxplot( c( rv217.nflg.1m.results.infer[, 10:18 ] ), c( rv217.nflg.1m.results[, 10:18 ] ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
+dev.off()
+
+pdf( file = "rv217.nflg.1m.NA.methods.pdf" )
+boxplot( apply( rv217.nflg.1m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.1m.NA.infer.mean", "nflg.1m.NA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
+pdf( file = "rv217.nflg.1m.AA.methods.pdf" )
+boxplot( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
+
+
+pdf( file = "rv217.nflg.6m.NA.methods.scatter.pdf" )
+boxplot( c( rv217.nflg.6m.results.infer[, 1:9 ] ), c( rv217.nflg.6m.results[, 1:9 ] ), names = c( "nflg.6m.NA.mean", "nflg.6m.NA.infer.mean" ) )
+dev.off()
+pdf( file = "rv217.nflg.6m.AA.methods.scatter.pdf" )
+boxplot( c( rv217.nflg.6m.results.infer[, 10:18 ] ), c( rv217.nflg.6m.results[, 10:18 ] ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
+dev.off()
+
+pdf( file = "rv217.nflg.6m.NA.methods.pdf" )
+boxplot( apply( rv217.nflg.6m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.6m.NA.infer.mean", "nflg.6m.NA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
+pdf( file = "rv217.nflg.6m.AA.methods" )
+boxplot( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
+dev.off()
+t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
+
