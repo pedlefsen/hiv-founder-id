@@ -1,6 +1,6 @@
-### NOTE: This is assuming you have _already_ compiled the evaluateFounders.tbl results into a single file at the top-level dir (per time point, region): eg /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/evaluateFounders.tbl
+### NOTE: This is assuming you have _already_ compiled the evaluateFounders.tbl results into a single file at the top-level dir (per time point, region): eg /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/evaluateFounders.tbl
 ##  NOTE continued: for now I'm manually creating these files because I am lazy and in one motion within emacs I can get rid of the extra table headers.
-# eg cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/evaluateFounders.tbl
+# eg cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/evaluateFounders.tbl
 # then open and remove the extra instances of the first (header) line.
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
@@ -25,7 +25,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     } else {
         the.study.alt <- "caprisa002";
     }
-    results.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
+    results.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/", the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
     results.in.estimates.ptid <-
         gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
     results.in.truths.ptid <-
@@ -107,7 +107,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     suppressWarnings( mode( results.prep ) <- "numeric" );
     
     # ## TODO: Read this in, use all the "fits" and "is.starlike" etc options to choose whether to use single or multiple in the estimated set.  NOTE: FOR NOW we just use the "right" one for the job, ie the same one we use for the "truth".
-    # identifyfounders.in <- read.delim( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab", sep = "\t" );
+    # identifyfounders.in <- read.delim( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/identify_founders.tab", sep = "\t" );
     # identifyfounders <- as.matrix( identifyfounders.in );
     # suppressWarnings( mode( identifyfounders ) <- "numeric" );
 
@@ -214,6 +214,8 @@ pdf( file = "caprisa002.v3.AA.over.time.within.subjects.pdf" )
 boxplot( caprisa002.v3.6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], caprisa002.v3.1m6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], names = c( "6m.V3.AA-1m.V3.AA", "1m6m.V3.AA-1m.V3.AA" ) )
 dev.off()
 
+
+## RV217
 rv217.nflg.1m.results <- postProcessEvaluateFounders( "nflg", "1m" );
 rv217.nflg.1m.results.infer <- postProcessEvaluateFounders( "nflg", "1m", use.infer = TRUE );
 rv217.nflg.6m.results <- postProcessEvaluateFounders( "nflg", "6m" );
