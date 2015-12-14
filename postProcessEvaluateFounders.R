@@ -234,6 +234,47 @@ createPrettyPrintPValuesToXDigits <- function( X ) {
 prettyPrintPValuesTo4Digits <- createPrettyPrintPValuesToXDigits( 4 );
 prettyPrintPValuesTo2Digits <- createPrettyPrintPValuesToXDigits( 2 );
 
+evaluateResultsMatrix <- function( results.mat, the.name = "Result", the.title = NULL ) {
+    .stats <- sapply( colnames( results.mat )[ 1:2 ], function( .colname ) {
+        .data <- results.mat[ , .colname ];
+        c( n = sum( !is.na( results.mat[ , .colname ] ) ), summary( .data ), sd = sd( .data, na.rm = TRUE ), frac.zero = mean( results.mat[ , .colname ] == 0, na.rm = T ) )
+      } );
+    # The first two are the main ones; the remainder if there are a breakdown by region.
+    .name.A <- gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat )[ 1 ] ) );
+    .name.B <- gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat )[ 2 ] ) );
+    .var.name <- paste( "Mean Hamming distance of", the.name, "to the true founder(s)" );
+    # Note that we don't actually show significance in the sense that we are not comparing the boxplots to each other.
+
+    ## TODO: Also create plots for the other (non-first-two-column) results
+    return( list( ggp = createBoxplotShowingSignificance( as.factor( c( rep( .name.A, nrow( results.mat ) ), rep( .name.B, nrow( results.mat ) ) ) ), c( results.mat[ , 1 ], results.mat[ , 2 ] ), the.var.name = .var.name, test.results.as.list.of.lists = list( .name.A = list( .name.B = NA  ) ), the.title = the.title ), stats = .stats ) );
+} # evaluateResultsMatrix (..)
+
+compareResultsMatrix <- function( results.mat.A, results.mat.B, name.A = "A", name.B = "B", the.title = NULL ) {
+    stopifnot( ncol( results.mat.A ) == ncol( results.mat.B ) );
+    .shared.ptids <- intersect( rownames( results.mat.A ), rownames( results.mat.B ) );
+    .unique.ptids.A <- setdiff( .shared.ptids, rownames( results.mat.A ) );
+    .unique.ptids.B <- setdiff( .shared.ptids, rownames( results.mat.B ) );
+    ## TODO: Deal with these -- can we add them in another color to the boxplot?
+    if( length( .unique.ptids.A ) > 0 ) {
+        cat( "NOTE: There are", length( .unique.ptids.A ), "ptids unique to A", fill = TRUE );
+    }
+    if( length( .unique.ptids.B ) > 0 ) {
+        cat( "NOTE: There are", length( .unique.ptids.B ), "ptids unique to B", fill = TRUE );
+    }
+    # 
+    .within.ptid.diffs <- results.mat.A[ .shared.ptids, ] - results.mat.B[ .shared.ptids, ];
+    .within.ptid.diffs.t.test.results <- apply( .within.ptid.diffs, 2, t.test );
+    .within.ptid.diffs.t.test.results.p.values <- lapply( .within.ptid.diffs.t.test.results, function( .result ) { .result$p.value } )
+    # The first two are the main ones; the remainder if there are a breakdown by region.
+    .name.A <- paste( gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat.A )[ 1 ] ) ), paste( "(p", prettyPrintPValuesTo4Digits( .within.ptid.diffs.t.test.results.p.values[[ 1 ]], " = ", " <= " ), ")", sep = "" ), sep = "\n" );
+    .name.B <- paste( gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat.A )[ 2 ] ) ), paste( "(p", prettyPrintPValuesTo4Digits( .within.ptid.diffs.t.test.results.p.values[[ 2 ]], " = ", " <= " ), ")", sep = "" ), sep = "\n" );
+    .var.name <- paste( "Within-participant difference", paste( "(", name.A, " - ", name.B, ")", sep = "" ) );
+    # Note that we don't actually show significance in the sense that we are not comparing the boxplots to each other.
+
+    ## TODO: Also create plots for the other (non-first-two-column) results
+    return( list( ggp = createBoxplotShowingSignificance( as.factor( c( rep( .name.A, nrow( .within.ptid.diffs ) ), rep( .name.B, nrow( .within.ptid.diffs ) ) ) ), c( .within.ptid.diffs[ , 1 ], .within.ptid.diffs[ , 2 ] ), the.var.name = .var.name, test.results.as.list.of.lists = list( .name.A = list( .name.B = NA  ) ), the.title = the.title ), p.values = unlist( .within.ptid.diffs.t.test.results.p.values ) ) );
+} # compareResultsMatrix (..)
+
 
 ## Read in the evaluateFounders results for the identify-founders method, aggregate and return a matrix of results with ptids in rows.
 postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE ) {
@@ -393,48 +434,162 @@ caprisa002.v3.6m.results.infer <- postProcessEvaluateFounders( "v3", "6m", use.i
 caprisa002.v3.1m6m.results <- postProcessEvaluateFounders( "v3", "1m6m" );
 caprisa002.v3.1m6m.results.infer <- postProcessEvaluateFounders( "v3", "1m6m", use.infer = TRUE );
 
-pdf( file = "caprisa002.v3.1m.results.pdf" )
-boxplot( caprisa002.v3.1m.results[,1], caprisa002.v3.1m.results[,2 ], names = colnames( caprisa002.v3.1m.results ) )
-dev.off()
+### Identify results:
+caprisa002.v3.1m.Identify.results <-
+    evaluateResultsMatrix( caprisa002.v3.1m.results, "Identify (1m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (1m)" )
+pdf( file = "caprisa002.v3.1m.Identify.pdf" );
+caprisa002.v3.1m.Identify.results$ggp;
+dev.off();
+caprisa002.v3.1m.Identify.results$stats
+#                V3.AA       V3.NA
+# n         20.00000000 20.00000000
+# Min.       0.00000000  0.00000000
+# 1st Qu.    0.00000000  0.00000000
+# Median     0.00000000  0.00000000
+# Mean       0.00586900  0.00296600
+# 3rd Qu.    0.00000000  0.00000000
+# Max.       0.10630000  0.05246000
+# sd         0.02374727  0.01169069
+# frac.zero  0.85000000  0.80000000
 
-pdf( file = "caprisa002.v3.1m.results.infer.pdf" )
-boxplot( caprisa002.v3.1m.results.infer[,1], caprisa002.v3.1m.results.infer[,2 ], names = colnames( caprisa002.v3.1m.results.infer ) )
-dev.off()
+caprisa002.v3.6m.Identify.results <-
+    evaluateResultsMatrix( caprisa002.v3.6m.results, "Identify (6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (6m)" )
+pdf( file = "caprisa002.v3.6m.Identify.pdf" );
+caprisa002.v3.6m.Identify.results$ggp;
+dev.off();
+caprisa002.v3.6m.Identify.results$stats
+#                V3.AA        V3.NA
+# n         14.00000000 14.000000000
+# Min.       0.00000000  0.000000000
+# 1st Qu.    0.00000000  0.000000000
+# Median     0.00000000  0.000000000
+# Mean       0.00576700  0.003146000
+# 3rd Qu.    0.00000000  0.000183800
+# Max.       0.07160000  0.036230000
+# sd         0.01907796  0.009627076
+# frac.zero  0.78571429  0.714285714
 
-pdf( file = "caprisa002.v3.6m.results.pdf" )
-boxplot( caprisa002.v3.6m.results[,1], caprisa002.v3.6m.results[,2 ], names = colnames( caprisa002.v3.6m.results ) )
-dev.off()
+caprisa002.v3.1m6m.Identify.results <-
+    evaluateResultsMatrix( caprisa002.v3.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (1m6m)" )
+pdf( file = "caprisa002.v3.1m6m.Identify.pdf" );
+caprisa002.v3.1m6m.Identify.results$ggp;
+dev.off();
+caprisa002.v3.1m6m.Identify.results$stats
+ #               V3.AA       V3.NA
+ #n         17.00000000 17.00000000
+ #Min.       0.00000000  0.00000000
+ #1st Qu.    0.00000000  0.00000000
+ #Median     0.00000000  0.00000000
+ #Mean       0.00476400  0.00255800
+ #3rd Qu.    0.00000000  0.00000000
+ #Max.       0.07160000  0.03623000
+ #sd         0.01730148  0.00874334
+ #frac.zero  0.82352941  0.76470588
 
-pdf( file = "caprisa002.v3.6m.results.infer.pdf" )
-boxplot( caprisa002.v3.6m.results.infer[,1], caprisa002.v3.6m.results.infer[,2 ], names = colnames( caprisa002.v3.6m.results.infer ) )
-dev.off()
+### Infer results:
+caprisa002.v3.1m.Infer.results <-
+    evaluateResultsMatrix( caprisa002.v3.1m.results.infer, "Infer (1m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (1m)" )
+pdf( file = "caprisa002.v3.1m.Infer.pdf" );
+caprisa002.v3.1m.Infer.results$ggp;
+dev.off();
+caprisa002.v3.1m.Infer.results$stats
+#                V3.AA      V3.NA
+# n         19.00000000 19.0000000
+# Min.       0.00000000  0.0000000
+# 1st Qu.    0.00000000  0.0000000
+# Median     0.00000000  0.0000000
+# Mean       0.01054000  0.0059380
+# 3rd Qu.    0.00000000  0.0028130
+# Max.       0.16230000  0.0779200
+# NA's       1.00000000  1.0000000
+# sd         0.03737126  0.0177881
+# frac.zero  0.78947368  0.6315789
 
-pdf( file = "caprisa002.v3.1m6m.results.pdf" )
-boxplot( caprisa002.v3.1m6m.results[,1], caprisa002.v3.1m6m.results[,2 ], names = colnames( caprisa002.v3.1m6m.results ) )
-dev.off()
+caprisa002.v3.6m.Infer.results <-
+    evaluateResultsMatrix( caprisa002.v3.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (6m)" )
+pdf( file = "caprisa002.v3.6m.Infer.pdf" );
+caprisa002.v3.6m.Infer.results$ggp;
+dev.off();
+caprisa002.v3.6m.Infer.results$stats
+#                V3.AA       V3.NA
+# n         18.00000000 18.00000000
+# Min.       0.00000000  0.00000000
+# 1st Qu.    0.00000000  0.00000000
+# Median     0.00000000  0.00000000
+# Mean       0.00739500  0.00419100
+# 3rd Qu.    0.00000000  0.00194200
+# Max.       0.09593000  0.04797000
+# sd         0.02312452  0.01138378
+# frac.zero  0.77777778  0.66666667
 
-pdf( file = "caprisa002.v3.1m6m.results.infer.pdf" )
-boxplot( caprisa002.v3.1m6m.results.infer[,1], caprisa002.v3.1m6m.results.infer[,2 ], names = colnames( caprisa002.v3.1m6m.results.infer ) )
-dev.off()
+caprisa002.v3.1m6m.Infer.results <-
+    evaluateResultsMatrix( caprisa002.v3.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (1m6m)" )
+pdf( file = "caprisa002.v3.1m6m.Infer.pdf" );
+caprisa002.v3.1m6m.Infer.results$ggp;
+dev.off();
+caprisa002.v3.1m6m.Infer.results$stats
+#                V3.AA       V3.NA
+# n         17.00000000 17.00000000
+# Min.       0.00000000  0.00000000
+# 1st Qu.    0.00000000  0.00000000
+# Median     0.00000000  0.00000000
+# Mean       0.01096000  0.00463700
+# 3rd Qu.    0.00735300  0.00317500
+# Max.       0.09194000  0.04422000
+# sd         0.02360848  0.01083493
+# frac.zero  0.64705882  0.58823529
 
-pdf( file = "caprisa002.v3.NA.over.time.pdf" )
-boxplot( caprisa002.v3.1m.results[,1 ], caprisa002.v3.6m.results[,1 ], caprisa002.v3.1m6m.results[,1 ], names = c( "1m.V3.NA", "6m.V3.NA", "1m6m.V3.NA" ) )
-dev.off()
+### Identify, over time:
+caprisa002.v3.6m.vs.1m.Identify.results <-
+    compareResultsMatrix( caprisa002.v3.6m.results, caprisa002.v3.1m.results, "6m", "1m", "Caprisa 002 V3\nIdentify: 6m vs 1m" );
+pdf( file = "caprisa002.v3.6m.vs.1m.Identify.pdf" );
+caprisa002.v3.6m.vs.1m.Identify.results$ggp;
+dev.off();
+## Conclusion: Using Identify with Caprisa 002 v3, we do aobut the same with only 6m data as with only 1m data.
 
-pdf( file = "caprisa002.v3.AA.over.time.pdf" )
-boxplot( caprisa002.v3.1m.results[,2 ], caprisa002.v3.6m.results[,2 ], caprisa002.v3.1m6m.results[,2 ], names = c( "1m.V3.AA", "6m.V3.AA", "1m6m.V3.AA" ) )
-dev.off()
+caprisa002.v3.1m6m.vs.1m.Identify.results <-
+    compareResultsMatrix( caprisa002.v3.1m6m.results, caprisa002.v3.1m.results, "1m6m", "1m", "Caprisa 002 V3\nIdentify: 1m6m vs 1m" );
+pdf( file = "caprisa002.v3.1m6m.vs.1m.Identify.pdf" );
+caprisa002.v3.1m6m.vs.1m.Identify.results$ggp;
+dev.off();
+## Conclusion: Using Identify with Caprisa 002 v3, we do aobut the same with both 1m and 6m data as with only 1m data.
 
-## For like subjects, take diffs
-.shared.ptids.6m <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.6m.results ) );
-.shared.ptids.1m6m <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.1m6m.results ) );
-pdf( file = "caprisa002.v3.NA.over.time.within.subjects.pdf" )
-boxplot( caprisa002.v3.6m.results[.shared.ptids.6m,1 ] - caprisa002.v3.1m.results[.shared.ptids.6m,1 ], caprisa002.v3.1m6m.results[.shared.ptids.1m6m,1 ] - caprisa002.v3.1m.results[.shared.ptids.1m6m,1 ], names = c( "6m.V3.AA-1m.V3.AA", "1m6m.V3.AA-1m.V3.AA" ) )
-dev.off()
-.shared.ptids <- intersect( rownames( caprisa002.v3.1m.results ), rownames( caprisa002.v3.6m.results ) );
-pdf( file = "caprisa002.v3.AA.over.time.within.subjects.pdf" )
-boxplot( caprisa002.v3.6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], caprisa002.v3.1m6m.results[.shared.ptids,2 ] - caprisa002.v3.1m.results[.shared.ptids,2 ], names = c( "6m.V3.AA-1m.V3.AA", "1m6m.V3.AA-1m.V3.AA" ) )
-dev.off()
+### Infer, over time:
+caprisa002.v3.6m.vs.1m.Infer.results <-
+    compareResultsMatrix( caprisa002.v3.6m.results.infer, caprisa002.v3.1m.results.infer, "6m", "1m", "Caprisa 002 V3\nInfer: 6m vs 1m" );
+pdf( file = "caprisa002.v3.6m.vs.1m.Infer.pdf" );
+caprisa002.v3.6m.vs.1m.Infer.results$ggp;
+dev.off();
+## Conclusion: Using Infer, we do about the same with both 6m data than with only 1m data.
+
+caprisa002.v3.1m6m.vs.1m.Infer.results <-
+    compareResultsMatrix( caprisa002.v3.1m6m.results.infer, caprisa002.v3.1m.results.infer, "1m6m", "1m", "Caprisa 002 V3\nInfer: 1m6m vs 1m" );
+pdf( file = "caprisa002.v3.1m6m.vs.1m.Infer.pdf" );
+caprisa002.v3.1m6m.vs.1m.Infer.results$ggp;
+dev.off();
+## Conclusion: Using Infer, we do about the same with both 1m6m data than with only 1m data.
+
+### IdentifyVsInfer:
+caprisa002.v3.1m.IdentifyVsInfer.results <-
+    compareResultsMatrix( caprisa002.v3.1m.results, caprisa002.v3.1m.results.infer, "Identify", "Infer", "Caprisa 002 V3 1m\nIdentify vs Infer" );
+pdf( file = "caprisa002.v3.1m.IdentifyVsInfer.pdf" );
+caprisa002.v3.1m.IdentifyVsInfer.results$ggp;
+dev.off();
+## Conclusion: Using 1m Caprisa 002 data, we do about the same when using Infer as when using Identify.
+
+caprisa002.v3.6m.IdentifyVsInfer.results <-
+    compareResultsMatrix( caprisa002.v3.6m.results, caprisa002.v3.6m.results.infer, "Identify", "Infer", "Caprisa 002 V3 6m\nIdentify vs Infer" );
+pdf( file = "caprisa002.v3.6m.IdentifyVsInfer.pdf" );
+caprisa002.v3.6m.IdentifyVsInfer.results$ggp;
+dev.off();
+## Conclusion: Using 6m Caprisa 002 data, we do about the same when using Infer as when using Identify.
+
+caprisa002.v3.1m6m.IdentifyVsInfer.results <-
+    compareResultsMatrix( caprisa002.v3.1m6m.results, caprisa002.v3.1m6m.results.infer, "Identify", "Infer", "Caprisa 002 V3 1m6m\nIdentify vs Infer" );
+pdf( file = "caprisa002.v3.1m6m.IdentifyVsInfer.pdf" );
+caprisa002.v3.1m6m.IdentifyVsInfer.results$ggp;
+dev.off();
+## Conclusion: Using 1m6m Caprisa 002 data, we do about the same when using Infer as when using Identify.
 
 
 ## RV217
@@ -444,47 +599,6 @@ rv217.nflg.6m.results <- postProcessEvaluateFounders( "nflg", "6m" );
 rv217.nflg.6m.results.infer <- postProcessEvaluateFounders( "nflg", "6m", use.infer = TRUE );
 rv217.nflg.1m6m.results <- postProcessEvaluateFounders( "nflg", "1m6m" );
 rv217.nflg.1m6m.results.infer <- postProcessEvaluateFounders( "nflg", "1m6m", use.infer = TRUE );
-
-evaluateResultsMatrix <- function( results.mat, the.name = "Result", the.title = NULL ) {
-    .stats <- sapply( colnames( results.mat )[ 1:2 ], function( .colname ) {
-        .data <- results.mat[ , .colname ];
-        c( n = sum( !is.na( results.mat[ , .colname ] ) ), summary( .data ), sd = sd( .data, na.rm = TRUE ) )
-      } );
-    # The first two are the main ones; the remainder if there are a breakdown by region.
-    .name.A <- gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat )[ 1 ] ) );
-    .name.B <- gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat )[ 2 ] ) );
-    .var.name <- paste( "Mean Hamming distance of", the.name, "to the true founder(s)" );
-    # Note that we don't actually show significance in the sense that we are not comparing the boxplots to each other.
-
-    ## TODO: Also create plots for the other (non-first-two-column) results
-    return( list( ggp = createBoxplotShowingSignificance( as.factor( c( rep( .name.A, nrow( results.mat ) ), rep( .name.B, nrow( results.mat ) ) ) ), c( results.mat[ , 1 ], results.mat[ , 2 ] ), the.var.name = .var.name, test.results.as.list.of.lists = list( .name.A = list( .name.B = NA  ) ), the.title = the.title ), stats = .stats ) );
-} # evaluateResultsMatrix (..)
-
-compareResultsMatrix <- function( results.mat.A, results.mat.B, name.A = "A", name.B = "B", the.title = NULL ) {
-    stopifnot( ncol( results.mat.A ) == ncol( results.mat.B ) );
-    .shared.ptids <- intersect( rownames( results.mat.A ), rownames( results.mat.B ) );
-    .unique.ptids.A <- setdiff( .shared.ptids, rownames( results.mat.A ) );
-    .unique.ptids.B <- setdiff( .shared.ptids, rownames( results.mat.B ) );
-    ## TODO: Deal with these -- can we add them in another color to the boxplot?
-    if( length( .unique.ptids.A ) > 0 ) {
-        cat( "NOTE: There are", length( .unique.ptids.A ), "ptids unique to A", fill = TRUE );
-    }
-    if( length( .unique.ptids.B ) > 0 ) {
-        cat( "NOTE: There are", length( .unique.ptids.B ), "ptids unique to B", fill = TRUE );
-    }
-    # 
-    .within.ptid.diffs <- results.mat.A[ .shared.ptids, ] - results.mat.B[ .shared.ptids, ];
-    .within.ptid.diffs.t.test.results <- apply( .within.ptid.diffs, 2, t.test );
-    .within.ptid.diffs.t.test.results.p.values <- lapply( .within.ptid.diffs.t.test.results, function( .result ) { .result$p.value } )
-    # The first two are the main ones; the remainder if there are a breakdown by region.
-    .name.A <- paste( gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat.A )[ 1 ] ) ), paste( "(p", prettyPrintPValuesTo4Digits( .within.ptid.diffs.t.test.results.p.values[[ 1 ]], " = ", " <= " ), ")", sep = "" ), sep = "\n" );
-    .name.B <- paste( gsub( "NA", "RNA", gsub( "^[^\\.]+\\.", "", colnames( results.mat.A )[ 2 ] ) ), paste( "(p", prettyPrintPValuesTo4Digits( .within.ptid.diffs.t.test.results.p.values[[ 2 ]], " = ", " <= " ), ")", sep = "" ), sep = "\n" );
-    .var.name <- paste( "Within-participant difference", paste( "(", name.A, " - ", name.B, ")", sep = "" ) );
-    # Note that we don't actually show significance in the sense that we are not comparing the boxplots to each other.
-
-    ## TODO: Also create plots for the other (non-first-two-column) results
-    return( list( ggp = createBoxplotShowingSignificance( as.factor( c( rep( .name.A, nrow( .within.ptid.diffs ) ), rep( .name.B, nrow( .within.ptid.diffs ) ) ) ), c( .within.ptid.diffs[ , 1 ], .within.ptid.diffs[ , 2 ] ), the.var.name = .var.name, test.results.as.list.of.lists = list( .name.A = list( .name.B = NA  ) ), the.title = the.title ), p.values = unlist( .within.ptid.diffs.t.test.results.p.values ) ) );
-} # compareResultsMatrix (..)
 
 ### Identify results:
 rv217.nflg.1m.Identify.results <-
@@ -502,6 +616,7 @@ rv217.nflg.1m.Identify.results$stats
 # 3rd Qu.  0.001569000  0.000622500
 # Max.     0.025360000  0.013160000
 # sd       0.004827571  0.002900712
+# frac.zero  0.200000000  0.571428571
 
 rv217.nflg.6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results, "Identify (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (6m)" )
@@ -518,7 +633,8 @@ rv217.nflg.6m.Identify.results$stats
 # 3rd Qu.  0.004435000  0.002725000
 # Max.     0.021760000  0.013880000
 # sd       0.005147759  0.003385765
-# 
+# frac.zero  0.058823529  0.176470588
+
 rv217.nflg.1m6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (1m6m)" )
 pdf( file = "rv217.nflg.1m6m.Identify.pdf" );
@@ -534,6 +650,7 @@ rv217.nflg.1m6m.Identify.results$stats
 # 3rd Qu.  0.002591000  0.001240000
 # Max.     0.014450000  0.011050000
 # sd       0.002967604  0.002391149
+# frac.zero  0.166666667  0.416666667
 
 ### Infer results:
 rv217.nflg.1m.Infer.results <-
@@ -551,6 +668,7 @@ rv217.nflg.1m.Infer.results$stats
 # 3rd Qu.  0.002661000  0.001065000
 # Max.     0.025360000  0.013160000
 # sd       0.005011051  0.003087946
+# frac.zero  0.225000000  0.225000000
 
 rv217.nflg.6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (6m)" )
@@ -567,6 +685,7 @@ rv217.nflg.6m.Infer.results$stats
 # 3rd Qu.  0.009778000  0.00456600
 # Max.     0.047770000  0.02841000
 # sd       0.009208334  0.00572519
+# frac.zero  0.125000000  0.07500000
 
 rv217.nflg.1m6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (1m6m)" )
@@ -583,6 +702,7 @@ rv217.nflg.1m6m.Infer.results$stats
 # 3rd Qu.  0.002446000  0.001087000
 # Max.     0.024020000  0.018010000
 # sd       0.005810557  0.004418947
+# frac.zero  0.130434783  0.173913043
 
 ### Identify, over time:
 rv217.nflg.6m.vs.1m.Identify.results <-
@@ -614,57 +734,24 @@ rv217.nflg.1m6m.vs.1m.Infer.results$ggp;
 dev.off();
 ## Conclusion: Using Infer, we do about the same with both 1m6m data than with only 1m data.
 
-
 ### IdentifyVsInfer:
 rv217.nflg.1m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.1m.results, rv217.nflg.1m.results.infer, "Identify", "Infer", "RV217 NFLG 1m\nIdentify vs Infer" );
 pdf( file = "rv217.nflg.1m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m.IdentifyVsInfer.results$ggp;
 dev.off();
+## Conclusion: Using 1m RV217 NFLG data, we do about the same when using Infer as when using Identify.
 
 rv217.nflg.6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.6m.results, rv217.nflg.6m.results.infer, "Identify", "Infer", "RV217 NFLG 6m\nIdentify vs Infer" );
 pdf( file = "rv217.nflg.6m.IdentifyVsInfer.pdf" );
 rv217.nflg.6m.IdentifyVsInfer.results$ggp;
 dev.off();
+## Conclusion: Using 6m RV217 NFLG data, we do significantly worse when using Infer as when using Identify.
 
 rv217.nflg.1m6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.1m6m.results, rv217.nflg.1m6m.results.infer, "Identify", "Infer", "RV217 NFLG 1m6m\nIdentify vs Infer" );
 pdf( file = "rv217.nflg.1m6m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
-
-compareResultsMatrix( rv217.nflg.6m.results, rv217.nflg.6m.results.infer, "Identify", "Infer", "RV217 NFLG 6m\nIdentify vs Infer" )
-
-pdf( file = "rv217.nflg.1m.NA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.1m.results.infer[, 1:9 ] ), c( rv217.nflg.1m.results[, 1:9 ] ), names = c( "nflg.1m.NA.mean", "nflg.1m.NA.infer.mean" ) )
-dev.off()
-pdf( file = "rv217.nflg.1m.AA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.1m.results.infer[, 10:18 ] ), c( rv217.nflg.1m.results[, 10:18 ] ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
-dev.off()
-
-pdf( file = "rv217.nflg.1m.NA.methods.pdf" )
-boxplot( apply( rv217.nflg.1m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.1m.NA.infer.mean", "nflg.1m.NA.mean.pdf" ) )
-dev.off()
-t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
-pdf( file = "rv217.nflg.1m.AA.methods.pdf" )
-boxplot( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean.pdf" ) )
-dev.off()
-t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
-
-
-pdf( file = "rv217.nflg.6m.NA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.6m.results.infer[, 1:9 ] ), c( rv217.nflg.6m.results[, 1:9 ] ), names = c( "nflg.6m.NA.mean", "nflg.6m.NA.infer.mean" ) )
-dev.off()
-pdf( file = "rv217.nflg.6m.AA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.6m.results.infer[, 10:18 ] ), c( rv217.nflg.6m.results[, 10:18 ] ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
-dev.off()
-
-pdf( file = "rv217.nflg.6m.NA.methods.pdf" )
-boxplot( apply( rv217.nflg.6m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.6m.NA.infer.mean", "nflg.6m.NA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
-pdf( file = "rv217.nflg.6m.AA.methods.pdf" )
-boxplot( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
+## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify.
