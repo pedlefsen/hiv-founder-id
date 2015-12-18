@@ -141,6 +141,9 @@ timings.results.by.study.and.time <-
  } ); # End foreach the.study
 names( timings.results.by.study.and.time ) <- studies;
 
+## ERE I AM.  Should write these out somehow .
+# timings.results.by.study.and.time
+
 # Make a table out of it. (one per study).
 results.tables <-
     lapply( names( timings.results.by.study.and.time ), function( the.study ) {
@@ -186,7 +189,7 @@ results.tables
 # Synonymous.PFitter.time.est              -21.9  61.98209
 # multifounder.PFitter.time.est            -1     71.1248 
 # multifounder.Synonymous.PFitter.time.est -41.05 31.57693
-# Infer                                    77.45  5.296225
+# Infer                                    77     6.24921 
 # 
 # $v3$`6m`
 #                                          bias      rmse    
@@ -202,7 +205,7 @@ results.tables
 # Synonymous.PFitter.time.est              6.210526  96.55947
 # multifounder.PFitter.time.est            112.8421  303.213 
 # multifounder.Synonymous.PFitter.time.est -22.57895 69.40807
-# Infer                                    96.57895  28.13127
+# Infer                                    88.84211  31.68817
 # Anchre.r2t                               620.6842  1530.37 
 # Anchre.bst                               325964    337789.5
 
