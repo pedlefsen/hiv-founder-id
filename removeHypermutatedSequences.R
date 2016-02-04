@@ -12,6 +12,7 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 ## Returns the number of hypermutated (and therefore removed or fixed) sequences.
 removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "R" ) {
 
+    fix.with <- tolower(fix.with)
     if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
         fasta.file.path <- ".";
     } else {
