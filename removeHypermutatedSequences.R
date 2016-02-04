@@ -12,19 +12,18 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 ## Returns the number of hypermutated (and therefore removed or fixed) sequences.
 removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "R" ) {
 
-    fix.with <- tolower(fix.with)
-    if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
-        fasta.file.path <- ".";
-    } else {
-        fasta.file.path <-
-            gsub( "^(.*?)\\/[^\\/]+$", "\\1", fasta.file );
-    }
-    fasta.file.short <-
-        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file, perl = TRUE );
-    fasta.file.short.nosuffix <-
-        gsub( "^([^\\.]+)(\\..+)?$", "\\1", fasta.file.short, perl = TRUE );
-    fasta.file.short.suffix <-
-        gsub( "^([^\\.]+)(\\..+)?$", "\\2", fasta.file.short, perl = TRUE );
+  if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
+      fasta.file.path <- ".";
+  } else {
+      fasta.file.path <-
+          gsub( "^(.*?)\\/[^\\/]+$", "\\1", fasta.file );
+  }
+  fasta.file.short <-
+      gsub( "^.*?\\/?([^\\/]+?)$", "\\1", fasta.file, perl = TRUE );
+  fasta.file.short.nosuffix <-
+      gsub( "^([^\\.]+)(\\..+)?$", "\\1", fasta.file.short, perl = TRUE );
+  fasta.file.short.suffix <-
+      gsub( "^([^\\.]+)(\\..+)?$", "\\2", fasta.file.short, perl = TRUE );
 
   if( is.null( output.dir ) ) {
       output.dir = fasta.file.path;
@@ -35,6 +34,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   ## Remove "/" from end of output.dir
   output.dir <-
       gsub( "^(.*?)\\/+$", "\\1", output.dir );
+
+  if( fix.instead.of.remove ){
+      fix.with <- tolower(fix.with)
+  }
   
   in.fasta <- read.dna( fasta.file, format = "fasta" );
 
