@@ -1,16 +1,28 @@
 #!/bin/bash
 ##
-# Arg one is a directory in which there are lists of "1w" fasta files named. nnnnnnn.list
-# where nnnnnnn is a patient number.  It expects a directories within that directory to be called 
-# hiv_founder_id_processed_nnnnnnn. Arg two is the analogous dir for the estimates, arg three is the writable dir to put outputs, and the fourth argument is ptid nnnnnnn.
+# Arg one is a directory in which there are lists of "1w" fasta files
+# named. nnnnnnn.list where nnnnnnn is a patient number.  It expects a
+# directories within that directory to be called
+# hiv_founder_id_processed_nnnnnnn unless a fifth argument is
+# provided, in which case it will expect directories to be called
+# hiv_founder_id_nnnnnnn. Arg two is the analogous dir for the
+# estimates, arg three is the writable dir to put outputs, and the
+# fourth argument is ptid nnnnnnn.  The fifth argument if present
+# toggles the expec ted dir name (as just described in the previous
+# sentence).
 #
 # D'OPTE 12/15
+# Modified 2/15
 ##
 export mainDir=$1
 export estimateDir=$2
 export outputDir=$3
 export patient=$4
+if [ $5 ]; then 
+export inputDir=${estimateDir}/hiv_founder_id_${patient}
+else
 export inputDir=${estimateDir}/hiv_founder_id_processed_${patient}
+fi
 export truthDir=${mainDir}/true_founders/${patient}
 rm -rf ${outputDir}
 mkdir ${outputDir}
@@ -21,7 +33,6 @@ export evaluateFounders_proteinsList="V3";
 export evaluateFounders_genomeRegion="V3";
 # Ok, so do all four kinds.  Append as we go.
 export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
-export evaluateFounders_append="TRUE";
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
     echo ${fasta_prefix};
@@ -39,19 +50,22 @@ do
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="FALSE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
-        
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
     done
 done
