@@ -52,18 +52,22 @@ do
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="FALSE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
     done
 done
