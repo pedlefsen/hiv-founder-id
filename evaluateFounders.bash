@@ -1,10 +1,10 @@
 #!/bin/bash
 ##
-# Arg one is a directory in which there are lists of "1w" fasta files
-# named. nnnnnnn.list where nnnnnnn is a patient number.  It expects a
-# directories within that directory to be called
-# hiv_founder_id_processed_nnnnnnn unless a fifth argument is
-# provided, in which case it will expect directories to be called
+# Arg one is a directory (the gold standard dir) in which there are
+# lists of "1w" fasta files named nnnnnnn.list where nnnnnnn is a
+# patient number.  It expects a directories within that directory to
+# be called hiv_founder_id_processed_nnnnnnn unless a fifth argument
+# is provided, in which case it will expect directories to be called
 # hiv_founder_id_nnnnnnn. Arg two is the analogous dir for the
 # estimates (where unless a fifth arg is given, there should be list
 # files called processed_nnnnn.list; otherwise just nnnnn.list), arg

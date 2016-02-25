@@ -12,6 +12,7 @@
 
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
+use File::Temp qw / :POSIX /;
 use Path::Tiny;
 use Try::Tiny;
 
@@ -91,11 +92,19 @@ sub runGeneCutterOnline {
 
   my $fasta_file_readyForGeneCutter = $input_fasta_file;
   
+  # Genecutter now rejects filenames containing dots apparently, or something (ie even in the directory name), so we use a temporary symlink in the current dir and then strip the dots.
+  $fasta_file_readyForGeneCutter = File::Temp::tempnam( ".", "tmp" ) . ".fasta"; # this doesn't actually create the file.
+  `cp $input_fasta_file $fasta_file_readyForGeneCutter`;
+  # Ok and now annoyingly we have to strip the "./" because the latest version of genecutter doesn't like it.
+  ( $fasta_file_readyForGeneCutter ) = ( $fasta_file_readyForGeneCutter =~ /^\.\/(.+)$/ );
+  if( $VERBOSE ) {
+    print "Created temporary copy of the input fasta file at $fasta_file_readyForGeneCutter\n";
+  }
+
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/GENE_CUTTER/cutter.html" );
 
-  my $result = $mech->submit_form(  form_number => 2,
-                                  fields    => {
+  my                                   %fields    = (
                                                 ORGANISM => "HIV-1",
                                                 UPLOAD => $fasta_file_readyForGeneCutter,
                                                 PREALIGNED => ( $is_prealigned ? "YES" : "NO" ),
@@ -106,16 +115,24 @@ sub runGeneCutterOnline {
                                                 PROTEIN => "YES3", # THIS TOLERATES SOME AMBIGUITY I GUESS
                                                 ACTION => "DOWNPC",
                                                 VIEW => "YES"
-                                               }
+                                               );
+  if( $DEBUG ) {
+    foreach my $key ( keys %fields ) {
+      print $key .  " => " . $fields{ $key } . "\n";
+    }
+  }
+
+  my $result = $mech->submit_form(  form_number => 2,
+                                  fields    => \%fields
                        );
   
   my $content = $mech->content();
   if( $DEBUG ) {
-    print "OK\n"#\$content is $content\n";
+    print "OK\n";#\$content is $content\n";
   }
   $mech->submit_form( form_number => 2,
                                   fields    => {
-                                                titleFromUser => $input_fasta_file_short_nosuffix,
+                                                titleFromUser => "notitle", #$input_fasta_file_short_nosuffix
                                                 EMAIL => $emailAddress,
                                                 EMAIL2 => $emailAddress
                                                }
@@ -125,6 +142,13 @@ sub runGeneCutterOnline {
     print "OK2\n";# \$content2 is $content2\n";
   }
   
+  if( !defined( $content2 ) || ( $content2 =~ /Request Rejected/ ) ) {
+    ## Update: one reason this was happening (at least) was that the run name was too long or something, so see above where I changed the name to "notitle".
+    die( "RAN INTO THE DREADED BUG AT GENECUTTER THAT WE DON'T UNDERSTAND.\n" );
+  }
+  if( $DEBUG ) {
+    print( "got $content2" );
+  }
   my ( $jobTitle, $jobID ) = ( $content2 =~ /Your job has been submitted .+The job title is \<b\>(.+)\<\/b\> and your reference number is \<b\>(\d+)\<\/b\>/ );
   unless( defined $jobTitle ) {
     die( "Error running GeneCutter online: GOT $content2" );
@@ -201,6 +225,12 @@ sub runGeneCutterOnline {
   #my $content4 = $mech->content();
   if( $DEBUG ) {
     print "OK4\n";# \$content4 is $content4\n";
+  }
+
+  ## See above where we created a tmpfile for this.
+  `rm $fasta_file_readyForGeneCutter`;
+  if( $VERBOSE ) {
+    print "Removed temporary file $fasta_file_readyForGeneCutter\n";
   }
 
   if( $VERBOSE ) {
