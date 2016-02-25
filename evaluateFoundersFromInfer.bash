@@ -19,7 +19,6 @@ export truthListFile=${mainDir}/processed_${patient}.list
 export listFile=${estimateDir}/processed_${patient}.list
 # Ok, so do all four kinds.  Append as we go.
 export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
-export evaluateFounders_append="TRUE";
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
     echo ${fasta_prefix}
@@ -49,18 +48,22 @@ do
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="FALSE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_single};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_single};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
         
         export evaluateFounders_estimatesFilename=${evaluateFounders_estimatesFilename_multiple};
         export evaluateFounders_truthsFilename=${evaluateFounders_truthsFilename_multiple};
+        export evaluateFounders_append="TRUE";
         R -f ./evaluateFounders.R --vanilla --slave
     done
 done
