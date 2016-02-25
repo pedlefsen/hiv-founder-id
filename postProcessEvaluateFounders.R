@@ -755,7 +755,8 @@ pdf( file = "rv217.nflg.1m6m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify.
-=======
+
+# ===== OLD =======
 ##
 pdf( file = "rv217.nflg.1m.results.pdf" )
 boxplot( rv217.nflg.1m.results[,1], rv217.nflg.1m.results[,2 ], names = colnames( rv217.nflg.1m.results ) )
