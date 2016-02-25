@@ -129,14 +129,11 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
           # Second version of the IF statement: (Phillip retired this one)
           #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
           ## Added that the ref has to be an a or a g.
-          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && 
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && 
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && 
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && 
-              ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && 
-              ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) {
+          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ){ # Context position 2 must match D = [AGT] in query
               num.potential.mut <- num.potential.mut + 1;
-              if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) {
+              if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occurred
                   #print( window.start.i );
                   #print( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
@@ -151,16 +148,13 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
           # Second version of the IF statement: (Phillip retired this one)
           #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
           ## Added that the ref has to be an a or a g.
-          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && 
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && 
-              ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || 
-                ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && 
-                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && 
-              ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && 
-              ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) {
+          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
+              ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) # Option 1 Context position 1 must match Y = [CT] in query
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "c", "g", "t" ) )) || # Option 1 Context position 2 must match N = [ACGT] in query
+                ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Option 2 Context position 1 must match R = [AG] in query
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ){ # Option 2 Context position 2 must match C in query
               num.potential.control <- num.potential.control + 1;
-              #if( ( as.character( .consensus[ window.start.i + 0 ] ) == "g" ) && ( as.character( .consensus[ window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( .consensus[ window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
-              if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) { # don't enforce context in reference sequence
+              if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occureed
                   #print( window.start.i );
                   #print( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
