@@ -5,12 +5,51 @@ library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 # for removeDuplicateSequencesFromAlignedFasta(..)
 source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 
-## This implements the default options of HYPERMUT 2.0 (http://www.hiv.lanl.gov/content/sequence/HYPERMUT/hypermut.html) and its use should cite: Rose, PP and Korber, BT. 2000. Detecting hypermutations in viral sequences with an emphasis on G -> A hypermutation. Bioinformatics 16(4): 400-401.
-## Note the new option to "fix" rather than remove.  "fix" replaces detected G->A hypermutations with fix.with (default is R, which is the iupac symbol for G or A).
-# Note that for this (unlike the online version) we do not assume that the reference is in the file; instead we compute the consensus and use that.
-## NOTE From Abrahams, 2009: "Sequences were analyzed for evidence of APOBEC3G-induced hypermutation by using the Hypermut 2.0 tool (www.hiv.lanl.gov). Sequences with a P value of 􏰐0.1 were considered enriched for mutations consistent with APOBEC3G sig- natures. In sequence sets showing evidence of enrichment for APOBEC3G- driven G-to-A transitions but with no single significantly hypermutated sequence, hypermutation was tested for after superimposition of all mutations within that sequence set onto a single representative sequence."
-## Returns the number of hypermutated (and therefore removed or fixed) sequences.
-removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "R" ) {
+## 
+
+#' Removes yyper mutated sequences
+#'
+#' This function implements the default options of HYPERMUT 2.0
+#' (http://www.hiv.lanl.gov/content/sequence/HYPERMUT/hypermut.html) and its
+#' use should cite: Rose, PP and Korber, BT. 2000. Detecting hypermutations in
+#' viral sequences with an emphasis on G -> A hypermutation. Bioinformatics
+#' 16(4): 400-401.
+#'
+#' Instead of removing hypermutated sequences, this function can also either
+#' 'correct' them by replaceing the hypermutated As with Rs. (R IUPAC
+#' ambiguiety character for A or G).
+#'
+#' Unlike the LANL implementation, the first sequence is not assumed to be the
+#' reference. The consensus is computed and that is taken as the reference.
+#'
+#' Sequences are deduplicated before trying to detect hypermutation. This has
+#' the side effect of creating some output files in the output directory
+#' associated with the deduplication process.
+#'
+#' An alternative way to detect hypermutation is described in Abrahams, 2009:
+#' "Sequences were analyzed for evidence of APOBEC3G-induced hypermutation by
+#' using the Hypermut 2.0 tool (www.hiv.lanl.gov). Sequences with a P value of
+#' 0.1 were considered enriched for mutations consistent with APOBEC3G sig-
+#' natures. In sequence sets showing evidence of enrichment for APOBEC3G-
+#' driven G-to-A transitions but with no single significantly hypermutated
+#' sequence, hypermutation was tested for after superimposition of all
+#' mutations within that sequence set onto a single representative sequence."
+#'
+#' @param fasta.file The input sequnce file name.
+#' @param output.dir Target output directory.
+#' @param p.value.threshold The cutoff for the Fisher Exact test to decide
+#' whether or not hypermutation is present.
+#' @param fix.instead.of.remove If TRUE, then hypermutated sequences will not
+#' be removed. The hyper mutated bases will be replaced with the value in
+#' 'fix.with'.
+#' @param fix.with The letter to replace hypermutated bases with. Default r.
+#'
+#' @return Returns the number of hypermutated (and therefore removed or fixed)
+#' sequences. It also produces output files with the hypermutated sequences
+#' removed.
+#' @export
+
+removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "r" ) {
 
   if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
       fasta.file.path <- ".";
@@ -85,12 +124,19 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
           if( any( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) == "-" ) || any( as.character( .consensus[ 1, window.start.i + 0:2 ] ) == "-" ) ) {
               next;
           }
+          # First version of the IF statement: (Paul retired this one)
           #if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
+          # Second version of the IF statement: (Phillip retired this one)
+          #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
           ## Added that the ref has to be an a or a g.
-          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
+          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && 
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && 
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && 
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && 
+              ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && 
+              ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) {
               num.potential.mut <- num.potential.mut + 1;
-              #if( ( as.character( .consensus[ window.start.i + 0 ] ) == "g" ) && ( as.character( .consensus[ window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( .consensus[ window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
-              if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) { # don't enforce context in reference sequence
+              if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) {
                   #print( window.start.i );
                   #print( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
@@ -100,9 +146,18 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
                   }
               }
           }
+          # First version of the IF statement: (Paul retired this one)
           #if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ) {
+          # Second version of the IF statement: (Phillip retired this one)
+          #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
           ## Added that the ref has to be an a or a g.
-          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
+          if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && 
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && 
+              ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || 
+                ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && 
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && 
+              ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && 
+              ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) {
               num.potential.control <- num.potential.control + 1;
               #if( ( as.character( .consensus[ window.start.i + 0 ] ) == "g" ) && ( as.character( .consensus[ window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( .consensus[ window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
               if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) ) { # don't enforce context in reference sequence
