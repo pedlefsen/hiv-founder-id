@@ -100,7 +100,6 @@ sub evaluateFounderCalls {
     `unzip ${output_path_dir}/${predictions_fasta_file_short_nosuffix}_combinedWith_${ideal_fasta_file_short_nosuffix}_allproteins.zip -d $proteins_genecutter_path`;
   }
 
-  ## ERE I AM.  NOW CALL AN R PROGRAM WITH EACH OF THE OUTPUT FILES IN THOSE DIRS.
   my $R_output;
   my @proteins_genecutter_files = <"${proteins_genecutter_path}/*">;
   foreach my $protein_genecutter_file ( @proteins_genecutter_files ) {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Arg one is a directory in which there are lists of "1w" fasta files
-# named. nnnnnnn.list where nnnnnnn is a patient number.  It expects a
+# named nnnnnnn.list where nnnnnnn is a patient number.  It expects
 # directories within that directory to be called
 # hiv_founder_id_processed_nnnnnnn unless a fourth argument is
 # provided, in which case it will expect directories to be called
