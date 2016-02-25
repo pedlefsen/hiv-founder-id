@@ -1,9 +1,12 @@
-## First gather the tab files eg:
-# cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/nflg/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/identify_founders.tab 
-# cat /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/hiv_founder_id_processed_*/identify_founders.tab > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/identify_founders.tab
-## Also run the evaluateTimings.sh script eg
+## First gather the tab files, see postProcessIdentifyFounders.sh (actually for now see README.postprocessing.txt).
+## Also be sure to run the evaluateTimings.sh script eg
 # ./evaluateTimings.sh /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/ > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/sampleDates.tbl
 # ./evaluateTimings.sh /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/nflg/1m/ > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/nflg/1m/sampleDates.tbl
+
+use.infer <- FALSE;
+use.anchre <- FALSE;
+#results.dirname <- "raw_edited_20160216";
+results.dirname <- "raw";
 
 identify.founders.date.estimates <- c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
 
@@ -15,79 +18,99 @@ caprisa002.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/ba
 caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
 names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
-studies <- c( "nflg", "v3" );
+regions <- c( "nflg", "v3" );
 times <- c( "1m", "6m", "1m6m" );
 #times <- c( "1m6m" );
 
-timings.results.by.study.and.time <- 
- lapply( studies, function( the.study ) {
+rmse <- function( x, na.rm = FALSE ) {
+    if( na.rm ) {
+        x <- x[ !is.na( x ) ];
+    }
+    return( sqrt( mean( x ** 2 ) ) );
+}
+
+timings.results.by.region.and.time <- 
+ lapply( regions, function( the.region ) {
              ## TODO: REMOVE
-             cat( the.study, fill = T );
+             cat( the.region, fill = T );
      timings.results.by.time <- 
          lapply( times, function( the.time ) {
              ## TODO: REMOVE
              cat( the.time, fill = T );
-             sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw/", the.study, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
+             sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
              colnames( sample.dates.in ) <- c( "ptid", "date" );
              ## Remove anything that's not really a ptid/date combo
              sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
              # remove anything with a missing date.
              sample.dates.in <-
                  sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
-             # Special: for v3, only use caprisa seqs (not rv144, for now).
-             if( the.study == "v3" ) {
+             # Special: for v3, separate out the caprisa seqs from the rv217 seqs
+             if( the.region == "v3" ) {
+                 sample.dates.in.rv217 <- sample.dates.in[ grep( "^100\\d\\d\\d", as.character( sample.dates.in[ , 1 ] ), invert = TRUE ), , drop = FALSE ];
                  sample.dates.in <- sample.dates.in[ grep( "^100\\d\\d\\d", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
              }
-             days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.study == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
+             days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.region == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
              names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
-
-             ## identify-founder results
-             results.in <- read.delim( paste( paste( "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed/", the.study, "/", the.time, "/identify_founders.tab", sep = "" ) ), sep = "\t" );
+             if( the.region == "v3" ) {
+                 days.since.infection.rv217 <- sapply( 1:nrow( sample.dates.in.rv217 ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in.rv217[ .i, 2 ] ) ) - rv217.gold.standard.infection.dates[ as.character( sample.dates.in.rv217[ .i, 1 ] ) ] ) } );
+                 names( days.since.infection.rv217 ) <- sample.dates.in.rv217[ , "ptid" ];
+             }
+                 
+             ## identify-founders results
+             results.in <- read.delim( paste( paste( "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ), sep = "\t" );
+             #results.in <- read.delim( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ), sep = "\t" );
              # Hack to fix a bug in which the colnames don't have "multifounder." on them (but instead, because of how read.delim works, they have ".1" at the end).
              colnames( results.in ) <- gsub( "^(.+)\\.1$", "multifounder.\\1", colnames( results.in ) );
              results <- as.matrix( results.in );
              suppressWarnings( mode( results ) <- "numeric" );
              
              rownames( results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ , 1 ] ) ) );
-             # Special: for v3, only use caprisa seqs (not rv144, for now).
-             if( the.study == "v3" ) {
-                 results <- results[ grep( "^100\\d\\d\\d", rownames( results ) ), , drop = FALSE ];
+             
+             # Special: for v3, separate out the caprisa seqs from the rv217 seqs
+             if( the.region == "v3" ) {
+                  results.rv217 <- results[ grep( "^100\\d\\d\\d", rownames( results ), invert = TRUE ), , drop = FALSE ];
+                  results <- results[ grep( "^100\\d\\d\\d", rownames( results ) ), , drop = FALSE ];
              }
 
              results <- results[ , identify.founders.date.estimates, drop = FALSE ];
-
-             ## Add to results: "infer" results.
-             infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed/", the.study, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
-             infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
-             infer.results.list <-
-                 lapply( unlist( infer.results.files ), function( .file ) {
-                     .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
-                     stopifnot( ncol( .rv ) == 3 );
-                     return( .rv );
-                 } );
-             #print( infer.results.list ); ## TODO REMOVE
-             infer.results <- do.call( rbind, infer.results.list );
-             colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
-             rownames( infer.results ) <-
-                 gsub( "^.+_(\\d+)$", "\\1", names( unlist( infer.results.files ) ) );
-             # Special: for v3, only use caprisa seqs (not rv144, for now).
-             if( the.study == "v3" ) {
-                 infer.results <-
-                     infer.results[ grep( "^100\\d\\d\\d", rownames( infer.results ) ), , drop = FALSE ];
+             if( the.region == "v3" ) {
+                 results.rv217 <- results.rv217[ , identify.founders.date.estimates, drop = FALSE ];
              }
-             # Add just the estimate from infer.
-             sample.dates.char <- as.character( sample.dates.in[ , 2 ] );
-             sample.dates <- as.Date( sample.dates.char );
-             names( sample.dates ) <- sample.dates.in[ , 1 ];
-             infer.days.before.sample <- sapply( 1:nrow( infer.results ), function( .i ) { 0 - as.numeric( as.Date( infer.results[ .i, 1 ] ) - sample.dates[ rownames( infer.results )[ .i ] ] ) } );
-             names( infer.days.before.sample ) <- rownames( infer.results );
 
-             results <- cbind( results, infer.days.before.sample );
-             colnames( results )[ ncol( results ) ] <- "Infer";
+             if( use.infer ) {
+               ## Add to results: "infer" results.
+               infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed/", the.region, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+               infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
+               infer.results.list <-
+                   lapply( unlist( infer.results.files ), function( .file ) {
+                       .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
+                       stopifnot( ncol( .rv ) == 3 );
+                       return( .rv );
+                   } );
+               #print( infer.results.list ); ## TODO REMOVE
+               infer.results <- do.call( rbind, infer.results.list );
+               colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
+               rownames( infer.results ) <-
+                   gsub( "^.+_(\\d+)$", "\\1", names( unlist( infer.results.files ) ) );
+               # Special: for v3, only use caprisa seqs (not rv217, for now).
+               if( the.region == "v3" ) {
+                   infer.results <-
+                       infer.results[ grep( "^100\\d\\d\\d", rownames( infer.results ) ), , drop = FALSE ];
+               }
+               # Add just the estimate from infer.
+               sample.dates.char <- as.character( sample.dates.in[ , 2 ] );
+               sample.dates <- as.Date( sample.dates.char );
+               names( sample.dates ) <- sample.dates.in[ , 1 ];
+               infer.days.before.sample <- sapply( 1:nrow( infer.results ), function( .i ) { 0 - as.numeric( as.Date( infer.results[ .i, 1 ] ) - sample.dates[ rownames( infer.results )[ .i ] ] ) } );
+               names( infer.days.before.sample ) <- rownames( infer.results );
+  
+               results <- cbind( results, infer.days.before.sample );
+               colnames( results )[ ncol( results ) ] <- "Infer";
+             } # End if use.infer
 
-             if( the.time == "1m6m" ) {
+             if( use.anchre && ( the.time == "1m6m" ) ) {
                ## Add to results: "anchre" results. (only at 1m6m)
-               anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.study, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+               anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/", the.region, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
                anchre.results.files <-
                    sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
                anchre.results <- do.call( rbind,
@@ -98,7 +121,7 @@ timings.results.by.study.and.time <-
                        .file.short.nosuffix <-
                            gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
                        .file.converted <-
-                           paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/", the.study, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
+                           paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/", the.region, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
                        # convert it.
                        system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
                        stopifnot( file.exists( .file.converted ) );
@@ -111,8 +134,8 @@ timings.results.by.study.and.time <-
                colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
                rownames( anchre.results ) <-
                    gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
-               # Special: for v3, only use caprisa seqs (not rv144, for now).
-               if( the.study == "v3" ) {
+               # Special: for v3, only use caprisa seqs (not rv217, for now).
+               if( the.region == "v3" ) {
                    anchre.results <-
                        anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
                }
@@ -126,34 +149,210 @@ timings.results.by.study.and.time <-
   
                results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
                colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t", "Anchre.bst" ) ;
-             } # End if 1m6m, add anchre results too.
+             } # End if use.ancher and the.time is 1m6m, add anchre results too.
              
              diffs.by.stat <-
                  lapply( colnames( results ), function( .stat ) {
                      as.numeric( results[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results ) ] );
                  } );
              names( diffs.by.stat ) <- colnames( results );
-             
-             return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), rmse = lapply( diffs.by.stat, sd, na.rm = T ) ) );
+
+             # Special: for v3, separate out the caprisa seqs from the rv217 seqs
+             if( the.region == "v3" ) {
+                 diffs.by.stat.rv217 <-
+                     lapply( colnames( results.rv217 ), function( .stat ) {
+                         as.numeric( results.rv217[ , .stat ] ) - as.numeric( days.since.infection.rv217[ rownames( results.rv217 ) ] );
+                     } );
+                 names( diffs.by.stat.rv217 ) <- colnames( results.rv217 );
+                 return( list( caprisa002 = list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ), rv217 = list( bias = lapply( diffs.by.stat.rv217, mean, na.rm = T ), se = lapply( diffs.by.stat.rv217, sd, na.rm = T ), rmse = lapply( diffs.by.stat.rv217, rmse, na.rm = T ) ) ) );
+             } else {
+                 return( list( rv217 = list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) ) );
+             }
+
          } ); # End foreach the.time
      names( timings.results.by.time ) <- times;
      return( timings.results.by.time );
- } ); # End foreach the.study
-names( timings.results.by.study.and.time ) <- studies;
+ } ); # End foreach the.region
+names( timings.results.by.region.and.time ) <- regions;
 
 ## ERE I AM.  Should write these out somehow .
-# timings.results.by.study.and.time
+# timings.results.by.region.and.time
 
 # Make a table out of it. (one per study).
 results.tables <-
-    lapply( names( timings.results.by.study.and.time ), function( the.study ) {
+    lapply( names( timings.results.by.region.and.time ), function( the.region ) {
         .rv <- 
-        lapply( names( timings.results.by.study.and.time[[ the.study ]] ), function( the.time ) { sapply( timings.results.by.study.and.time[[ the.study ]][[ the.time ]], function( results.list ) { results.list } ) } );
+            lapply( names( timings.results.by.region.and.time[[ the.region ]] ), function( the.time ) {
+                ..rv <- 
+                    lapply( names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] ), function( the.study ) {
+                        sapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]][[ the.study ]], function( results.list ) { results.list } ) }
+                        );
+                names( ..rv ) <- names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] );
+                return( ..rv );
+            } );
         names( .rv ) <- times;
         return( .rv );
     } );
-names( results.tables ) <- studies;
+names( results.tables ) <- regions;
 results.tables
+### Raw run, without recombination detection/removal nor hypermutation detection/removal:
+# $nflg
+# $nflg$`1m`
+# $nflg$`1m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         43.9375   126.8828 133.3349
+# Synonymous.PFitter.time.est              -23.5     28.77058 36.97381
+# multifounder.PFitter.time.est            4.666667  55.83858 55.48503
+# multifounder.Synonymous.PFitter.time.est -31.29412 14.19337 34.30486
+# 
+# 
+# $nflg$`6m`
+# $nflg$`6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         -28.87671 117.9385 120.6351
+# Synonymous.PFitter.time.est              -145.3699 29.46491 148.2858
+# multifounder.PFitter.time.est            -71.72222 83.44774 109.447 
+# multifounder.Synonymous.PFitter.time.est -152.7778 27.21034 155.1378
+# 
+# 
+# $nflg$`1m6m`
+# $nflg$`1m6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         87.36842  122.4774 149.1282
+# Synonymous.PFitter.time.est              -11.84211 29.62698 31.54195
+# multifounder.PFitter.time.est            26        65.86704 69.81774
+# multifounder.Synonymous.PFitter.time.est -24.3871  19.71409 31.15828
+# 
+# 
+# 
+# $v3
+# $v3$`1m`
+# $v3$`1m`$caprisa002
+#                                          bias   se       rmse    
+# PFitter.time.est                         164.65 340.783  370.7237
+# Synonymous.PFitter.time.est              -23    58.29869 61.3009 
+# multifounder.PFitter.time.est            12     111.4757 109.3138
+# multifounder.Synonymous.PFitter.time.est -41.3  31.20746 51.2923 
+# 
+# $v3$`1m`$rv217
+#                                          bias      sd       rmse    
+# PFitter.time.est                         41.55556  144.4919 148.4077
+# Synonymous.PFitter.time.est              -28.27778 37.03096 46.18261
+# multifounder.PFitter.time.est            -2.305556 68.9268  68.00184
+# multifounder.Synonymous.PFitter.time.est -32.5     24.94623 40.75878
+# 
+# 
+# $v3$`6m`
+# $v3$`6m`$caprisa002
+#                                          bias      se       rmse    
+# PFitter.time.est                         161.6667  253.3017 294.5052
+# Synonymous.PFitter.time.est              -119.0556 76.703   140.4661
+# multifounder.PFitter.time.est            30.22222  262.8089 257.1863
+# multifounder.Synonymous.PFitter.time.est -141.8333 60.15592 153.4092
+# 
+# $v3$`6m`$rv217
+#                                          bias      sd       rmse    
+# PFitter.time.est                         40.09091  184.6078 186.1574
+# Synonymous.PFitter.time.est              -125      59.86443 138.2033
+# multifounder.PFitter.time.est            -64       77.77612 99.80891
+# multifounder.Synonymous.PFitter.time.est -142.8182 30.8063  146.0045
+# 
+# 
+# $v3$`1m6m`
+# $v3$`1m6m`$caprisa002
+#                                          bias      se       rmse    
+# PFitter.time.est                         249.2941  355.0214 425.1748
+# Synonymous.PFitter.time.est              -13.47059 66.84788 66.23621
+# multifounder.PFitter.time.est            132.0588  352.2764 366.3854
+# multifounder.Synonymous.PFitter.time.est -33.23529 46.61616 56.12329
+# 
+# $v3$`1m6m`$rv217
+#                                          bias      sd       rmse    
+# PFitter.time.est                         161       210.6419 262.5766
+# Synonymous.PFitter.time.est              0.1515152 54.44844 53.61733
+# multifounder.PFitter.time.est            30.33333  43.68328 52.63568
+# multifounder.Synonymous.PFitter.time.est -16.75758 27.95424 32.22694
+
+
+### Original run, using RAPBeta and my implementation of Hypermut 2.0.
+# $nflg
+# $nflg$`1m`
+# $nflg$`1m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         39.39216  115.1498 120.6285
+# Synonymous.PFitter.time.est              -23.13725 28.43942 36.4455 
+# multifounder.PFitter.time.est            6.137255  61.02033 60.73004
+# multifounder.Synonymous.PFitter.time.est -30.84314 16.37116 34.84335
+# 
+# 
+# $nflg$`6m`
+# $nflg$`6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         -23.27778 124.5701 125.5874
+# Synonymous.PFitter.time.est              -142.7407 31.42117 146.0956
+# multifounder.PFitter.time.est            -66.92593 91.80863 112.9239
+# multifounder.Synonymous.PFitter.time.est -151.3889 28.42296 153.9854
+# 
+# 
+# $nflg$`1m6m`
+# $nflg$`1m6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         92.3      130.6546 158.18  
+# Synonymous.PFitter.time.est              -8.533333 34.35889 34.8425 
+# multifounder.PFitter.time.est            21.83333  70.30431 72.48885
+# multifounder.Synonymous.PFitter.time.est -25.23333 20.79072 32.47409
+# 
+# 
+# 
+# $v3
+# $v3$`1m`
+# $v3$`1m`$caprisa002
+#                                          bias   se       rmse    
+# PFitter.time.est                         154    341.5987 366.8395
+# Synonymous.PFitter.time.est              -21.9  61.98209 64.25963
+# multifounder.PFitter.time.est            -1     71.1248  69.33109
+# multifounder.Synonymous.PFitter.time.est -41.05 31.57693 51.30643
+# 
+# $v3$`1m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         30.94444  131.9155 133.7007
+# Synonymous.PFitter.time.est              -30.16667 35.37998 46.11941
+# multifounder.PFitter.time.est            -12.69444 32.68973 34.64222
+# multifounder.Synonymous.PFitter.time.est -36.19444 15.79117 39.40142
+# 
+# 
+# $v3$`6m`
+# $v3$`6m`$caprisa002
+#                                          bias      se       rmse    
+# PFitter.time.est                         139.2778  203.4195 241.8242
+# Synonymous.PFitter.time.est              -120.7778 73.17309 140.1575
+# multifounder.PFitter.time.est            -25.88889 156.6712 154.4424
+# multifounder.Synonymous.PFitter.time.est -144.7778 55.60528 154.5341
+# 
+# $v3$`6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         39.24242  183.8551 185.2521
+# Synonymous.PFitter.time.est              -125.1515 59.594   138.2271
+# multifounder.PFitter.time.est            -67.60606 75.71325 100.6447
+# multifounder.Synonymous.PFitter.time.est -143.0909 30.37923 146.1846
+# 
+# 
+# $v3$`1m6m`
+# $v3$`1m6m`$caprisa002
+#                                          bias      se       rmse    
+# PFitter.time.est                         259.2105  339.6857 420.1232
+# Synonymous.PFitter.time.est              6.210526  96.55947 94.18906
+# multifounder.PFitter.time.est            112.8421  303.213  315.963 
+# multifounder.Synonymous.PFitter.time.est -22.57895 69.40807 71.23017
+# 
+# $v3$`1m6m`$rv217
+#                                          bias      se       rmse    
+# PFitter.time.est                         131.9394  160.9126 206.1947
+# Synonymous.PFitter.time.est              -5.333333 43.23603 42.90864
+# multifounder.PFitter.time.est            27.81818  39.11877 47.51587
+# multifounder.Synonymous.PFitter.time.est -16.78788 27.88229 32.18225
+
+#### OLD, with Infer and anchre
 # $nflg
 # $nflg$`1m`
 #                                          bias      rmse    
