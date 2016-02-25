@@ -242,25 +242,6 @@ More on this to come.  Basically they fit the intersequence Hamming distances to
 \section{Goodness of fit}  
 The PFitter code does not actually perform a standard Poisson Goodness-of-fit test, though they call their test that.
 
-%% The gamma-distributed lower ends of the lambda intervals contributed by each observation are independent from the exponentially-distributed interval lengths; conflict arises across the intervals whenever the largest lower-end exceeds the smallest upper-end (sum of lower end and interval length).
-%% \begin{equation}
-%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c \bigr) } = \\
-%%   \Prob{ \Bigl( \bigl( \max_{i}( \Lambda_l^{i} ) - \min_{j}( \Lambda_l^{j} ) \bigr) > c \Bigr) } \\hbox{,}
-%% \end{equation} 
-%% but these maximum and minimum values are not independent.  We use the law of total probability, 
-%% \begin{equation}
-%%   \int_x { \Prob{ \Bigl( \bigl( \max_{i-\min}( \Lambda_l^{i} ) \bigr) > ( c + x ) \Bigr) } dF\Lambda_l^{\min} } = \\
-%%   \int_x { ( 1 - F\Lambda_l^{\max|\min=x}( c + x ) ) dF\Lambda_l^{\min}(x) } \hbox{,}
-%% \end{equation}
-%% where $F\Lambda_l^{\min}$ is the CDF of the minimum of the Gamma-distributed lower ends of the lambda interval, and where, given that the minimum is $\Lambda_l^{\min} = x$, $F\Lambda_l^{\max|\min=x}$ is the CDF of the maximum.
-%% 
-%% So we can compute the probability of conflict as an expectation over the minimal interval width on right-hand side, $c$, like so:
-%% \begin{equation}
-%%   \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > \min_k( \Lambda_w^{k} \bigr) ) } = \\
-%%   \int_c { \Prob{ \bigl( \max_{i,j}( \Lambda_l^{i} - \Lambda_l^{j} ) > c ) } dF\Lambda_w^{\min} } \hbox{,}
-%% \end{equation}
-%% where $F\Lambda_w^{\min}$ is the CDF of the minimum of the interval widths.  As noted above, $\Lambda_w^{\min}$ is exponentially distributed.
-
 It turns out that the PFitter ``Goodness of fit'' test is actually comparing the Poisson rate estimated from the pairwise distances among the sequences to the rate estimated between each sequence and the consensus sequence, under the assumption that both fit a Poisson model (it is not a goodness-of-fit test for the Poisson assumption but rather for the starlike phylogeny assumption relating the rate of HD among sequences to that between sequences and the consensus).  If we pretend that these are independent, then the expectation is that a starlike phylogeny should have all paths passing through the center, so the Poisson distribution of HD among sequences should have twice the rate as the distribution to the consensus (since everything has to go to the consensus at the center then out again).  That's the idea.
 
 The chi-squared statistic is calculated accounting for the fact that the HD
