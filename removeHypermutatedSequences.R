@@ -143,9 +143,35 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
           # print(window.start.i)
           context.indx1 <- 1
           context.indx2 <- 2
-          if( any( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) == "-" ) || any( as.character( .consensus[ 1, window.start.i + 0:2 ] ) == "-" ) ) {
-              next;
+          # Do not have to check position 0 for gaps since they will fail the == 'g' or == 'a' tests
+
+          # Move the context forward if gaps are encountered to ensure that the
+          # context pattern is matched to the sequence that the APOBEC enzyme
+          # would have encountered.
+          # Lots of IFs to prevent attempting to access values outside of the
+          # valid range
+          # I am sure that this can be done more elegantly...
+          while( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) == "-" ){
+              context.indx1 <- context.indx1 + 1
+              context.indx2 <- context.indx2 + 1
+
+              if (window.start.i + context.indx2 > ncol(in.fasta.no.duplicates)){
+                break
+              }
           }
+          if (window.start.i + context.indx2 > ncol(in.fasta.no.duplicates)){
+            next
+          }
+          while( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) == "-" ){
+              context.indx2 <- context.indx2 + 1
+              if (window.start.i + context.indx2 > ncol(in.fasta.no.duplicates)){
+                break
+              }
+          }
+          if (window.start.i + context.indx2 > ncol(in.fasta.no.duplicates)){
+            next
+          }
+
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) %in% c( "a", "g", "t" ) ) ){ # Context position 2 must match D = [AGT] in query
