@@ -214,6 +214,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       ## TODO: REMOVE
       print( row.names(in.fasta.no.duplicates)[seq.i])
       print( c( num.mut = num.mut, num.potential.mut = num.potential.mut, num.control = num.control, num.potential.control = num.potential.control ) );
+      row.names(potential.pos) <- NULL
       return( list(p.value = p.value,
                    potential.pos = potential.pos) );
     }; # compute.hypermut2.p.value (..)
@@ -222,9 +223,16 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   names( exclude.sequence ) <- rownames( in.fasta );
   fixed.sequence <- rep( FALSE, nrow( in.fasta ) );
   names( fixed.sequence ) <- rownames( in.fasta );
+  all.potential.pos.no.duplicates <- data.frame(seq.name = character(0),
+                                                pos = numeric(0),
+                                                base.in.query = character(0),
+                                                stringsAsFactors = F)
   for( seq.i in 1:nrow( in.fasta.no.duplicates ) ) {
     .result.to.parse <- compute.hypermut2.p.value( seq.i )
     p.value <- .result.to.parse$p.value
+    all.potential.pos.no.duplicates <- rbind(all.potential.pos.no.duplicates,
+                                             .result.to.parse$potential.pos)
+    rm(.result.to.parse)
     if( p.value < p.value.threshold ) {
         if( fix.instead.of.remove ) {
             .message <- paste( "Fixing", rownames( in.fasta.no.duplicates )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." );
@@ -240,6 +248,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
         cat( .message, fill = TRUE );
     }
   } # End foreach seq.i
+  all.potential.pos <- all.potential.pos.no.duplicates
 
   if( is.null( duplicate.sequences.tbl ) ) {
     out.fasta <- in.fasta;
@@ -252,6 +261,20 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     excluded.sequences.with.duplicates <- intersect( names( exclude.sequence )[ exclude.sequence ], duplicate.sequences.tbl[ , "retained" ] );
     newly.excluded.sequence <- rep( FALSE, nrow( in.fasta ) );
     names( newly.excluded.sequence ) <- rownames( in.fasta );
+
+    # detroying Paul beautiful apply-based design with some nested for loops
+    print (duplicate.sequences.tbl)
+    print (str(duplicate.sequences.tbl))
+    for (.retained.sequence in duplicate.sequences.tbl[,1]){
+      for (.duplicate.sequence in strsplit(duplicate.sequences.tbl[,2][duplicate.sequences.tbl[,1] == .retained.sequence], ',')){
+        all.potential.pos <- rbind(all.potential.pos,
+                                   data.frame(seq.name = .duplicate.sequence,
+                                              pos = all.potential.pos.no.duplicates$pos[all.potential.pos.no.duplicates$seq.name == .retained.sequence],
+                                              base.in.query = all.potential.pos.no.duplicates$base.in.query[all.potential.pos.no.duplicates$seq.name == .retained.sequence],
+                                              stringsAsFactors = F))
+      }
+    }
+
     while( length( excluded.sequences.with.duplicates ) > 0 ) {
         newly.excluded.sequence[ newly.excluded.sequence ] <- FALSE;
         rownames( duplicate.sequences.tbl ) <- duplicate.sequences.tbl[ , "retained" ];
@@ -287,7 +310,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
         out.fasta <- in.fasta[ !exclude.sequence, , drop = FALSE ];
     }
   } # End if is.null( duplicate.sequences.tbl ) .. else ..
-    
+
+  # TODO: remove
+  print(all.potential.pos)
+
   # Write the subalignment as a fasta file
   if( fix.instead.of.remove ) {
       out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequencesWith", fix.with, fasta.file.short.suffix, sep = "" );
@@ -338,5 +364,6 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
 #}
 
 # TODO: remove
-fasta.file = '/tmp/hypermut_lanl_produces_expected_results.fasta'
+fasta.file = '/tmp/hypermut_lanl_produces_expected_results_dups.fasta'
 removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results.fasta', .consensus = 'first')
+removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results_dups.fasta', .consensus = 'first')
