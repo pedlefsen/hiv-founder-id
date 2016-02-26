@@ -141,12 +141,14 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       for( window.start.i in 1:( ncol( in.fasta.no.duplicates ) - 2 ) ) {
           # if the window has any gaps in either sequence, skip it.
           # print(window.start.i)
+          context.indx1 <- 1
+          context.indx2 <- 2
           if( any( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) == "-" ) || any( as.character( .consensus[ 1, window.start.i + 0:2 ] ) == "-" ) ) {
               next;
           }
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ){ # Context position 2 must match D = [AGT] in query
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) %in% c( "a", "g", "t" ) ) ){ # Context position 2 must match D = [AGT] in query
               num.potential.mut <- num.potential.mut + 1;
               if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occurred
                   #print( window.start.i );
@@ -159,10 +161,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
               }
           }
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
-              ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) && # Option 1 Context position 1 must match Y = [CT] in query
-                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "c", "g", "t" ) )) || # Option 1 Context position 2 must match N = [ACGT] in query
-                ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Option 2 Context position 1 must match R = [AG] in query
-                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ){ # Option 2 Context position 2 must match C in query
+              ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) %in% c( "c", "t" ) ) && # Option 1 Context position 1 must match Y = [CT] in query
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) %in% c( "a", "c", "g", "t" ) )) || # Option 1 Context position 2 must match N = [ACGT] in query
+                ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) %in% c( "a", "g" ) ) && # Option 2 Context position 1 must match R = [AG] in query
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) == "c" ) ) ) ){ # Option 2 Context position 2 must match C in query
               num.potential.control <- num.potential.control + 1;
               if( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) { # If G -> A mutation occureed
                   #print( window.start.i );
