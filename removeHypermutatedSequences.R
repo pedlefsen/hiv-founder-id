@@ -7,7 +7,7 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 
 ## 
 
-#' Removes yyper mutated sequences
+#' Removes hyper mutated sequences
 #'
 #' This function implements the default options of HYPERMUT 2.0
 #' (http://www.hiv.lanl.gov/content/sequence/HYPERMUT/hypermut.html) and its
@@ -114,7 +114,6 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     
   compute.hypermut2.p.value <-
     function( seq.i, fix.sequence = FALSE ) {
-      ## ERE I AM.  Bizarrely I can't quite reproduce what's on the web site.  I have more "potential" sites than are computed there, and I do not know why (todo: ask LANL)
       num.mut <- 0;
       num.potential.mut <- 0;
       num.control <- 0;
@@ -124,11 +123,6 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
           if( any( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) == "-" ) || any( as.character( .consensus[ 1, window.start.i + 0:2 ] ) == "-" ) ) {
               next;
           }
-          # First version of the IF statement: (Paul retired this one)
-          #if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ) {
-          # Second version of the IF statement: (Phillip retired this one)
-          #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
-          ## Added that the ref has to be an a or a g.
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ){ # Context position 2 must match D = [AGT] in query
@@ -143,11 +137,6 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
                   }
               }
           }
-          # First version of the IF statement: (Paul retired this one)
-          #if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ) {
-          # Second version of the IF statement: (Phillip retired this one)
-          #if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) && ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) || ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] == .consensus[ 1, window.start.i + 1 ] ) && ( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] == .consensus[ 1, window.start.i + 2 ] ) ) { # unsure whether we need to enforce no change in the "context" sites.
-          ## Added that the ref has to be an a or a g.
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
               ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) # Option 1 Context position 1 must match Y = [CT] in query
                   ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "c", "g", "t" ) )) || # Option 1 Context position 2 must match N = [ACGT] in query
@@ -165,7 +154,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       p.value <- fisher.test( ( matrix( c( num.control, ( num.potential.control - num.control ), num.mut, ( num.potential.mut - num.mut ) ), nrow = 2, byrow = T ) ) )$p.value;
       ## TODO: REMOVE
       # print( c( num.mut = num.mut, num.potential.mut = num.potential.mut ) );
-      return( p.value );
+      return( list(p.value = p.value) );
     }; # compute.hypermut2.p.value (..)
     
   exclude.sequence <- rep( FALSE, nrow( in.fasta ) );
@@ -173,7 +162,8 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   fixed.sequence <- rep( FALSE, nrow( in.fasta ) );
   names( fixed.sequence ) <- rownames( in.fasta );
   for( seq.i in 1:nrow( in.fasta.no.duplicates ) ) {
-    p.value <- compute.hypermut2.p.value( seq.i );
+    .result.to.parse <- compute.hypermut2.p.value( seq.i )$p.value
+    p.value <- .result.to.parse$p.value
     if( p.value < p.value.threshold ) {
         if( fix.instead.of.remove ) {
             .message <- paste( "Fixing", rownames( in.fasta.no.duplicates )[ seq.i ], "because the pseudo-HYPERMUT2.0 p-value is", p.value, "." );
