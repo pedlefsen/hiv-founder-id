@@ -212,8 +212,8 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       }
       p.value <- fisher.test( ( matrix( c( num.control, ( num.potential.control - num.control ), num.mut, ( num.potential.mut - num.mut ) ), nrow = 2, byrow = T ) ) )$p.value;
       ## TODO: REMOVE
-      print( row.names(in.fasta.no.duplicates)[seq.i])
-      print( c( num.mut = num.mut, num.potential.mut = num.potential.mut, num.control = num.control, num.potential.control = num.potential.control ) );
+      # print( row.names(in.fasta.no.duplicates)[seq.i])
+      # print( c( num.mut = num.mut, num.potential.mut = num.potential.mut, num.control = num.control, num.potential.control = num.potential.control ) );
       row.names(potential.pos) <- NULL
       return( list(p.value = p.value,
                    potential.pos = potential.pos) );
@@ -262,9 +262,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     newly.excluded.sequence <- rep( FALSE, nrow( in.fasta ) );
     names( newly.excluded.sequence ) <- rownames( in.fasta );
 
-    # detroying Paul beautiful apply-based design with some nested for loops
-    print (duplicate.sequences.tbl)
-    print (str(duplicate.sequences.tbl))
+    # detroying Paul's beautiful apply-based design with some nested for loops
     for (.retained.sequence in duplicate.sequences.tbl[,1]){
       for (.duplicate.sequence in strsplit(duplicate.sequences.tbl[,2][duplicate.sequences.tbl[,1] == .retained.sequence], ',')){
         all.potential.pos <- rbind(all.potential.pos,
@@ -311,9 +309,6 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
     }
   } # End if is.null( duplicate.sequences.tbl ) .. else ..
 
-  # TODO: remove
-  print(all.potential.pos)
-
   # Write the subalignment as a fasta file
   if( fix.instead.of.remove ) {
       out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequencesWith", fix.with, fasta.file.short.suffix, sep = "" );
@@ -322,6 +317,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   }
 
   write.dna( out.fasta, out.fasta.file, format = "fasta", colsep = "", indent = 0, blocksep = 0, colw = 72 ); # TODO: DEHACKIFY MAGIC NUMBER 72 (fasta newline column)
+  write.csv(all.potential.pos, paste( output.dir, "/", fasta.file.short.nosuffix, "_potentialHypermutatedPositions.csv", sep = ''), row.names=F)
     
   if( fix.instead.of.remove ) {
       .rv <- sum( fixed.sequence );
@@ -332,38 +328,38 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   return( .rv );
 } # removeHypermutatedSequences (..)
 
-# TODO: uncomment
-### Here is where the action is.
-#fasta.file <- Sys.getenv( "removeHypermutatedSequences_inputFilename" ); # alignment of just informative sites
-#output.dir <- Sys.getenv( "removeHypermutatedSequences_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
-#if( output.dir == "" ) {
-#    output.dir <- NULL;
-#}
-#p.value.threshold <- Sys.getenv( "removeHypermutatedSequences_pValueThreshold" ); # how sensitive to be?
-#if( p.value.threshold == "" ) {
-#    p.value.threshold <- "0.1"; # Abrahams et al used liberal threshold of 0.1.
-#}
-#fix.instead.of.remove <- Sys.getenv( "removeHypermutatedSequences_fixInsteadOfRemove" );
-#if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) || ( toupper( fix.instead.of.remove ) == "F" ) || ( toupper( fix.instead.of.remove ) == "FALSE" ) ) {
-#    fix.instead.of.remove <- FALSE;
-#} else {
-#    fix.instead.of.remove <- TRUE;
-#}
-#fix.with <- Sys.getenv( "removeHypermutatedSequences_fixWith" ); # with what should we fix? "R" seems right but "-" might be best for algorithms...
-#if( fix.with == "" ) {
-#    fix.with <- "R";
-#}
-#
-### TODO: REMOVE
-## warning( paste( "alignment input file:", fasta.file ) );
-## warning( paste( "output dir:", output.dir ) );
-#if( file.exists( fasta.file ) ) {
-#    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove, fix.with = fix.with ) );
-#} else {
-#    stop( paste( "File does not exist:", fasta.file ) );
-#}
+## Here is where the action is.
+fasta.file <- Sys.getenv( "removeHypermutatedSequences_inputFilename" ); # alignment of just informative sites
+output.dir <- Sys.getenv( "removeHypermutatedSequences_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
+if( output.dir == "" ) {
+    output.dir <- NULL;
+}
+p.value.threshold <- Sys.getenv( "removeHypermutatedSequences_pValueThreshold" ); # how sensitive to be?
+if( p.value.threshold == "" ) {
+    p.value.threshold <- "0.1"; # Abrahams et al used liberal threshold of 0.1.
+}
+fix.instead.of.remove <- Sys.getenv( "removeHypermutatedSequences_fixInsteadOfRemove" );
+if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) || ( toupper( fix.instead.of.remove ) == "F" ) || ( toupper( fix.instead.of.remove ) == "FALSE" ) ) {
+    fix.instead.of.remove <- FALSE;
+} else {
+    fix.instead.of.remove <- TRUE;
+}
+fix.with <- Sys.getenv( "removeHypermutatedSequences_fixWith" ); # with what should we fix? "R" seems right but "-" might be best for algorithms...
+if( fix.with == "" ) {
+    fix.with <- "R";
+}
 
-# TODO: remove
-fasta.file = '/tmp/hypermut_lanl_produces_expected_results_dups.fasta'
-removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results.fasta', .consensus = 'first')
-removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results_dups.fasta', .consensus = 'first')
+## TODO: REMOVE
+# warning( paste( "alignment input file:", fasta.file ) );
+# warning( paste( "output dir:", output.dir ) );
+if( file.exists( fasta.file ) ) {
+    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove, fix.with = fix.with ) );
+} else {
+    stop( paste( "File does not exist:", fasta.file ) );
+}
+
+## TODO: remove
+## Testing scribbles
+#fasta.file = '/tmp/hypermut_lanl_produces_expected_results_dups.fasta'
+#removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results.fasta', .consensus = 'first')
+#removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results_dups.fasta', .consensus = 'first')
