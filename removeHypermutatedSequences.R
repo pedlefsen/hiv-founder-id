@@ -138,6 +138,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       num.potential.mut <- 0;
       num.control <- 0;
       num.potential.control <- 0;
+      potential.pos <- data.frame(seq.name = character(0),
+                                  pos = numeric(0),
+                                  base.in.query = character(0),
+                                  stringsAsFactors = F)
       for( window.start.i in 1:( ncol( in.fasta.no.duplicates ) - 2 ) ) {
           # if the window has any gaps in either sequence, skip it.
           # print(window.start.i)
@@ -176,11 +180,17 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + context.indx2 ] ) %in% c( "a", "g", "t" ) ) ){ # Context position 2 must match D = [AGT] in query
               num.potential.mut <- num.potential.mut + 1;
+              potential.pos <- rbind(potential.pos,
+                data.frame(seq.name = row.names(in.fasta.no.duplicates)[seq.i],
+                           pos = window.start.i,
+                           base.in.query = as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ),
+                           stringsAsFactors = F))
               if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occurred
                   #print( window.start.i );
                   #print( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
                   num.mut <- num.mut + 1;
+                  # NOTE: rbind is VERY slow - check here for performance issues
                   if( fix.sequence ) {
                       in.fasta.no.duplicates[ seq.i, window.start.i ] <<- as.DNAbin( fix.with );
                   }
@@ -204,7 +214,8 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       ## TODO: REMOVE
       print( row.names(in.fasta.no.duplicates)[seq.i])
       print( c( num.mut = num.mut, num.potential.mut = num.potential.mut, num.control = num.control, num.potential.control = num.potential.control ) );
-      return( list(p.value = p.value) );
+      return( list(p.value = p.value,
+                   potential.pos = potential.pos) );
     }; # compute.hypermut2.p.value (..)
     
   exclude.sequence <- rep( FALSE, nrow( in.fasta ) );
