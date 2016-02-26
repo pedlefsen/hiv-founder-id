@@ -43,13 +43,17 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 #' be removed. The hyper mutated bases will be replaced with the value in
 #' 'fix.with'.
 #' @param fix.with The letter to replace hypermutated bases with. Default r.
+#' @param .consensus If left NULL, the consensus will be computed from
+#' fasta.file, else the first sequence is assumed to the be reference sequence
 #'
 #' @return Returns the number of hypermutated (and therefore removed or fixed)
 #' sequences. It also produces output files with the hypermutated sequences
 #' removed.
 #' @export
 
-removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, fix.instead.of.remove = FALSE, fix.with = "r" ) {
+removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value.threshold = 0.1, 
+                                          fix.instead.of.remove = FALSE, fix.with = "r",
+                                          .consensus = NULL ) {
 
   if( length( grep( "^(.*?)\\/[^\\/]+$", fasta.file ) ) == 0 ) {
       fasta.file.path <- ".";
@@ -80,8 +84,20 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   
   in.fasta <- read.dna( fasta.file, format = "fasta" );
 
-  .consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 ) );
-  rownames( .consensus ) <- "Consensus sequence";
+  if (is.null(.consensus)){
+    .consensus <- as.DNAbin( matrix( seqinr::consensus( as.character( in.fasta ) ), nrow = 1 ) )
+    rownames( .consensus ) <- "Consensus sequence";
+    in.fasta.tmp <- in.fasta
+  } else {
+    .consensus <- in.fasta[1,]
+    in.fasta.tmp <- in.fasta[-1,]
+  }
+
+  # File copy hack to make removeDuplicateSequencesFromAlignedFasta use the
+  # modified fasta file
+  fasta.file.tmp <- paste(fasta.file.path, '/', fasta.file.short.nosuffix, '_tmp', fasta.file.short.suffix, sep = '')
+  write.dna(in.fasta, fasta.file.tmp, format='fasta')
+  write.dna(in.fasta.tmp, fasta.file, format='fasta')
 
     ## REMOVE DUPLICATES FIRST.
     ## If there are any duplicate sequences, remove them and
@@ -97,6 +113,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
         read.dna( fasta.file.no.duplicates, format = "fasta" );
     duplicate.sequences.tbl.file <-
         paste( output.dir, "/", fasta.file.no.duplicates.short.nosuffix, ".tbl", sep = "" );
+
+  write.dna(in.fasta, fasta.file, format='fasta')
+  file.remove(fasta.file.tmp)
+
   if( file.exists( duplicate.sequences.tbl.file ) ) { # won't exist if nothing was removed.
     duplicate.sequences.tbl.in <- read.table( file = duplicate.sequences.tbl.file, sep = "\t", header = TRUE );
     duplicate.sequences.tbl <- apply( duplicate.sequences.tbl.in, 1:2, function( .seq.name ) {
@@ -120,12 +140,13 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       num.potential.control <- 0;
       for( window.start.i in 1:( ncol( in.fasta.no.duplicates ) - 2 ) ) {
           # if the window has any gaps in either sequence, skip it.
+          # print(window.start.i)
           if( any( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) == "-" ) || any( as.character( .consensus[ 1, window.start.i + 0:2 ] ) == "-" ) ) {
               next;
           }
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
               ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Context position 1 must match R = [AG] in query
-              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ){ # Context position 2 must match D = [AGT] in query
+              ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "g", "t" ) ) ){ # Context position 2 must match D = [AGT] in query
               num.potential.mut <- num.potential.mut + 1;
               if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occurred
                   #print( window.start.i );
@@ -138,12 +159,12 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
               }
           }
           if( ( as.character( .consensus[ 1, window.start.i + 0 ] ) == "g" ) && # Reference must mutate from G
-              ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) # Option 1 Context position 1 must match Y = [CT] in query
+              ( ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "c", "t" ) ) && # Option 1 Context position 1 must match Y = [CT] in query
                   ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) %in% c( "a", "c", "g", "t" ) )) || # Option 1 Context position 2 must match N = [ACGT] in query
                 ( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 1 ] ) %in% c( "a", "g" ) ) && # Option 2 Context position 1 must match R = [AG] in query
-                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ){ # Option 2 Context position 2 must match C in query
+                  ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 2 ] ) == "c" ) ) ) ){ # Option 2 Context position 2 must match C in query
               num.potential.control <- num.potential.control + 1;
-              if( ( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) ) { # If G -> A mutation occureed
+              if( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0 ] ) == "a" ) { # If G -> A mutation occureed
                   #print( window.start.i );
                   #print( as.character( in.fasta.no.duplicates[ seq.i, window.start.i + 0:2 ] ) );
                   #print( as.character( .consensus[ 1, window.start.i + 0:2 ] ) );
@@ -153,7 +174,8 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
       }
       p.value <- fisher.test( ( matrix( c( num.control, ( num.potential.control - num.control ), num.mut, ( num.potential.mut - num.mut ) ), nrow = 2, byrow = T ) ) )$p.value;
       ## TODO: REMOVE
-      # print( c( num.mut = num.mut, num.potential.mut = num.potential.mut ) );
+      print( row.names(in.fasta.no.duplicates)[seq.i])
+      print( c( num.mut = num.mut, num.potential.mut = num.potential.mut, num.control = num.control, num.potential.control = num.potential.control ) );
       return( list(p.value = p.value) );
     }; # compute.hypermut2.p.value (..)
     
@@ -162,7 +184,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   fixed.sequence <- rep( FALSE, nrow( in.fasta ) );
   names( fixed.sequence ) <- rownames( in.fasta );
   for( seq.i in 1:nrow( in.fasta.no.duplicates ) ) {
-    .result.to.parse <- compute.hypermut2.p.value( seq.i )$p.value
+    .result.to.parse <- compute.hypermut2.p.value( seq.i )
     p.value <- .result.to.parse$p.value
     if( p.value < p.value.threshold ) {
         if( fix.instead.of.remove ) {
@@ -245,32 +267,37 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
   return( .rv );
 } # removeHypermutatedSequences (..)
 
-## Here is where the action is.
-fasta.file <- Sys.getenv( "removeHypermutatedSequences_inputFilename" ); # alignment of just informative sites
-output.dir <- Sys.getenv( "removeHypermutatedSequences_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
-if( output.dir == "" ) {
-    output.dir <- NULL;
-}
-p.value.threshold <- Sys.getenv( "removeHypermutatedSequences_pValueThreshold" ); # how sensitive to be?
-if( p.value.threshold == "" ) {
-    p.value.threshold <- "0.1"; # Abrahams et al used liberal threshold of 0.1.
-}
-fix.instead.of.remove <- Sys.getenv( "removeHypermutatedSequences_fixInsteadOfRemove" );
-if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) || ( toupper( fix.instead.of.remove ) == "F" ) || ( toupper( fix.instead.of.remove ) == "FALSE" ) ) {
-    fix.instead.of.remove <- FALSE;
-} else {
-    fix.instead.of.remove <- TRUE;
-}
-fix.with <- Sys.getenv( "removeHypermutatedSequences_fixWith" ); # with what should we fix? "R" seems right but "-" might be best for algorithms...
-if( fix.with == "" ) {
-    fix.with <- "R";
-}
+# TODO: uncomment
+### Here is where the action is.
+#fasta.file <- Sys.getenv( "removeHypermutatedSequences_inputFilename" ); # alignment of just informative sites
+#output.dir <- Sys.getenv( "removeHypermutatedSequences_outputDir" ); # if null, gleaned from input filenames (and may differ for the insites cluster outputs and the original fasta file cluster outputs).
+#if( output.dir == "" ) {
+#    output.dir <- NULL;
+#}
+#p.value.threshold <- Sys.getenv( "removeHypermutatedSequences_pValueThreshold" ); # how sensitive to be?
+#if( p.value.threshold == "" ) {
+#    p.value.threshold <- "0.1"; # Abrahams et al used liberal threshold of 0.1.
+#}
+#fix.instead.of.remove <- Sys.getenv( "removeHypermutatedSequences_fixInsteadOfRemove" );
+#if( ( nchar( fix.instead.of.remove ) == 0 ) || ( fix.instead.of.remove == "0" ) || ( toupper( fix.instead.of.remove ) == "F" ) || ( toupper( fix.instead.of.remove ) == "FALSE" ) ) {
+#    fix.instead.of.remove <- FALSE;
+#} else {
+#    fix.instead.of.remove <- TRUE;
+#}
+#fix.with <- Sys.getenv( "removeHypermutatedSequences_fixWith" ); # with what should we fix? "R" seems right but "-" might be best for algorithms...
+#if( fix.with == "" ) {
+#    fix.with <- "R";
+#}
+#
+### TODO: REMOVE
+## warning( paste( "alignment input file:", fasta.file ) );
+## warning( paste( "output dir:", output.dir ) );
+#if( file.exists( fasta.file ) ) {
+#    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove, fix.with = fix.with ) );
+#} else {
+#    stop( paste( "File does not exist:", fasta.file ) );
+#}
 
-## TODO: REMOVE
-# warning( paste( "alignment input file:", fasta.file ) );
-# warning( paste( "output dir:", output.dir ) );
-if( file.exists( fasta.file ) ) {
-    print( removeHypermutatedSequences( fasta.file, output.dir, p.value.threshold = p.value.threshold, fix.instead.of.remove = fix.instead.of.remove, fix.with = fix.with ) );
-} else {
-    stop( paste( "File does not exist:", fasta.file ) );
-}
+# TODO: remove
+fasta.file = '/tmp/hypermut_lanl_produces_expected_results.fasta'
+removeHypermutatedSequences('/tmp/hypermut_lanl_produces_expected_results.fasta', .consensus = 'first')
