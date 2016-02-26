@@ -14,7 +14,7 @@
 # sentences).
 #
 # D'OPTE 12/15
-# Modified 2/15
+# Modified 2/16
 ##
 export mainDir=$1
 export estimateDir=$2
@@ -26,7 +26,7 @@ else
 export inputDir=${estimateDir}/hiv_founder_id_${patient}
 fi
 export truthDir=${mainDir}/true_founders/${patient}
-rm -rf ${outputDir}
+# rm -rf ${outputDir}
 mkdir ${outputDir}
 export truthListFile=${mainDir}/processed_${patient}.list
 if [ -z $5 ]; then 

@@ -14,7 +14,7 @@
 # sentences).
 #
 # D'OPTE 12/15
-# Modified 2/15
+# Modified 2/16
 ##
 export mainDir=$1
 export estimateDir=$2

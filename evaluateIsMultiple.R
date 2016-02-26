@@ -1,7 +1,8 @@
 library( "ROCR" ) # for "prediction" and "performance"
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
-PROCESSED.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed";
+#PROCESSED.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed";
+PROCESSED.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
 THE.TIMES <- c( "1m", "6m", "1m6m" );
 
 # Here "the.study" must be "rv217" or "caprisa002"
@@ -78,7 +79,10 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
                warning( paste( "Trouble reading results in file", identify.founders.tab.file, ".. trying again in a second." ) );
                Sys.sleep( 1 );
            }
-           identify.founders.in <- read.delim( identify.founders.tab.file, sep = "\t", header = TRUE, fill = FALSE );
+#           identify.founders.in <- read.delim( identify.founders.tab.file, sep = "\t", header = TRUE, fill = FALSE );
+
+           ### FILL = TRUE is needed for now because of a bug in the multi-region lines in the identify_founders.tab file, which is too short.  This is ok because we are ignoring those results for now anyway.
+           identify.founders.in <- read.delim( identify.founders.tab.file, sep = "\t", header = TRUE, fill = TRUE );
         }
         if( try.count >= TOO.MANY.TRIES ) {
             stop( paste( "COULD NOT READ results in file", identify.founders.tab.file, ".. GIVING UP." ) );
@@ -87,27 +91,54 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
             ## For now we only look at the caprisa002 results in "v3"
         identify.founders.study <-
             identify.founders.in[ grep( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), as.character( identify.founders.in[ , "infile" ] ) ), , drop = FALSE ];
-        identify.founders.ptids <-
-            gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
-    
         # Fix accidental temporary bug in which second round of results isn't called "multifounder" (in R it gets called .1 instead).
         colnames( identify.founders.study ) <- 
             gsub( "^(.+)\\.1$", "multifounder.\\1", colnames( identify.founders.study ) )
         is.one.founder.methods <-
             grep( "is\\.|fits", colnames( identify.founders.study ), value = T );
+
+        ## Fix other accidental temporary bug in which the multiregion results are all messed up.  Just remove them.
+        identify.founders.study <-
+          identify.founders.study[ !is.na( identify.founders.study[ , "file" ] ), , drop = FALSE ];
+    
+        identify.founders.ptids <-
+            gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
     
         ## _All_ of these are "is.one.founder", so note that in the comparison they need to be reversed.
         estimates.is.one.founder <- identify.founders.study[ , is.one.founder.methods, drop = FALSE ];
-        #rownames( estimates.is.one.founder ) <- identify.founders.ptids;
-            
+        ## Sometimes there are multiple entries for one ptid/sample, eg for the NFLGs there are often right half and left half (RH and LH) and sometimes additionally NFLG results.  If so, for something to be called single founder, all of the estimates (across regions, for a given test) must agree that it is one founder.
+
+        ## Note that this also transposes it, so the ptids are in columns and the tests are in rows.
+        estimates.is.one.founder.one.per.person <- 
+          sapply( unique( identify.founders.ptids ), function ( .ptid ) {
+            .ptid.subtable <- estimates.is.one.founder[ identify.founders.ptids == .ptid, , drop = FALSE ];
+            # Use the AND condition, meaning it's only called single-founder if all rows call it single-founder.
+            if( nrow( .ptid.subtable ) == 1 ) {
+              return( .ptid.subtable );
+            }
+            apply( .ptid.subtable, 2, function( .column ) { as.numeric( all( as.logical( .column ) ) ) } );
+          } );
+
+        gold.is.one.founder.per.person <- 1-gold.is.multiple[ colnames( estimates.is.one.founder.one.per.person ) ];
+        
         # Cols are gold.is.multiple
         # gold.is.multiple.tables <- 
         #     sapply( 1:length( is.one.founder.methods ), function( .i ) { table( 1 - estimates.is.one.founder[ , .i ], gold.is.multiple[ identify.founders.ptids ] ) } );
         # names( gold.is.multiple.tables ) <- is.one.founder.methods;
+
+        mode( estimates.is.one.founder.one.per.person ) <- "numeric";
+        sum.correct.among.one.founder.people <-
+          apply( estimates.is.one.founder.one.per.person[ , as.logical( gold.is.one.founder.per.person ) ], 1, sum );
+        sum.incorrect.among.one.founder.people <-
+          apply( estimates.is.one.founder.one.per.person[ , as.logical( gold.is.one.founder.per.person ) ], 1, function( .row ) { sum( 1-.row ) } );
+        sum.correct.among.multiple.founder.people <-
+          apply( estimates.is.one.founder.one.per.person[ , !as.logical( gold.is.one.founder.per.person ) ], 1, function( .row ) { sum( 1-.row ) } );
+        sum.incorrect.among.multiple.founder.people <-
+          apply( estimates.is.one.founder.one.per.person[ , !as.logical( gold.is.one.founder.per.person ) ], 1, sum );
         
         gold.is.multiple.aucs <- 
             sapply( 1:length( is.one.founder.methods ), function( .i ) {
-                performance( prediction( 1-estimates.is.one.founder[, .i ], gold.is.multiple[ identify.founders.ptids ] ), measure = "auc" )@y.values[[ 1 ]];
+                performance( prediction( unlist( estimates.is.one.founder.one.per.person[ .i, ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
             } );
         names( gold.is.multiple.aucs ) <- is.one.founder.methods;
 
@@ -132,7 +163,10 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
     
     results.matrix <-
         do.call( cbind, results.by.time );
-    
+    results.matrix <-
+        do.call( cbind, results.by.time );
+    # No need for so much precision.  2 digits should suffice.
+    results.matrix <- apply( results.matrix, 1:2, function ( .float ) { sprintf( "%0.2f", .float ) } ); 
     output.table.path <-
         paste( output.dir, "/", output.file, sep = "" );
 
@@ -140,7 +174,7 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
 
     # Return the file name.
     return( output.table.path );
-} # evaluateIsMultiple ( identify.founders.tab.file, ... )
+} # evaluateIsMultiple ( the.study, ... )
 
 ## Here is where the action is.
 study <- Sys.getenv( "evaluateIsMultiple_study" );
