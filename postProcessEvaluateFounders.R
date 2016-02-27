@@ -4,13 +4,17 @@
 # then open and remove the extra instances of the first (header) line.
 library( "ggplot2" ) # to support createBoxplotShowingSignificance(..)
 
+GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/";
+RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
+
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-rv217.gold.standards.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/RV217_gold_standards.csv" );
+rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "/" );
 rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
 names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-caprisa002.gold.standards.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_gold_standards.csv" );
+caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standards.csv", sep = "/" );
 caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
 names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
 
@@ -288,7 +292,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     } else {
         the.study.alt <- "caprisa002";
     }
-    results.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/", the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
+    results.in <- read.delim( paste( RESULTS.DIR, the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
     results.in.estimates.ptid <-
         gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
     results.in.truths.ptid <-
@@ -299,7 +303,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     results.in.ptids <-
         unique( results.in.truths.ptid );
     
-    ## Note that we do not subset to same-region results, since the regions overlap, we can aggregate HDs (ignoring gaps) by summing numerator and denominators.  This solidifies my thinking that the one that includes gaps does not make sense here, and gaps might be inserted by geneCutter to make codons work as reasonable AAs in translation, which is really no fault of the estimation, as it might be context-dependent (eg if a substitution in one homolgous pair results in that pair being not-aligned after codon-alignment because the placement leads to different best-guesses of the functional codon [though my thinking is that this should be exceedingly rare]).
+    ## Note that we do not subset to same-region results, since the regions do not overlap, we can aggregate HDs (ignoring gaps) by summing numerator and denominators.  This solidifies my thinking that the one that includes gaps does not make sense here, and gaps might be inserted by geneCutter to make codons work as reasonable AAs in translation, which is really no fault of the estimation, as it might be context-dependent (eg if a substitution in one homolgous pair results in that pair being not-aligned after codon-alignment because the placement leads to different best-guesses of the functional codon [though my thinking is that this should be exceedingly rare]).
     
     results.fromto <- results.in[ , 1:2, drop = FALSE ];
     

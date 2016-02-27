@@ -5,8 +5,8 @@
 
 use.infer <- FALSE;
 use.anchre <- FALSE;
-#results.dirname <- "raw_edited_20160216";
-results.dirname <- "raw";
+results.dirname <- "raw_edited_20160216";
+#results.dirname <- "raw";
 
 identify.founders.date.estimates <- c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
 

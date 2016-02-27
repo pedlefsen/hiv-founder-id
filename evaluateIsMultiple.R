@@ -1,8 +1,8 @@
 library( "ROCR" ) # for "prediction" and "performance"
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
-#PROCESSED.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed";
-PROCESSED.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed";
+RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
 THE.TIMES <- c( "1m", "6m", "1m6m" );
 
 # Here "the.study" must be "rv217" or "caprisa002"
@@ -155,7 +155,7 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         
     results.by.time <- lapply( THE.TIMES, function( the.time ) {
         cat( the.time, fill = TRUE );
-        identify.founders.tab.file <- paste( PROCESSED.DIR, the.region, the.time, "identify_founders.tab", sep = "/" );
+        identify.founders.tab.file <- paste( RESULTS.DIR, the.region, the.time, "identify_founders.tab", sep = "/" );
         stopifnot( file.exists( identify.founders.tab.file ) );
         return( evaluateIsMultiple.OneFile( identify.founders.tab.file ) );
     } );
@@ -177,7 +177,7 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
 } # evaluateIsMultiple ( the.study, ... )
 
 ## Here is where the action is.
-study <- Sys.getenv( "evaluateIsMultiple_study" );
+the.study <- Sys.getenv( "evaluateIsMultiple_study" );
 output.table.file <- Sys.getenv( "evaluateIsMultiple_outputFilename" );
 if( nchar( output.table.file ) == 0 ) {
     output.table.file <- NULL;
