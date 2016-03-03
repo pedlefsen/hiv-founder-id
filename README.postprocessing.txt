@@ -44,7 +44,7 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 
 ### To evaluate the isMultiple calls, we use evaluateIsMultiple.bash, which creates two output files in each top-level dir.
 
-## both nflg and v3:
+## Completes analysis of isMultiple for all three: nflg and both v3s:
 ./evaluateIsMultiple.bash /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216
 
 ### To evaluate the ancestral sequence calls, we use evaluateAllFounders.sh and evaluateAllFoundersCap.sh
@@ -71,18 +71,6 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 ./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/v3/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3_edited_20160216/6m 
 ./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/v3/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3_edited_20160216/1m6m 
 
-## rv217 v3: TODO
+## rv217 v3:
 ./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/v3/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_edited_20160216/1m
-
-## nflg:
-./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/nflg/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/nflg_copy_20160222/1m
-./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/nflg/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/nflg_copy_20160222/6m
-./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/nflg/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/nflg_copy_20160222/1m6m
-
-## v3:
-cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/1m/evaluateFounders.tbl
-cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/6m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/6m/evaluateFounders.tbl
-cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/1m6m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/v3/1m6m/evaluateFounders.tbl
-
-### MORE TO DO ON THAT.
 

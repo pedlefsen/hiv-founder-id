@@ -1,7 +1,5 @@
-### NOTE: This is assuming you have _already_ compiled the evaluateFounders.tbl results into a single file at the top-level dir (per time point, region): eg /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/evaluateFounders.tbl
-##  NOTE continued: for now I'm manually creating these files because I am lazy and in one motion within emacs I can get rid of the extra table headers.
-# eg cat /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/*/evaluateFounders.tbl > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/nflg/1m/evaluateFounders.tbl
-# then open and remove the extra instances of the first (header) line.
+### NOTE: This is assuming you have _already_ done everything in the README.postprocessing.txt file.
+
 library( "ggplot2" ) # to support createBoxplotShowingSignificance(..)
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
@@ -9,12 +7,12 @@ GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "/" );
+rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "/" ) );
 rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
 names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standards.csv", sep = "/" );
+caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standards.csv", sep = "/" ) );
 caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
 names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
 
