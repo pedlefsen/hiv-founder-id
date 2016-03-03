@@ -5,12 +5,12 @@ GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
 THE.TIMES <- c( "1m", "6m", "1m6m" );
 
-# Here "the.study" must be "rv217" or "caprisa002"
+# Here "the.study" must be "rv217" or "caprisa002" or (special) "rv217_v3"
 evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NULL, output.file.append = FALSE ) {
 
     ## Read in the gold standards.
     # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-    if( the.study == "rv217" ) {
+    if( ( the.study == "rv217" ) || ( the.study == "rv217_v3" ) ) {
       gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/rv217/RV217_gold_standards.csv", sep = "" ) );
     } else if( the.study == "caprisa002" ) {
       # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
@@ -88,10 +88,12 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
             stop( paste( "COULD NOT READ results in file", identify.founders.tab.file, ".. GIVING UP." ) );
         }
     
-            ## For now we only look at the caprisa002 results in "v3"
-        identify.founders.study <-
-            identify.founders.in[ grep( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), as.character( identify.founders.in[ , "infile" ] ) ), , drop = FALSE ];
+#         ## For now we only look at the caprisa002 results in "v3"
+#         identify.founders.study <-
+#             identify.founders.in[ grep( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), as.character( identify.founders.in[ , "infile" ] ) ), , drop = FALSE ];
         # Fix accidental temporary bug in which second round of results isn't called "multifounder" (in R it gets called .1 instead).
+        identify.founders.study <- identify.founders.in;
+        
         colnames( identify.founders.study ) <- 
             gsub( "^(.+)\\.1$", "multifounder.\\1", colnames( identify.founders.study ) )
         is.one.founder.methods <-
@@ -100,12 +102,18 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         ## Fix other accidental temporary bug in which the multiregion results are all messed up.  Just remove them.
         identify.founders.study <-
           identify.founders.study[ !is.na( identify.founders.study[ , "file" ] ), , drop = FALSE ];
-    
-        identify.founders.ptids <-
-            gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
-    
+
+        if( the.study == "rv217_v3" ) {
+            identify.founders.ptids <-
+                gsub( paste( ".*", "rv217", "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
+        } else {
+            identify.founders.ptids <-
+                gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
+        }
+        
         ## _All_ of these are "is.one.founder", so note that in the comparison they need to be reversed.
-        estimates.is.one.founder <- identify.founders.study[ , is.one.founder.methods, drop = FALSE ];
+        estimates.is.one.founder <-
+            identify.founders.study[ , is.one.founder.methods, drop = FALSE ];
         ## Sometimes there are multiple entries for one ptid/sample, eg for the NFLGs there are often right half and left half (RH and LH) and sometimes additionally NFLG results.  If so, for something to be called single founder, all of the estimates (across regions, for a given test) must agree that it is one founder.
 
         ## Note that this also transposes it, so the ptids are in columns and the tests are in rows.
@@ -147,6 +155,8 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
 
     if( the.study == "rv217" ) {
         the.region <- "nflg";
+    } else if( the.study == "rv217_v3" ) {
+        the.region <- "rv217_v3";
     } else if( the.study == "caprisa002" ) {
         the.region <- "v3";
     } else {

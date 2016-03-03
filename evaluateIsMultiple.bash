@@ -5,14 +5,15 @@
 # D'OPTE 2/16
 ##
 export evaluateIsMultiple_outputDir=$1
-#rm -rf ${outputDir}
-mkdir ${outputDir}
+
+mkdir -p ${evaluateIsMultiple_outputDir}
+
 # Ok, so do all four kinds.  Append as we go.
 export evaluateIsMultiple_append="FALSE";
 for study in rv217 caprisa002;
 do
     echo ${study};
-    rm "${outputDir}/${study}_evaluateIsMultiple.tbl"
+    rm "${evaluateIsMultiple_outputDir}/${study}_evaluateIsMultiple.tbl"
     export evaluateIsMultiple_study="${study}"
     R -f ./evaluateIsMultiple.R --vanilla --slave
 done
