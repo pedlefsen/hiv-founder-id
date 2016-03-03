@@ -8,12 +8,11 @@ export evaluateIsMultiple_outputDir=$1
 
 mkdir -p ${evaluateIsMultiple_outputDir}
 
-# Ok, so do all four kinds.  Append as we go.
+# Ok, so do all four kinds.  Write one output file for each "study".
 export evaluateIsMultiple_append="FALSE";
-for study in rv217 caprisa002;
+for study in rv217 caprisa002 rv217_v3;
 do
     echo ${study};
-    rm "${evaluateIsMultiple_outputDir}/${study}_evaluateIsMultiple.tbl"
     export evaluateIsMultiple_study="${study}"
     R -f ./evaluateIsMultiple.R --vanilla --slave
 done
