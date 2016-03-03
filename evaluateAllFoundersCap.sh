@@ -11,7 +11,7 @@
 # described in the previous sentence).
 #
 mkdir ${3}
-for patient in  `ls -c1 ${1}/*.fasta | cut -d_ -f5 | sort -u | egrep "^[0-9]+" | uniq`
+for patient in  `ls -1 ${1}/*.fasta | egrep --only "_[0-9]{5,}_" | tr -d "_"  | uniq`
 do
     export outputDir=${3}/${patient}
     mkdir ${outputDir}
