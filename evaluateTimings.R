@@ -3,7 +3,7 @@
 source( "readIdentifyFounders_safetosource.R" );
 
 use.infer <- TRUE;
-use.anchre <- FALSE;
+use.anchre <- TRUE;
 results.dirname <- "raw_edited_20160216";
 #results.dirname <- "raw";
 
@@ -241,8 +241,7 @@ names( results.table.by.region.and.time ) <- regions;
 } );
 
 
-results.table.by.region.and.time
-
+# results.table.by.region.and.time
 ### Raw run, without recombination detection/removal nor hypermutation detection/removal:
 # $nflg
 # $nflg$`1m`
