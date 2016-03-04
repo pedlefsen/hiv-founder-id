@@ -36,7 +36,16 @@ export evaluateFounders_genomeRegion="V3";
 # Ok, so do all four kinds.  Append as we go.
 export evaluateFounders_outputFilename="${outputDir}/evaluateFounders.tbl";
 export evaluateFounders_append="FALSE";
-rm ${evaluateFounders_outputFilename};
+if [ -e ${evaluateFounders_outputFilename} ]; then
+    rm ${evaluateFounders_outputFilename}
+fi
+
+if [ -z $5 ]; then 
+    export listFile=${estimateDir}/processed_${patient}.list
+else
+    export listFile=${estimateDir}/${patient}.list
+fi
+
 for fasta_prefix in  `cat ${listFile} | rev | cut -d'/' -f-1 | rev | cut -d '.' -f 1`
 do
     echo ${fasta_prefix}
