@@ -260,27 +260,110 @@ timings.results.by.region.and.time <-
 names( timings.results.by.region.and.time ) <- regions;
 
 # Make a table out of it. (one per study).
-results.tables <-
+results.table.by.region.and.time <-
     lapply( names( timings.results.by.region.and.time ), function( the.region ) {
         .rv <- 
             lapply( names( timings.results.by.region.and.time[[ the.region ]] ), function( the.time ) {
-                ..rv <- 
-                    lapply( names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] ), function( the.study ) {
-                        sapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]][[ the.study ]], function( results.list ) { results.list } ) }
-                        );
-                names( ..rv ) <- names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] );
-                return( ..rv );
-            } );
+                sapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
         names( .rv ) <- times;
         return( .rv );
     } );
-names( results.tables ) <- regions;
+names( results.table.by.region.and.time ) <- regions;
 
-## ERE I AM.  Should write these out somehow .
-# results.tables
+## Write these out.
+.result.ignored <- sapply( regions, function ( the.region ) {
+    ..result.ignored <- 
+    sapply( times, function ( the.time ) {
+        out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings.tab", sep = "" );
+        write.table( apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+        return( NULL );
+    } );
+    return( NULL );
+} );
 
 
-results.tables
+results.table.by.region.and.time
+# $nflg
+# $nflg$`1m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         33.853    102.5296 106.613 
+# Synonymous.PFitter.time.est              -24.64259 24.75365 34.684  
+# multifounder.PFitter.time.est            4.501963  54.06851 53.50202
+# multifounder.Synonymous.PFitter.time.est -31.84253 12.5926  34.1777 
+# Infer.time.est                           146.0784  112.2472 183.2712
+# 
+# $nflg$`6m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         -23.03854 101.3019 102.4257
+# Synonymous.PFitter.time.est              -141.2521 27.61474 143.8482
+# multifounder.PFitter.time.est            -65.98357 74.86203 98.96122
+# multifounder.Synonymous.PFitter.time.est -150.5546 24.89646 152.5395
+# Infer.time.est                           137.9264  177.8726 223.0063
+# 
+# $nflg$`1m6m`
+#                                          bias     se       rmse    
+# PFitter.time.est                         90.79881 108.7833 139.947 
+# Synonymous.PFitter.time.est              -9.74849 29.24275 30.24138
+# multifounder.PFitter.time.est            27.89046 63.01514 67.7003 
+# multifounder.Synonymous.PFitter.time.est -23.7626 19.66338 30.58103
+# Infer.time.est                           335.0502 476.9423 574.6778
+# 
+# 
+# $v3
+# $v3$`1m`
+#                                          bias   se       rmse    
+# PFitter.time.est                         164.65 340.783  370.7237
+# Synonymous.PFitter.time.est              -23    58.29869 61.3009 
+# multifounder.PFitter.time.est            12     111.4757 109.3138
+# multifounder.Synonymous.PFitter.time.est -41.3  31.20746 51.2923 
+# Infer.time.est                           413.3  173.6164 446.6009
+# 
+# $v3$`6m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         161.6667  253.3017 294.5052
+# Synonymous.PFitter.time.est              -119.0556 76.703   140.4661
+# multifounder.PFitter.time.est            30.22222  262.8089 257.1863
+# multifounder.Synonymous.PFitter.time.est -141.8333 60.15592 153.4092
+# Infer.time.est                           361.9444  278.6665 452.0449
+# 
+# $v3$`1m6m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         249.2941  355.0214 425.1748
+# Synonymous.PFitter.time.est              -13.47059 66.84788 66.23621
+# multifounder.PFitter.time.est            132.0588  352.2764 366.3854
+# multifounder.Synonymous.PFitter.time.est -33.23529 46.61616 56.12329
+# Infer.time.est                           464.6471  313.3397 555.2506
+# Anchre.r2t.time.est                      656.1176  1477.022 1575.994
+# Anchre.bst.time.est                      82935.71  107414.3 133182.1
+# 
+# 
+# $rv217_v3
+# $rv217_v3$`1m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         41.55556  144.4919 148.4077
+# Synonymous.PFitter.time.est              -28.27778 37.03096 46.18261
+# multifounder.PFitter.time.est            -2.305556 68.9268  68.00184
+# multifounder.Synonymous.PFitter.time.est -32.5     24.94623 40.75878
+# Infer.time.est                           143.1389  205.5429 248.1191
+# 
+# $rv217_v3$`6m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         40.09091  184.6078 186.1574
+# Synonymous.PFitter.time.est              -125      59.86443 138.2033
+# multifounder.PFitter.time.est            -64       77.77612 99.80891
+# multifounder.Synonymous.PFitter.time.est -142.8182 30.8063  146.0045
+# Infer.time.est                           247.3636  270.7396 363.686 
+# 
+# $rv217_v3$`1m6m`
+#                                          bias      se       rmse    
+# PFitter.time.est                         161       210.6419 262.5766
+# Synonymous.PFitter.time.est              0.1515152 54.44844 53.61733
+# multifounder.PFitter.time.est            30.33333  43.68328 52.63568
+# multifounder.Synonymous.PFitter.time.est -16.75758 27.95424 32.22694
+# Infer.time.est                           542.7273  545.3223 763.4906
+# Anchre.r2t.time.est                      165.7273  568.4986 583.8344
+# Anchre.bst.time.est                      527.7879  2035.306 2072.559
+
 
 
 ### Raw run, without recombination detection/removal nor hypermutation detection/removal:
