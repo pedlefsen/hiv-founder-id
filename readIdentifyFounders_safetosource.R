@@ -1,15 +1,19 @@
-readIdentifyFounders <- function ( identify.founders.tab.filename ) {
+# If partition.size is not NA, then the results will be subsetted to just partitions of that size, meaning fasta files ending in _p[partition.size]_[\d]+.fasta
+readIdentifyFounders <- function ( identify.founders.tab.filename, partition.size = NA ) {
              results.in <- read.delim( identify.founders.tab.filename, sep = "\t" );
 
              results <- as.matrix( results.in );
              suppressWarnings( mode( results ) <- "numeric" );
 
              # Exclude the ill-fated "multi-region" results, for now.
-             multiregion.results <- results[ is.na( results.in[ , 2 ] ), , drop = FALSE ];
-             rownames( multiregion.results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ is.na( results.in[ , 2 ] ), 1 ] ) ) );
-             
+             # multiregion.results <- results[ is.na( results.in[ , 2 ] ), , drop = FALSE ];
+             # rownames( multiregion.results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ is.na( results.in[ , 2 ] ), 1 ] ) ) );
              results <- results[ !is.na( results.in[ , 2 ] ), , drop = FALSE ];
              rownames( results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ !is.na( results.in[ , 2 ] ), 1 ] ) ) );
+
+             if( !is.na( partition.size ) ) {
+                 results <- results[ grep( paste( "_p", partition.size, "_\\d+\\.fasta$", sep = "" ), results.in[ , 1 ] ), , drop = FALSE ];
+             }
 
              lambda.colnames <- grep( "lambda", colnames( results ), value = T );
              lambda <- results[ , lambda.colnames, drop = FALSE ];

@@ -38,6 +38,9 @@ daysFromLambda <- function ( lambda, nb, epsilon = default.epsilon ) {
 }
 
 getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
+    if( !is.na( partition.size ) ) {
+        regions <- "v3"; # Only v3 has partition results at this time.
+    }
     timings.results.by.region.and.time <-
         lapply( regions, function( the.region ) {
             ## TODO: REMOVE
@@ -61,7 +64,7 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                if( is.na( partition.size ) ) {
                    results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
                } else {
-                   results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ) );
+                   results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
                }
                days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
   
@@ -97,7 +100,7 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                
                results <- results[ , identify.founders.date.estimates, drop = FALSE ];
                
-               if( use.infer ) {
+               if( use.infer && is.na( partition.size ) ) { ## TODO: Handle the infer results for the partitions
                  ## Add to results: "infer" results.
                  if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
                      the.region.dir <- "v3_edited_20160216";
@@ -147,7 +150,7 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                    
                } # End if use.infer
   
-               if( use.anchre && ( the.time == "1m6m" ) ) {
+               if( use.anchre && ( the.time == "1m6m" ) && is.na( partition.size ) ) {  ## TODO: Handle the anchre results for the partitions
                  ## Add to results: "anchre" results. (only at 1m6m)
                  anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
                  if( length( anchre.results.directories ) > 0 ) {
@@ -194,30 +197,53 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                    colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
                  } # End if there's any anchre results.
                } # End if use.ancher and the.time is 1m6m, add anchre results too.
-  
-               ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average, maybe?
-               .weights <- days.est.nseq*days.est.nb;
-               results.one.per.ppt <- apply( results, 2, function ( .column ) {
-                   .rv <- 
-                   sapply( unique( rownames( results ) ), function( .ppt ) {
-                       .ppt.cells <- .column[ rownames( results ) == .ppt ];
-                       .ppt.weights <- .weights[ rownames( results ) == .ppt ];
-                       .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
-                       sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+
+               if( is.na( partition.size ) ) {
+                 ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average, maybe?
+                 .weights <- days.est.nseq*days.est.nb;
+                 results.one.per.ppt <- apply( results, 2, function ( .column ) {
+                     .rv <- 
+                     sapply( unique( rownames( results ) ), function( .ppt ) {
+                         .ppt.cells <- .column[ rownames( results ) == .ppt ];
+                         .ppt.weights <- .weights[ rownames( results ) == .ppt ];
+                         .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+                         sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+                     } );
+                     names( .rv ) <- unique( rownames( results ) );
+                     return( .rv );
+                 } );
+                 diffs.by.stat <-
+                     lapply( colnames( results.one.per.ppt ), function( .stat ) {
+                         .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
+                         names( .rv ) <- rownames( results.one.per.ppt );
+                         return( .rv );
+                     } );
+                 names( diffs.by.stat ) <- colnames( results );
+    
+                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) );
+               } else {
+                   ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
+                   results.per.ppt <- apply( results, 2, function ( .column ) {
+                     .rv <- 
+                       lapply( unique( rownames( results ) ), function( .ppt ) {
+                           .values <- .column[ rownames( results ) == .ppt ];
+                           .diffs <- ( as.numeric( .values ) - as.numeric( days.since.infection[ .ppt ] ) );
+                           return( list( values = .values, diffs = .diffs ) );
+                     } );
+                     names( .rv ) <- unique( rownames( results ) );
+                     return( .rv );
                    } );
-                   names( .rv ) <- unique( rownames( results ) );
-                   return( .rv );
-               } );
-               
-               diffs.by.stat <-
-                   lapply( colnames( results.one.per.ppt ), function( .stat ) {
-                       .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
-                       names( .rv ) <- rownames( results.one.per.ppt );
-                       return( .rv );
-                   } );
-               names( diffs.by.stat ) <- colnames( results );
-  
-               return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) );
+                   diffs.per.ppt <- lapply( results.per.ppt, function( .lst ) { lapply( .lst, function( ..lst ) { ..lst[[ "diffs" ]] } ) } );
+                   mean.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, mean, na.rm = T ) } );
+                   sd.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, sd, na.rm = T ) } );
+                   median.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
+                   min.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
+                   max.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
+                   median.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
+                   min.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
+                   max.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
+                   return( list( median.mean.bias = median.mean.bias, min.mean.bias = min.mean.bias, max.mean.bias = max.mean.bias,  median.sd.bias = median.sd.bias, min.sd.bias = min.sd.bias, max.sd.bias = max.sd.bias ) );
+               }
            } ); # End foreach the.time
        names( timings.results.by.time ) <- times;
        return( timings.results.by.time );
@@ -225,8 +251,6 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
   names( timings.results.by.region.and.time ) <- regions;
   return( timings.results.by.region.and.time );
 } # getTimingsResultsByRegionAndTime ( partition.size )
-
-
 
 timings.results.by.region.and.time <- getTimingsResultsByRegionAndTime();
 
@@ -252,7 +276,87 @@ names( results.table.by.region.and.time ) <- regions;
     return( NULL );
 } );
 
+## For partition size == 10
+timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
 
+# Make a table out of it. (one per study).
+results.table.by.region.and.time.p10 <-
+    lapply( names( timings.results.by.region.and.time.p10 ), function( the.region ) {
+        .rv <- 
+            lapply( names( timings.results.by.region.and.time.p10[[ the.region ]] ), function( the.time ) {
+                sapply( timings.results.by.region.and.time.p10[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
+        names( .rv ) <- times;
+        return( .rv );
+    } );
+names( results.table.by.region.and.time.p10 ) <- "v3";
+
+## Write these out.
+.result.ignored <- sapply( "v3", function ( the.region ) {
+    ..result.ignored <- 
+    sapply( times, function ( the.time ) {
+        out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
+        write.table( apply( results.table.by.region.and.time.p10[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+        return( NULL );
+    } );
+    return( NULL );
+} );
+
+######################
+# ( results.table.by.region.and.time.p10 )
+# $v3
+# $v3$`1m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         -3.128968        -41.66667    
+# Synonymous.PFitter.time.est              -37.07143        -46.35714    
+# multifounder.PFitter.time.est            -7.85989         -43.76471    
+# multifounder.Synonymous.PFitter.time.est -35.96273        -45.33333    
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         1266.304      30.76341      
+# Synonymous.PFitter.time.est              114.6522      14.98793      
+# multifounder.PFitter.time.est            204.7143      30.05146      
+# multifounder.Synonymous.PFitter.time.est 26.85714      12.76584      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         8.253342    257.8342   
+# Synonymous.PFitter.time.est              0           44.67235   
+# multifounder.PFitter.time.est            4.176263    128.7112   
+# multifounder.Synonymous.PFitter.time.est 0           61.42207   
+# 
+# $v3$`6m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         63.74904         -115.8333    
+# Synonymous.PFitter.time.est              -123.781         -171         
+# multifounder.PFitter.time.est            -22.55556        -143.6667    
+# multifounder.Synonymous.PFitter.time.est -110.6875        -147.3333    
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         872.7         51.16241      
+# Synonymous.PFitter.time.est              19.2          20.39825      
+# multifounder.PFitter.time.est            243.3103      60.83165      
+# multifounder.Synonymous.PFitter.time.est -61.33333     37.16665      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         20.57507    174.5478   
+# Synonymous.PFitter.time.est              0           39.92873   
+# multifounder.PFitter.time.est            19.82811    172.6328   
+# multifounder.Synonymous.PFitter.time.est 8.485281    77.33471   
+# 
+# $v3$`1m6m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         148.8333         -12.90909    
+# Synonymous.PFitter.time.est              -27.71429        -56.33333    
+# multifounder.PFitter.time.est            28.77778         -38.11538    
+# multifounder.Synonymous.PFitter.time.est -18.16667        -55.25       
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         1280.304      31.00045      
+# Synonymous.PFitter.time.est              141.2609      13.99429      
+# multifounder.PFitter.time.est            221.2759      28.65699      
+# multifounder.Synonymous.PFitter.time.est 31.6087       25.86964      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         18.43685    132.4031   
+# Synonymous.PFitter.time.est              4.618802    35.29038   
+# multifounder.PFitter.time.est            15.96975    109.4992   
+# multifounder.Synonymous.PFitter.time.est 4.349329    51.98283   
+
+
+###########################################################################
 # results.table.by.region.and.time
 ### Raw run, without recombination detection/removal nor hypermutation detection/removal:
 # $nflg
