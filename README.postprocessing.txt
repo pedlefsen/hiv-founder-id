@@ -90,5 +90,6 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 #####################################################
 ## Completes analysis of isMultiple for all three: nflg and both v3s:
 ./evaluateIsMultiple.bash /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216
-./evaluateTimings.sh
+./evaluateTimings.sh 
+./postProcessEvaluateFounders.sh 
 

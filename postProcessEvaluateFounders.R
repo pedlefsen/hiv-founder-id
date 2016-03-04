@@ -279,7 +279,7 @@ compareResultsMatrix <- function( results.mat.A, results.mat.B, name.A = "A", na
 
 
 ## Read in the evaluateFounders results for the identify-founders method, aggregate and return a matrix of results with ptids in rows.
-postProcessEvaluateFounders <- function ( the.region, the.time, use.infer = FALSE, use.anchre = FALSE ) {
+postProcessEvaluateFounders <- function ( the.region, the.time, use.infer = TRUE ) {
     if( use.infer ) {
         maybe.subdir <- "/infer";
     } else {
@@ -291,7 +291,7 @@ postProcessEvaluateFounders <- function ( the.region, the.time, use.infer = FALS
         stopifnot( the.region == "v3" );
         the.study <- "caprisa002";
     }
-    results.in <- read.delim( paste( RESULTS.DIR, the.region, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
+    results.in <- read.delim( paste( RESULTS.DIR, the.region, "/", the.time, maybe.subdir, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
     results.in.estimates.ptid <-
         gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
     results.in.truths.ptid <-
