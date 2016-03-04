@@ -279,22 +279,23 @@ compareResultsMatrix <- function( results.mat.A, results.mat.B, name.A = "A", na
 
 
 ## Read in the evaluateFounders results for the identify-founders method, aggregate and return a matrix of results with ptids in rows.
-postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE ) {
+postProcessEvaluateFounders <- function ( the.region, the.time, use.infer = FALSE, use.anchre = FALSE ) {
     if( use.infer ) {
         maybe.subdir <- "/infer";
     } else {
         maybe.subdir <- "";
     }
-    if( the.study == "nflg" ) {
-        the.study.alt <- "rv217";
+    if( ( the.region == "nflg" ) || ( the.region == "rv217_v3" ) ) {
+        the.study <- "rv217";
     } else {
-        the.study.alt <- "caprisa002";
+        stopifnot( the.region == "v3" );
+        the.study <- "caprisa002";
     }
-    results.in <- read.delim( paste( RESULTS.DIR, the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
+    results.in <- read.delim( paste( RESULTS.DIR, the.region, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
     results.in.estimates.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
     results.in.truths.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "truths.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "truths.file" ] ) );
     if( !all( results.in.estimates.ptid == results.in.truths.ptid ) ) {
       warning( paste( "ptids mismatch?:", paste( results.in.estimates.ptid, collapse = ", " ), "not same as", paste( results.in.truths.ptid, collapse = ", " )  ) );
     }
@@ -309,16 +310,16 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     .fromto <- apply( results.fromto, 1, paste, collapse = "---" );
     stopifnot( length( .fromto ) == length( unique( .fromto ) ) );
     
-    if( the.study == "v3" ) {
+    if( the.region == "v3" ) {
         gold.is.multiple <- caprisa002.gold.is.multiple;
     } else {
         gold.is.multiple <- rv217.gold.is.multiple;
     }
     
     estimates.file.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "estimates.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "estimates.file" ] ) );
     truths.file.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "truths.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "truths.file" ] ) );
     stopifnot( all( truths.file.ptid == estimates.file.ptid ) );
     stopifnot( all( truths.file.ptid %in% names( gold.is.multiple ) ) );
     
@@ -366,6 +367,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     
     ## The ptids won't have changed but their order may have.
     results.ptids <- c( results.matches.gold.is.multiple.truths.ptid, results.matches.gold.is.multiple.in.truths.but.not.estimates.truths.ptid, results.matches.gold.is.multiple.in.estimates.but.not.truths.truths.ptid, results.doesnt.match.gold.is.multiple.in.either.truths.ptid );
+        
     stopifnot( length( unique( results.ptids ) ) == length( results.in.ptids ) );
         
     results.prep <- as.matrix( rbind( results.matches.gold.is.multiple, results.matches.gold.is.multiple.in.truths.but.not.estimates, results.matches.gold.is.multiple.in.estimates.but.not.truths, results.doesnt.match.gold.is.multiple.in.either ) )[ , 3:ncol( results.matches.gold.is.multiple ) ];
@@ -385,7 +387,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     rownames( results.prep2 ) <- results.ptids;
     
     ## Here we add in new aggregation over the whole genome (for multi-gene results only; for now it applies to nflg not v3).
-    if( the.study == "nflg" ) {
+    if( the.region == "nflg" ) {
         # gather columns with like suffixes.
         colnames.sans.gene <- gsub( "^[^\\.]+(\\..+)$", "\\1", colnames( results.prep2 ) );
         unique.colnames.sans.gene <- unique( colnames.sans.gene );
