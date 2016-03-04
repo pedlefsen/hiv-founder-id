@@ -44,9 +44,6 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 
 ### To evaluate the isMultiple calls, we use evaluateIsMultiple.bash, which creates two output files in each top-level dir.
 
-## Completes analysis of isMultiple for all three: nflg and both v3s:
-./evaluateIsMultiple.bash /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216
-
 ### To evaluate the ancestral sequence calls, we use evaluateAllFounders.sh and evaluateAllFoundersCap.sh
 
 ## nflg:

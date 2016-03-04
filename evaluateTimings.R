@@ -1,5 +1,7 @@
 ## First do all the stuff in README.postprocessing.txt.
 
+source( "readIdentifyFounders_safetosource.R" );
+
 use.infer <- TRUE;
 use.anchre <- FALSE;
 results.dirname <- "raw_edited_20160216";
@@ -54,77 +56,34 @@ timings.results.by.region.and.time <-
              names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
                  
              ## identify-founders results
-             results.in <- read.delim( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ), sep = "\t" );
-
-             results <- as.matrix( results.in );
-             suppressWarnings( mode( results ) <- "numeric" );
-
-             # Exclude the ill-fated "multi-region" results, for now.
-             multiregion.results <- results[ is.na( results.in[ , 2 ] ), , drop = FALSE ];
-             rownames( multiregion.results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ is.na( results.in[ , 2 ] ), 1 ] ) ) );
-             
-             results <- results[ !is.na( results.in[ , 2 ] ), , drop = FALSE ];
-             rownames( results ) <- gsub( ".*caprisa002_(\\d+)_.*", "\\1", gsub( ".*rv217_(\\d+)_.*", "\\1", as.character( results.in[ !is.na( results.in[ , 2 ] ), 1 ] ) ) );
-
-             lambda.colnames <- grep( "lambda", colnames( results ), value = T );
-             lambda <- results[ , lambda.colnames, drop = FALSE ];
-             lambda.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "lambda.*$", "nbases", lambda.colnames ) );
-             lambda.nb <- results[ , lambda.colnames.nb, drop = FALSE ];
-             
+             results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
              days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
-             days <- results[ , days.colnames, drop = FALSE ];
-             days.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "days.*$", "nbases", days.colnames ) );
-             days.nb <- results[ , days.colnames.nb, drop = FALSE ];
 
-             single.colnames <- grep( "\\.is\\.", colnames( results ), value = T );
-             single.exceptInSites.colnames <- grep( "InSites", single.colnames, value = T, invert = T );
-             single.exceptInSites <- results[ , single.exceptInSites.colnames, drop = FALSE ];
-             single.exceptInSites.colnames.nb <-
-                 gsub( "^Star[Pp]hy", "PFitter", gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "\\....er\\.PFitter\\.", "\\.", gsub( "is\\..*$", "nbases", single.exceptInSites.colnames ) ) ) );
-             ## Special case: the one called "StarPhy.is.one.founder" is actually using the synonymous PFitter results, so its "nbases" should be the synonymous one.
-             single.exceptInSites.colnames.nb[ single.exceptInSites.colnames == "StarPhy.is.one.founder" ] <- "Synonymous.PFitter.nbases";
-             single.exceptInSites.nb <- results[ , single.exceptInSites.colnames.nb, drop = FALSE ];
-             
-             ## Results for which nbases == 0 should be NAs!  Remove the time and lambda estimates.
-             results[ , lambda.colnames ] <-
-                 t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ lambda.colnames.nb ] == 0, NA, .row[ lambda.colnames ] )
-                 } ) );
-             results[ , days.colnames ] <-
-                 t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ days.colnames.nb ] == 0, NA, .row[ days.colnames ] )
-                 } ) );
-             ## TODO: [in evaluateIsMultiple] Fix the single ones there
-             results[ , single.exceptInSites.colnames ] <-
-                 t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ single.exceptInSites.colnames.nb ] == 0, NA, .row[ single.exceptInSites.colnames ] )
-                 } ) );
-             
              ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
              ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
              days.est.colnames <- grep( "est", days.colnames, value = TRUE );
              days.est <- results[ , days.est.colnames, drop = FALSE ];
              lambda.est.colnames <-
-                 gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time)", "lambda", days.est.colnames, perl = TRUE ) );
+                 gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
              stopifnot( all( lambda.est.colnames %in% colnames( results ) ) );
-             days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time).*$", "nbases", days.est.colnames, perl = TRUE ) );
+             days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
              days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
-             days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time).*$", "nseq", days.est.colnames, perl = TRUE ) );
+             days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
              days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
              
              ## proof of concept:
-             results.days.est.new <- 
-                 t( apply( results, 1, function( .row ) {
-                     .rv <- 
-                         sapply( 1:length( days.est.colnames ), function ( .col.i ) {
-                             if( is.na( .row[ days.est.colnames.nb[ .col.i ] ] ) || .row[ days.est.colnames.nb[ .col.i ] ] == 0 ) {
-                                 return( NA );
-                             }
-                             daysFromLambda( .row[ lambda.est.colnames[ .col.i ] ], .row[ days.est.colnames.nb[ .col.i ] ], epsilon = default.epsilon )
-                         } );
-                     names( .rv ) <- days.est.colnames;
-                     return( .rv );
-                 } ) );
+             # results.days.est.new <- 
+             #     t( apply( results, 1, function( .row ) {
+             #         .rv <- 
+             #             sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+             #                 if( is.na( .row[ days.est.colnames.nb[ .col.i ] ] ) || .row[ days.est.colnames.nb[ .col.i ] ] == 0 ) {
+             #                     return( NA );
+             #                 }
+             #                 daysFromLambda( .row[ lambda.est.colnames[ .col.i ] ], .row[ days.est.colnames.nb[ .col.i ] ], epsilon = default.epsilon )
+             #             } );
+             #         names( .rv ) <- days.est.colnames;
+             #         return( .rv );
+             #     } ) );
              ## Bizarrely it's not exactly the same, but it is very
              ## close -- some strange rounding must be happening
              ## within PFitter.
@@ -275,7 +234,7 @@ names( results.table.by.region.and.time ) <- regions;
     ..result.ignored <- 
     sapply( times, function ( the.time ) {
         out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings.tab", sep = "" );
-        write.table( apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+        write.table( apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, fvunction( .x ) { sprintf( "%0.2f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
         return( NULL );
     } );
     return( NULL );
@@ -283,6 +242,8 @@ names( results.table.by.region.and.time ) <- regions;
 
 
 results.table.by.region.and.time
+
+### Raw run, without recombination detection/removal nor hypermutation detection/removal:
 # $nflg
 # $nflg$`1m`
 #                                          bias      se       rmse    
@@ -366,86 +327,9 @@ results.table.by.region.and.time
 
 
 
-### Raw run, without recombination detection/removal nor hypermutation detection/removal:
-# $nflg
-# $nflg$`1m`
-# $nflg$`1m`$rv217
-#                                          bias      se       rmse    
-# PFitter.time.est                         43.9375   126.8828 133.3349
-# Synonymous.PFitter.time.est              -23.5     28.77058 36.97381
-# multifounder.PFitter.time.est            4.666667  55.83858 55.48503
-# multifounder.Synonymous.PFitter.time.est -31.29412 14.19337 34.30486
-# 
-# 
-# $nflg$`6m`
-# $nflg$`6m`$rv217
-#                                          bias      se       rmse    
-# PFitter.time.est                         -28.87671 117.9385 120.6351
-# Synonymous.PFitter.time.est              -145.3699 29.46491 148.2858
-# multifounder.PFitter.time.est            -71.72222 83.44774 109.447 
-# multifounder.Synonymous.PFitter.time.est -152.7778 27.21034 155.1378
-# 
-# 
-# $nflg$`1m6m`
-# $nflg$`1m6m`$rv217
-#                                          bias      se       rmse    
-# PFitter.time.est                         87.36842  122.4774 149.1282
-# Synonymous.PFitter.time.est              -11.84211 29.62698 31.54195
-# multifounder.PFitter.time.est            26        65.86704 69.81774
-# multifounder.Synonymous.PFitter.time.est -24.3871  19.71409 31.15828
-# 
-# 
-# 
-# $v3
-# $v3$`1m`
-# $v3$`1m`$caprisa002
-#                                          bias   se       rmse    
-# PFitter.time.est                         164.65 340.783  370.7237
-# Synonymous.PFitter.time.est              -23    58.29869 61.3009 
-# multifounder.PFitter.time.est            12     111.4757 109.3138
-# multifounder.Synonymous.PFitter.time.est -41.3  31.20746 51.2923 
-# 
-# $v3$`1m`$rv217
-#                                          bias      sd       rmse    
-# PFitter.time.est                         41.55556  144.4919 148.4077
-# Synonymous.PFitter.time.est              -28.27778 37.03096 46.18261
-# multifounder.PFitter.time.est            -2.305556 68.9268  68.00184
-# multifounder.Synonymous.PFitter.time.est -32.5     24.94623 40.75878
-# 
-# 
-# $v3$`6m`
-# $v3$`6m`$caprisa002
-#                                          bias      se       rmse    
-# PFitter.time.est                         161.6667  253.3017 294.5052
-# Synonymous.PFitter.time.est              -119.0556 76.703   140.4661
-# multifounder.PFitter.time.est            30.22222  262.8089 257.1863
-# multifounder.Synonymous.PFitter.time.est -141.8333 60.15592 153.4092
-# 
-# $v3$`6m`$rv217
-#                                          bias      sd       rmse    
-# PFitter.time.est                         40.09091  184.6078 186.1574
-# Synonymous.PFitter.time.est              -125      59.86443 138.2033
-# multifounder.PFitter.time.est            -64       77.77612 99.80891
-# multifounder.Synonymous.PFitter.time.est -142.8182 30.8063  146.0045
-# 
-# 
-# $v3$`1m6m`
-# $v3$`1m6m`$caprisa002
-#                                          bias      se       rmse    
-# PFitter.time.est                         249.2941  355.0214 425.1748
-# Synonymous.PFitter.time.est              -13.47059 66.84788 66.23621
-# multifounder.PFitter.time.est            132.0588  352.2764 366.3854
-# multifounder.Synonymous.PFitter.time.est -33.23529 46.61616 56.12329
-# 
-# $v3$`1m6m`$rv217
-#                                          bias      sd       rmse    
-# PFitter.time.est                         161       210.6419 262.5766
-# Synonymous.PFitter.time.est              0.1515152 54.44844 53.61733
-# multifounder.PFitter.time.est            30.33333  43.68328 52.63568
-# multifounder.Synonymous.PFitter.time.est -16.75758 27.95424 32.22694
 
 
-### Original run, using RAPBeta and my implementation of Hypermut 2.0.
+### Original run, using RAPBeta and my implementation of Hypermut 2.0.  Also the computation of these values was not correctly excluding multi-region results nor accounting for the sometimes multiple estimates per ppt.
 # $nflg
 # $nflg$`1m`
 # $nflg$`1m`$rv217

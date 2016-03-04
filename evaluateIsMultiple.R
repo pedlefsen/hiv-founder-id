@@ -1,5 +1,7 @@
 library( "ROCR" ) # for "prediction" and "performance"
 
+source( "readIdentifyFounders_safetosource.R" );
+
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 #RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences/raw_fixed";
 RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
@@ -71,49 +73,14 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         identify.founders.tab.file.suffix <-
             gsub( "^([^\\.]+)(\\..+)?$", "\\2", identify.founders.tab.file.short, perl = TRUE );
     
-        identify.founders.in <- NULL;
-        try.count <- 0;
-        TOO.MANY.TRIES <- 100;
-        while( ( try.count < TOO.MANY.TRIES ) && ( is.null( identify.founders.in ) || is.null( nrow( identify.founders.in ) ) || ( nrow( identify.founders.in ) == 0 ) ) ) {
-           if( try.count > 0 ) {
-               warning( paste( "Trouble reading results in file", identify.founders.tab.file, ".. trying again in a second." ) );
-               Sys.sleep( 1 );
-           }
-#           identify.founders.in <- read.delim( identify.founders.tab.file, sep = "\t", header = TRUE, fill = FALSE );
+             ## identify-founders results
+             identify.founders.study <- readIdentifyFounders( identify.founders.tab.file );
+             single.colnames <- grep( "\\.is\\.|fits", colnames( identify.founders.study ), perl = TRUE, value = TRUE );
 
-           ### FILL = TRUE is needed for now because of a bug in the multi-region lines in the identify_founders.tab file, which is too short.  This is ok because we are ignoring those results for now anyway.
-           identify.founders.in <- read.delim( identify.founders.tab.file, sep = "\t", header = TRUE, fill = TRUE );
-        }
-        if( try.count >= TOO.MANY.TRIES ) {
-            stop( paste( "COULD NOT READ results in file", identify.founders.tab.file, ".. GIVING UP." ) );
-        }
-    
-#         ## For now we only look at the caprisa002 results in "v3"
-#         identify.founders.study <-
-#             identify.founders.in[ grep( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), as.character( identify.founders.in[ , "infile" ] ) ), , drop = FALSE ];
-        # Fix accidental temporary bug in which second round of results isn't called "multifounder" (in R it gets called .1 instead).
-        identify.founders.study <- identify.founders.in;
-        
-        colnames( identify.founders.study ) <- 
-            gsub( "^(.+)\\.1$", "multifounder.\\1", colnames( identify.founders.study ) )
-        is.one.founder.methods <-
-            grep( "is\\.|fits", colnames( identify.founders.study ), value = T );
-
-        ## Fix other accidental temporary bug in which the multiregion results are all messed up.  Just remove them.
-        identify.founders.study <-
-          identify.founders.study[ !is.na( identify.founders.study[ , "file" ] ), , drop = FALSE ];
-
-        if( the.study == "rv217_v3" ) {
-            identify.founders.ptids <-
-                gsub( paste( ".*", "rv217", "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
-        } else {
-            identify.founders.ptids <-
-                gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( identify.founders.study[ , "infile" ] ) );
-        }
-        
         ## _All_ of these are "is.one.founder", so note that in the comparison they need to be reversed.
         estimates.is.one.founder <-
-            identify.founders.study[ , is.one.founder.methods, drop = FALSE ];
+            identify.founders.study[ , single.colnames, drop = FALSE ];
+        identify.founders.ptids <- rownames( identify.founders.study );
         ## Sometimes there are multiple entries for one ptid/sample, eg for the NFLGs there are often right half and left half (RH and LH) and sometimes additionally NFLG results.  If so, for something to be called single founder, all of the estimates (across regions, for a given test) must agree that it is one founder.
 
         ## Note that this also transposes it, so the ptids are in columns and the tests are in rows.
@@ -131,8 +98,8 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         
         # Cols are gold.is.multiple
         # gold.is.multiple.tables <- 
-        #     sapply( 1:length( is.one.founder.methods ), function( .i ) { table( 1 - estimates.is.one.founder[ , .i ], gold.is.multiple[ identify.founders.ptids ] ) } );
-        # names( gold.is.multiple.tables ) <- is.one.founder.methods;
+        #     sapply( 1:length( single.colnames ), function( .i ) { table( 1 - estimates.is.one.founder[ , .i ], gold.is.multiple[ identify.founders.ptids ] ) } );
+        # names( gold.is.multiple.tables ) <- single.colnames;
 
         mode( estimates.is.one.founder.one.per.person ) <- "numeric";
         sum.correct.among.one.founder.people <-
@@ -144,13 +111,13 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         sum.incorrect.among.multiple.founder.people <-
           apply( estimates.is.one.founder.one.per.person[ , !as.logical( gold.is.one.founder.per.person ) ], 1, sum );
         
-        gold.is.multiple.aucs <- 
-            sapply( 1:length( is.one.founder.methods ), function( .i ) {
+        isMultiple.aucs <- 
+            sapply( 1:length( single.colnames ), function( .i ) {
                 performance( prediction( unlist( estimates.is.one.founder.one.per.person[ .i, ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
             } );
-        names( gold.is.multiple.aucs ) <- is.one.founder.methods;
+        names( isMultiple.aucs ) <- single.colnames;
 
-        return( gold.is.multiple.aucs );
+        return( isMultiple.aucs );
     } # evaluateIsMultiple.OneFile ( identify.founders.tab.file )
 
     if( the.study == "rv217" ) {
