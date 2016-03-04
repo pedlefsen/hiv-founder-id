@@ -3,5 +3,5 @@ mkdir ${3}
 for patient in  `ls -c1 ${1}/*.fasta | cut -d_ -f5 | sort -u | egrep "^[0-9]+" | uniq`
 do
 echo ${patient}
-   ./evaluateFoundersFromInferCap.bash ${1} ${2} ${3} ${patient} &
+   ./evaluateFoundersFromInferV3.bash ${1} ${2} ${3} ${patient} &
 done
