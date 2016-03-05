@@ -72,6 +72,8 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 ./postProcessEvaluateFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/v3/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_edited_20160216/1m
 
 #####################################################
-## Completes analysis of isMultiple for all three: nflg and both v3s:
-./evaluateIsMultiple.bash /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216
+## Completes analysis of isMultiple, creates *_isMultiple.tab results:
+./evaluateIsMultiple.bash /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216 
+## Completes analysis of timings, creates */*/evaluateTimings.tab results:
+./evaluateTimings.sh
 

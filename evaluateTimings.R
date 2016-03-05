@@ -1,3 +1,4 @@
+
 ## First do all the stuff in README.postprocessing.txt.
 
 source( "readIdentifyFounders_safetosource.R" );
@@ -234,7 +235,9 @@ names( results.table.by.region.and.time ) <- regions;
     ..result.ignored <- 
     sapply( times, function ( the.time ) {
         out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings.tab", sep = "" );
-        write.table( apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, fvunction( .x ) { sprintf( "%0.2f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+        .tbl <-
+            apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+        write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
         return( NULL );
     } );
     return( NULL );
