@@ -35,7 +35,7 @@ rmse <- function( x, na.rm = FALSE ) {
     return( sqrt( mean( x ** 2 ) ) );
 }
 
-## This is from PFitter.
+## This is from PFitter.  Epsilon is the per position mutation rate, per generation -- but I think that the generations / day is fixed at 2, so really this is the mutation rate position per half-day.
 default.epsilon <- 2.16e-05;
 phi <- sqrt(1+4/3);
 daysFromLambda <- function ( lambda, nb, epsilon = default.epsilon ) {
