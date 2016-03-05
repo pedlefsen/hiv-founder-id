@@ -5,6 +5,7 @@ source( "readIdentifyFounders_safetosource.R" );
 
 use.infer <- TRUE;
 use.anchre <- TRUE;
+use.partitions <- TRUE;
 results.dirname <- "raw_edited_20160216";
 #results.dirname <- "raw";
 
@@ -37,187 +38,222 @@ daysFromLambda <- function ( lambda, nb, epsilon = default.epsilon ) {
     1.5 * ((phi)/(1+phi)) * (lambda/(epsilon*nb) - (1-phi)/(phi^2) )
 }
 
-timings.results.by.region.and.time <- 
- lapply( regions, function( the.region ) {
-             ## TODO: REMOVE
-             cat( the.region, fill = T );
-     timings.results.by.time <- 
-         lapply( times, function( the.time ) {
-             ## TODO: REMOVE
-             cat( the.time, fill = T );
-             sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
-             colnames( sample.dates.in ) <- c( "ptid", "date" );
-             ## Remove anything that's not really a ptid/date combo
-             sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
-             # remove anything with a missing date.
-             sample.dates.in <-
-                 sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
-             
-             days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.region == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
-             names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
-                 
-             ## identify-founders results
-             results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
-             days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
-
-             ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
-             ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
-             days.est.colnames <- grep( "est", days.colnames, value = TRUE );
-             days.est <- results[ , days.est.colnames, drop = FALSE ];
-             lambda.est.colnames <-
-                 gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
-             stopifnot( all( lambda.est.colnames %in% colnames( results ) ) );
-             days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
-             days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
-             days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
-             days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
-             
-             ## proof of concept:
-             # results.days.est.new <- 
-             #     t( apply( results, 1, function( .row ) {
-             #         .rv <- 
-             #             sapply( 1:length( days.est.colnames ), function ( .col.i ) {
-             #                 if( is.na( .row[ days.est.colnames.nb[ .col.i ] ] ) || .row[ days.est.colnames.nb[ .col.i ] ] == 0 ) {
-             #                     return( NA );
-             #                 }
-             #                 daysFromLambda( .row[ lambda.est.colnames[ .col.i ] ], .row[ days.est.colnames.nb[ .col.i ] ], epsilon = default.epsilon )
-             #             } );
-             #         names( .rv ) <- days.est.colnames;
-             #         return( .rv );
-             #     } ) );
-             ## Bizarrely it's not exactly the same, but it is very
-             ## close -- some strange rounding must be happening
-             ## within PFitter.
-             #hist( ( days.est -            results.days.est.new ) )
-             
-             results <- results[ , identify.founders.date.estimates, drop = FALSE ];
-             
-             if( use.infer ) {
-               ## Add to results: "infer" results.
-               if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
-                   the.region.dir <- "v3_edited_20160216";
-               } else {
-                   the.region.dir <- "nflg_copy_20160222";
-               }
-               infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
-               # Special: for v3, separate out the caprisa seqs from the rv217 seqs
-               if( the.region == "v3" ) {
-                    infer.results.directories <- grep( "_100\\d\\d\\d$", infer.results.directories, value = TRUE );
-               } else if( the.region == "rv217_v3" ) {
-                    infer.results.directories <- grep( "_100\\d\\d\\d$", infer.results.directories, value = TRUE, invert = TRUE );
-               }
-                 
-               infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
-               infer.results.list <-
-                   lapply( unlist( infer.results.files ), function( .file ) {
-                       .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
-                       stopifnot( ncol( .rv ) == 3 );
-                       return( .rv );
-                   } );
-               names( infer.results.list ) <- unlist( infer.results.files );
-
-               if( length( infer.results.list ) > 0 ) {
-                   infer.results <- do.call( rbind, infer.results.list );
-                   colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
-                   .tmp <- gsub( "^.+_(\\d+)/.+$", "\\1", names( infer.results.list ) );
-                   rownames( infer.results ) <- .tmp;
+getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
+    if( !is.na( partition.size ) ) {
+        regions <- "v3"; # Only v3 has partition results at this time.
+    }
+    timings.results.by.region.and.time <-
+        lapply( regions, function( the.region ) {
+            ## TODO: REMOVE
+            cat( the.region, fill = T );
+       timings.results.by.time <- 
+           lapply( times, function( the.time ) {
+               ## TODO: REMOVE
+               cat( the.time, fill = T );
+               sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
+               colnames( sample.dates.in ) <- c( "ptid", "date" );
+               ## Remove anything that's not really a ptid/date combo
+               sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
+               # remove anything with a missing date.
+               sample.dates.in <-
+                   sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
+               
+               days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.region == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
+               names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
                    
-                   # Add just the estimate from infer.
-                   new.results.columns <- matrix( NA, nrow = nrow( results ), ncol = 1 );
-                   rownames( new.results.columns ) <- rownames( results );
-                   colnames( new.results.columns ) <- "Infer.time.est";
-                   .shared.ptids <-
-                       intersect( rownames( new.results.columns ), rownames( infer.results ) );
-                   .result.ignored <- sapply( .shared.ptids, function( .ptid ) {
-                       .infer.subtable <-
-                           infer.results[ rownames( infer.results ) == .ptid, 1, drop = FALSE ];
-                       stopifnot( sum( rownames( infer.results ) == .ptid ) == nrow( .infer.subtable ) );
-                       new.results.columns[ rownames( infer.results ) == .ptid, ] <<-
-                           .infer.subtable;
-                       return( NULL );
-                   } );
-                     
-                   results <- cbind( results, new.results.columns );
+               ## identify-founders results
+               if( is.na( partition.size ) ) {
+                   results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
+               } else {
+                   results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
                }
-                 
-             } # End if use.infer
-
-             if( use.anchre && ( the.time == "1m6m" ) ) {
-               ## Add to results: "anchre" results. (only at 1m6m)
-               anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
-               if( length( anchre.results.directories ) > 0 ) {
-                 anchre.results.files <-
-                     sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
-                 anchre.results <- do.call( rbind,
-                     lapply( unlist( anchre.results.files ), function( .file ) {
-                         stopifnot( file.exists( .file ) );
-                         .file.short <-
-                             gsub( "^.*?\\/?([^\\/]+?)$", "\\1", .file, perl = TRUE );
-                         .file.short.nosuffix <-
-                             gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
-                         .file.converted <-
-                             paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
-                         # convert it.
-                         system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
-                         stopifnot( file.exists( .file.converted ) );
-                         .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
-                         ## No negative dates!  Just call it NA.
-                         .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { NA } else { .str } } );
-                         stopifnot( ncol( .rv ) == 4 );
-                         return( .rv );
-                     } ) );
-                 colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
-                 rownames( anchre.results ) <-
-                     gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
-                 # Special: for v3, only use caprisa seqs (not rv217, for now).
-                 if( the.region == "v3" ) {
-                     anchre.results <-
-                         anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
-                 } else if( the.region == "rv217_v3" ) {
-                     anchre.results <-
-                         anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ), invert = TRUE ), , drop = FALSE ];
+               days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
+  
+               ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
+               ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
+               days.est.colnames <- grep( "est", days.colnames, value = TRUE );
+               days.est <- results[ , days.est.colnames, drop = FALSE ];
+               lambda.est.colnames <-
+                   gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
+               stopifnot( all( lambda.est.colnames %in% colnames( results ) ) );
+               days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
+               days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
+               days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
+               days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
+               
+               ## proof of concept:
+               # results.days.est.new <- 
+               #     t( apply( results, 1, function( .row ) {
+               #         .rv <- 
+               #             sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+               #                 if( is.na( .row[ days.est.colnames.nb[ .col.i ] ] ) || .row[ days.est.colnames.nb[ .col.i ] ] == 0 ) {
+               #                     return( NA );
+               #                 }
+               #                 daysFromLambda( .row[ lambda.est.colnames[ .col.i ] ], .row[ days.est.colnames.nb[ .col.i ] ], epsilon = default.epsilon )
+               #             } );
+               #         names( .rv ) <- days.est.colnames;
+               #         return( .rv );
+               #     } ) );
+               ## Bizarrely it's not exactly the same, but it is very
+               ## close -- some strange rounding must be happening
+               ## within PFitter.
+               #hist( ( days.est -            results.days.est.new ) )
+               
+               results <- results[ , identify.founders.date.estimates, drop = FALSE ];
+               
+               if( use.infer && is.na( partition.size ) ) { ## TODO: Handle the infer results for the partitions
+                 ## Add to results: "infer" results.
+                 if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
+                     the.region.dir <- "v3_edited_20160216";
+                 } else {
+                     the.region.dir <- "nflg_copy_20160222";
                  }
-                 # Add just the estimate from anchre.
-                 sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
-                 names( sample.dates ) <- sample.dates.in[ , 1 ];
-                 anchre.r2t.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
-                 names( anchre.r2t.days.before.sample ) <- rownames( anchre.results );
-                 anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 2 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
-                 names( anchre.days.before.sample ) <- rownames( anchre.results );
-    
-                 results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
-                 colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
-               } # End if there's any anchre results.
-             } # End if use.ancher and the.time is 1m6m, add anchre results too.
+                 infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+                 # Special: for v3, separate out the caprisa seqs from the rv217 seqs
+                 if( the.region == "v3" ) {
+                      infer.results.directories <- grep( "_100\\d\\d\\d$", infer.results.directories, value = TRUE );
+                 } else if( the.region == "rv217_v3" ) {
+                      infer.results.directories <- grep( "_100\\d\\d\\d$", infer.results.directories, value = TRUE, invert = TRUE );
+                 }
+                   
+                 infer.results.files <- sapply( infer.results.directories, dir, "outtoi.csv", full.name = TRUE );
+                 infer.results.list <-
+                     lapply( unlist( infer.results.files ), function( .file ) {
+                         .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
+                         stopifnot( ncol( .rv ) == 3 );
+                         return( .rv );
+                     } );
+                 names( infer.results.list ) <- unlist( infer.results.files );
+  
+                 if( length( infer.results.list ) > 0 ) {
+                     infer.results <- do.call( rbind, infer.results.list );
+                     colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
+                     .tmp <- gsub( "^.+_(\\d+)/.+$", "\\1", names( infer.results.list ) );
+                     rownames( infer.results ) <- .tmp;
+                     
+                     # Add just the estimate from infer.
+                     new.results.columns <- matrix( NA, nrow = nrow( results ), ncol = 1 );
+                     rownames( new.results.columns ) <- rownames( results );
+                     colnames( new.results.columns ) <- "Infer.time.est";
+                     .shared.ptids <-
+                         intersect( rownames( new.results.columns ), rownames( infer.results ) );
+                     .result.ignored <- sapply( .shared.ptids, function( .ptid ) {
+                         .infer.subtable <-
+                             infer.results[ rownames( infer.results ) == .ptid, 1, drop = FALSE ];
+                         stopifnot( sum( rownames( infer.results ) == .ptid ) == nrow( .infer.subtable ) );
+                         new.results.columns[ rownames( infer.results ) == .ptid, ] <<-
+                             .infer.subtable;
+                         return( NULL );
+                     } );
+                       
+                     results <- cbind( results, new.results.columns );
+                 }
+                   
+               } # End if use.infer
+  
+               if( use.anchre && ( the.time == "1m6m" ) && is.na( partition.size ) ) {  ## TODO: Handle the anchre results for the partitions
+                 ## Add to results: "anchre" results. (only at 1m6m)
+                 anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+                 if( length( anchre.results.directories ) > 0 ) {
+                   anchre.results.files <-
+                       sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
+                   anchre.results <- do.call( rbind,
+                       lapply( unlist( anchre.results.files ), function( .file ) {
+                           stopifnot( file.exists( .file ) );
+                           .file.short <-
+                               gsub( "^.*?\\/?([^\\/]+?)$", "\\1", .file, perl = TRUE );
+                           .file.short.nosuffix <-
+                               gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
+                           .file.converted <-
+                               paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
+                           # convert it.
+                           system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
+                           stopifnot( file.exists( .file.converted ) );
+                           .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
+                           ## No negative dates!  Just call it NA.
+                           .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { NA } else { .str } } );
+                           stopifnot( ncol( .rv ) == 4 );
+                           return( .rv );
+                       } ) );
+                   colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
+                   rownames( anchre.results ) <-
+                       gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
+                   # Special: for v3, only use caprisa seqs (not rv217, for now).
+                   if( the.region == "v3" ) {
+                       anchre.results <-
+                           anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
+                   } else if( the.region == "rv217_v3" ) {
+                       anchre.results <-
+                           anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ), invert = TRUE ), , drop = FALSE ];
+                   }
+                   # Add just the estimate from anchre.
+                   sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+                   names( sample.dates ) <- sample.dates.in[ , 1 ];
+                   anchre.r2t.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+                   names( anchre.r2t.days.before.sample ) <- rownames( anchre.results );
+                   anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 2 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+                   names( anchre.days.before.sample ) <- rownames( anchre.results );
+      
+                   results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
+                   colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
+                 } # End if there's any anchre results.
+               } # End if use.ancher and the.time is 1m6m, add anchre results too.
 
-             ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average, maybe?
-             .weights <- days.est.nseq*days.est.nb;
-             results.one.per.ppt <- apply( results, 2, function ( .column ) {
-                 .rv <- 
-                 sapply( unique( rownames( results ) ), function( .ppt ) {
-                     .ppt.cells <- .column[ rownames( results ) == .ppt ];
-                     .ppt.weights <- .weights[ rownames( results ) == .ppt ];
-                     .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
-                     sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
-                 } );
-                 names( .rv ) <- unique( rownames( results ) );
-                 return( .rv );
-             } );
-             
-             diffs.by.stat <-
-                 lapply( colnames( results.one.per.ppt ), function( .stat ) {
-                     .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
-                     names( .rv ) <- rownames( results.one.per.ppt );
+               if( is.na( partition.size ) ) {
+                 ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average, maybe?
+                 .weights <- days.est.nseq*days.est.nb;
+                 results.one.per.ppt <- apply( results, 2, function ( .column ) {
+                     .rv <- 
+                     sapply( unique( rownames( results ) ), function( .ppt ) {
+                         .ppt.cells <- .column[ rownames( results ) == .ppt ];
+                         .ppt.weights <- .weights[ rownames( results ) == .ppt ];
+                         .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+                         sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+                     } );
+                     names( .rv ) <- unique( rownames( results ) );
                      return( .rv );
                  } );
-             names( diffs.by.stat ) <- colnames( results );
+                 diffs.by.stat <-
+                     lapply( colnames( results.one.per.ppt ), function( .stat ) {
+                         .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
+                         names( .rv ) <- rownames( results.one.per.ppt );
+                         return( .rv );
+                     } );
+                 names( diffs.by.stat ) <- colnames( results );
+    
+                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) );
+               } else {
+                   ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
+                   results.per.ppt <- apply( results, 2, function ( .column ) {
+                     .rv <- 
+                       lapply( unique( rownames( results ) ), function( .ppt ) {
+                           .values <- .column[ rownames( results ) == .ppt ];
+                           .diffs <- ( as.numeric( .values ) - as.numeric( days.since.infection[ .ppt ] ) );
+                           return( list( values = .values, diffs = .diffs ) );
+                     } );
+                     names( .rv ) <- unique( rownames( results ) );
+                     return( .rv );
+                   } );
+                   diffs.per.ppt <- lapply( results.per.ppt, function( .lst ) { lapply( .lst, function( ..lst ) { ..lst[[ "diffs" ]] } ) } );
+                   mean.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, mean, na.rm = T ) } );
+                   sd.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, sd, na.rm = T ) } );
+                   median.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
+                   min.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
+                   max.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
+                   median.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
+                   min.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
+                   max.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
+                   return( list( median.mean.bias = median.mean.bias, min.mean.bias = min.mean.bias, max.mean.bias = max.mean.bias,  median.sd.bias = median.sd.bias, min.sd.bias = min.sd.bias, max.sd.bias = max.sd.bias ) );
+               }
+           } ); # End foreach the.time
+       names( timings.results.by.time ) <- times;
+       return( timings.results.by.time );
+   } ); # End foreach the.region
+  names( timings.results.by.region.and.time ) <- regions;
+  return( timings.results.by.region.and.time );
+} # getTimingsResultsByRegionAndTime ( partition.size )
 
-             return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) );
-         } ); # End foreach the.time
-     names( timings.results.by.time ) <- times;
-     return( timings.results.by.time );
- } ); # End foreach the.region
-names( timings.results.by.region.and.time ) <- regions;
+timings.results.by.region.and.time <- getTimingsResultsByRegionAndTime();
 
 # Make a table out of it. (one per study).
 results.table.by.region.and.time <-
@@ -243,7 +279,88 @@ names( results.table.by.region.and.time ) <- regions;
     return( NULL );
 } );
 
+## For partition size == 10
+timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
 
+# Make a table out of it. (one per study).
+results.table.by.region.and.time.p10 <-
+    lapply( names( timings.results.by.region.and.time.p10 ), function( the.region ) {
+        .rv <- 
+            lapply( names( timings.results.by.region.and.time.p10[[ the.region ]] ), function( the.time ) {
+                sapply( timings.results.by.region.and.time.p10[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
+        names( .rv ) <- times;
+        return( .rv );
+    } );
+names( results.table.by.region.and.time.p10 ) <- "v3";
+
+## Write these out.
+.result.ignored <- sapply( "v3", function ( the.region ) {
+    ..result.ignored <- 
+    sapply( times, function ( the.time ) {
+        out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
+        .tbl <- apply( results.table.by.region.and.time.p10[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+        write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
+        return( NULL );
+    } );
+    return( NULL );
+} );
+
+######################
+# ( results.table.by.region.and.time.p10 )
+# $v3
+# $v3$`1m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         -3.128968        -41.66667    
+# Synonymous.PFitter.time.est              -37.07143        -46.35714    
+# multifounder.PFitter.time.est            -7.85989         -43.76471    
+# multifounder.Synonymous.PFitter.time.est -35.96273        -45.33333    
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         1266.304      30.76341      
+# Synonymous.PFitter.time.est              114.6522      14.98793      
+# multifounder.PFitter.time.est            204.7143      30.05146      
+# multifounder.Synonymous.PFitter.time.est 26.85714      12.76584      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         8.253342    257.8342   
+# Synonymous.PFitter.time.est              0           44.67235   
+# multifounder.PFitter.time.est            4.176263    128.7112   
+# multifounder.Synonymous.PFitter.time.est 0           61.42207   
+# 
+# $v3$`6m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         63.74904         -115.8333    
+# Synonymous.PFitter.time.est              -123.781         -171         
+# multifounder.PFitter.time.est            -22.55556        -143.6667    
+# multifounder.Synonymous.PFitter.time.est -110.6875        -147.3333    
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         872.7         51.16241      
+# Synonymous.PFitter.time.est              19.2          20.39825      
+# multifounder.PFitter.time.est            243.3103      60.83165      
+# multifounder.Synonymous.PFitter.time.est -61.33333     37.16665      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         20.57507    174.5478   
+# Synonymous.PFitter.time.est              0           39.92873   
+# multifounder.PFitter.time.est            19.82811    172.6328   
+# multifounder.Synonymous.PFitter.time.est 8.485281    77.33471   
+# 
+# $v3$`1m6m`
+#                                          median.mean.bias min.mean.bias
+# PFitter.time.est                         148.8333         -12.90909    
+# Synonymous.PFitter.time.est              -27.71429        -56.33333    
+# multifounder.PFitter.time.est            28.77778         -38.11538    
+# multifounder.Synonymous.PFitter.time.est -18.16667        -55.25       
+#                                          max.mean.bias median.sd.bias
+# PFitter.time.est                         1280.304      31.00045      
+# Synonymous.PFitter.time.est              141.2609      13.99429      
+# multifounder.PFitter.time.est            221.2759      28.65699      
+# multifounder.Synonymous.PFitter.time.est 31.6087       25.86964      
+#                                          min.sd.bias max.sd.bias
+# PFitter.time.est                         18.43685    132.4031   
+# Synonymous.PFitter.time.est              4.618802    35.29038   
+# multifounder.PFitter.time.est            15.96975    109.4992   
+# multifounder.Synonymous.PFitter.time.est 4.349329    51.98283   
+
+
+###########################################################################
 # results.table.by.region.and.time
 ### Raw run, without recombination detection/removal nor hypermutation detection/removal:
 # $nflg

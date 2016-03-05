@@ -279,22 +279,23 @@ compareResultsMatrix <- function( results.mat.A, results.mat.B, name.A = "A", na
 
 
 ## Read in the evaluateFounders results for the identify-founders method, aggregate and return a matrix of results with ptids in rows.
-postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE ) {
+postProcessEvaluateFounders <- function ( the.region, the.time, use.infer = FALSE ) {
     if( use.infer ) {
         maybe.subdir <- "/infer";
     } else {
         maybe.subdir <- "";
     }
-    if( the.study == "nflg" ) {
-        the.study.alt <- "rv217";
+    if( ( the.region == "nflg" ) || ( the.region == "rv217_v3" ) ) {
+        the.study <- "rv217";
     } else {
-        the.study.alt <- "caprisa002";
+        stopifnot( the.region == "v3" );
+        the.study <- "caprisa002";
     }
-    results.in <- read.delim( paste( RESULTS.DIR, the.study, maybe.subdir, "/", the.time, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
+    results.in <- read.delim( paste( RESULTS.DIR, the.region, "/", the.time, maybe.subdir, "/evaluateFounders.tbl", sep = "" ), sep = "\t" );
     results.in.estimates.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "estimates.file" ] ) );
     results.in.truths.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "truths.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.in[ , "truths.file" ] ) );
     if( !all( results.in.estimates.ptid == results.in.truths.ptid ) ) {
       warning( paste( "ptids mismatch?:", paste( results.in.estimates.ptid, collapse = ", " ), "not same as", paste( results.in.truths.ptid, collapse = ", " )  ) );
     }
@@ -309,16 +310,16 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     .fromto <- apply( results.fromto, 1, paste, collapse = "---" );
     stopifnot( length( .fromto ) == length( unique( .fromto ) ) );
     
-    if( the.study == "v3" ) {
+    if( the.region == "v3" ) {
         gold.is.multiple <- caprisa002.gold.is.multiple;
     } else {
         gold.is.multiple <- rv217.gold.is.multiple;
     }
     
     estimates.file.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "estimates.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "estimates.file" ] ) );
     truths.file.ptid <-
-        gsub( paste( ".*", the.study.alt, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "truths.file" ] ) );
+        gsub( paste( ".*", the.study, "_([^_]+)_.+", sep = "" ), "\\1", as.character( results.fromto[ , "truths.file" ] ) );
     stopifnot( all( truths.file.ptid == estimates.file.ptid ) );
     stopifnot( all( truths.file.ptid %in% names( gold.is.multiple ) ) );
     
@@ -366,6 +367,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     
     ## The ptids won't have changed but their order may have.
     results.ptids <- c( results.matches.gold.is.multiple.truths.ptid, results.matches.gold.is.multiple.in.truths.but.not.estimates.truths.ptid, results.matches.gold.is.multiple.in.estimates.but.not.truths.truths.ptid, results.doesnt.match.gold.is.multiple.in.either.truths.ptid );
+        
     stopifnot( length( unique( results.ptids ) ) == length( results.in.ptids ) );
         
     results.prep <- as.matrix( rbind( results.matches.gold.is.multiple, results.matches.gold.is.multiple.in.truths.but.not.estimates, results.matches.gold.is.multiple.in.estimates.but.not.truths, results.doesnt.match.gold.is.multiple.in.either ) )[ , 3:ncol( results.matches.gold.is.multiple ) ];
@@ -385,7 +387,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     rownames( results.prep2 ) <- results.ptids;
     
     ## Here we add in new aggregation over the whole genome (for multi-gene results only; for now it applies to nflg not v3).
-    if( the.study == "nflg" ) {
+    if( the.region == "nflg" ) {
         # gather columns with like suffixes.
         colnames.sans.gene <- gsub( "^[^\\.]+(\\..+)$", "\\1", colnames( results.prep2 ) );
         unique.colnames.sans.gene <- unique( colnames.sans.gene );
@@ -407,7 +409,7 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
     ## (in addition to the includingGaps results; see above), we remove the interesting (but not for reporting) perspectives results, which are components of the result that we use: truths.perspective is the average over true founders of the HD of the smallest-HD estimate for that true founder (even if it is the same as another one).
     ## Ok so now we need to recompute per-ptid averages over the "truths" and "esimtates" 'perspectives'; first we sum like columns for a ptid.  There may be multiple rows for the rv217 "nflg" data (LH, RH, env, NFLG) but not for caprisa002 "v3".
     results.prep3 <- t(
-        sapply( results.ptids, function( .ptid ) {
+        sapply( unique( results.ptids ), function( .ptid ) {
             .ptid.sums <- 
                 apply( results.prep2[ results.ptids == .ptid, , drop = FALSE ], 2, sum, na.rm = T );
             .rv <- sapply( unique( cols.to.keep.prefixes ), function( .prefix ) {
@@ -430,11 +432,25 @@ postProcessEvaluateFounders <- function ( the.study, the.time, use.infer = FALSE
 
 # These have only two results: V3 for AA and for NA.
 caprisa002.v3.1m.results <- postProcessEvaluateFounders( "v3", "1m" );
+out.file <- paste( RESULTS.DIR, "v3/1m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.1m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 caprisa002.v3.1m.results.infer <- postProcessEvaluateFounders( "v3", "1m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "v3/1m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.1m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+
 caprisa002.v3.6m.results <- postProcessEvaluateFounders( "v3", "6m" );
+out.file <- paste( RESULTS.DIR, "v3/6m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.6m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 caprisa002.v3.6m.results.infer <- postProcessEvaluateFounders( "v3", "6m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "v3/6m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.6m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+
 caprisa002.v3.1m6m.results <- postProcessEvaluateFounders( "v3", "1m6m" );
+out.file <- paste( RESULTS.DIR, "v3/1m6m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.1m6m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 caprisa002.v3.1m6m.results.infer <- postProcessEvaluateFounders( "v3", "1m6m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "v3/1m6m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( caprisa002.v3.1m6m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 
 ### Identify results:
 caprisa002.v3.1m.Identify.results <-
@@ -448,10 +464,10 @@ caprisa002.v3.1m.Identify.results$stats
 # Min.       0.00000000  0.00000000
 # 1st Qu.    0.00000000  0.00000000
 # Median     0.00000000  0.00000000
-# Mean       0.00586900  0.00296600
+# Mean       0.00593000  0.00302600
 # 3rd Qu.    0.00000000  0.00000000
 # Max.       0.10630000  0.05246000
-# sd         0.02374727  0.01169069
+# sd         0.02375953  0.01169363
 # frac.zero  0.85000000  0.80000000
 
 caprisa002.v3.6m.Identify.results <-
@@ -461,15 +477,15 @@ caprisa002.v3.6m.Identify.results$ggp;
 dev.off();
 caprisa002.v3.6m.Identify.results$stats
 #                V3.AA        V3.NA
-# n         14.00000000 14.000000000
+# n         18.00000000 18.000000000
 # Min.       0.00000000  0.000000000
 # 1st Qu.    0.00000000  0.000000000
 # Median     0.00000000  0.000000000
-# Mean       0.00576700  0.003146000
-# 3rd Qu.    0.00000000  0.000183800
+# Mean       0.00697700  0.003287000
+# 3rd Qu.    0.00000000  0.000973000
 # Max.       0.07160000  0.036230000
-# sd         0.01907796  0.009627076
-# frac.zero  0.78571429  0.714285714
+# sd         0.01809126  0.008702398
+# frac.zero  0.77777778  0.722222222
 
 caprisa002.v3.1m6m.Identify.results <-
     evaluateResultsMatrix( caprisa002.v3.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (1m6m)" )
@@ -477,16 +493,16 @@ pdf( file = "caprisa002.v3.1m6m.Identify.pdf" );
 caprisa002.v3.1m6m.Identify.results$ggp;
 dev.off();
 caprisa002.v3.1m6m.Identify.results$stats
- #               V3.AA       V3.NA
- #n         17.00000000 17.00000000
- #Min.       0.00000000  0.00000000
- #1st Qu.    0.00000000  0.00000000
- #Median     0.00000000  0.00000000
- #Mean       0.00476400  0.00255800
- #3rd Qu.    0.00000000  0.00000000
- #Max.       0.07160000  0.03623000
- #sd         0.01730148  0.00874334
- #frac.zero  0.82352941  0.76470588
+#                V3.AA        V3.NA
+# n         17.00000000 17.000000000
+# Min.       0.00000000  0.000000000
+# 1st Qu.    0.00000000  0.000000000
+# Median     0.00000000  0.000000000
+# Mean       0.00568400  0.002924000
+# 3rd Qu.    0.00000000  0.000000000
+# Max.       0.07160000  0.036230000
+# sd         0.01780483  0.008830657
+# frac.zero  0.82352941  0.764705882
 
 ### Infer results:
 caprisa002.v3.1m.Infer.results <-
@@ -495,17 +511,16 @@ pdf( file = "caprisa002.v3.1m.Infer.pdf" );
 caprisa002.v3.1m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.1m.Infer.results$stats
-#                V3.AA      V3.NA
-# n         19.00000000 19.0000000
-# Min.       0.00000000  0.0000000
-# 1st Qu.    0.00000000  0.0000000
-# Median     0.00000000  0.0000000
-# Mean       0.01054000  0.0059380
-# 3rd Qu.    0.00000000  0.0028130
-# Max.       0.16230000  0.0779200
-# NA's       1.00000000  1.0000000
-# sd         0.03737126  0.0177881
-# frac.zero  0.78947368  0.6315789
+#                V3.AA       V3.NA
+# n         19.00000000 19.00000000
+# Min.       0.00000000  0.00000000
+# 1st Qu.    0.00000000  0.00000000
+# Median     0.00000000  0.00000000
+# Mean       0.00825500  0.00423100
+# 3rd Qu.    0.00000000  0.00143300
+# Max.       0.11970000  0.05530000
+# sd         0.02778673  0.01272688
+# frac.zero  0.78947368  0.68421053
 
 caprisa002.v3.6m.Infer.results <-
     evaluateResultsMatrix( caprisa002.v3.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (6m)" )
@@ -513,16 +528,16 @@ pdf( file = "caprisa002.v3.6m.Infer.pdf" );
 caprisa002.v3.6m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.6m.Infer.results$stats
-#                V3.AA       V3.NA
-# n         18.00000000 18.00000000
-# Min.       0.00000000  0.00000000
-# 1st Qu.    0.00000000  0.00000000
-# Median     0.00000000  0.00000000
-# Mean       0.00739500  0.00419100
-# 3rd Qu.    0.00000000  0.00194200
-# Max.       0.09593000  0.04797000
-# sd         0.02312452  0.01138378
-# frac.zero  0.77777778  0.66666667
+#                V3.AA        V3.NA
+# n         18.00000000 18.000000000
+# Min.       0.00000000  0.000000000
+# 1st Qu.    0.00000000  0.000000000
+# Median     0.00000000  0.000000000
+# Mean       0.00660100  0.002742000
+# 3rd Qu.    0.00000000  0.000311600
+# Max.       0.08165000  0.033790000
+# sd         0.01993176  0.008093776
+# frac.zero  0.77777778  0.722222222
 
 caprisa002.v3.1m6m.Infer.results <-
     evaluateResultsMatrix( caprisa002.v3.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (1m6m)" )
@@ -531,15 +546,15 @@ caprisa002.v3.1m6m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.1m6m.Infer.results$stats
 #                V3.AA       V3.NA
-# n         17.00000000 17.00000000
+# n         16.00000000 16.00000000
 # Min.       0.00000000  0.00000000
 # 1st Qu.    0.00000000  0.00000000
 # Median     0.00000000  0.00000000
-# Mean       0.01096000  0.00463700
-# 3rd Qu.    0.00735300  0.00317500
-# Max.       0.09194000  0.04422000
-# sd         0.02360848  0.01083493
-# frac.zero  0.64705882  0.58823529
+# Mean       0.00866300  0.00410300
+# 3rd Qu.    0.00031130  0.00092430
+# Max.       0.10140000  0.05008000
+# sd         0.02577062  0.01250597
+# frac.zero  0.75000000  0.68750000
 
 ### Identify, over time:
 caprisa002.v3.6m.vs.1m.Identify.results <-
@@ -584,7 +599,7 @@ caprisa002.v3.6m.IdentifyVsInfer.results <-
 pdf( file = "caprisa002.v3.6m.IdentifyVsInfer.pdf" );
 caprisa002.v3.6m.IdentifyVsInfer.results$ggp;
 dev.off();
-## Conclusion: Using 6m Caprisa 002 data, we do about the same when using Infer as when using Identify.
+## Conclusion: Using 6m Caprisa 002 data, we do about the same when using Infer as when using Identify (maybe slightly better using Identify in NAs)
 
 caprisa002.v3.1m6m.IdentifyVsInfer.results <-
     compareResultsMatrix( caprisa002.v3.1m6m.results, caprisa002.v3.1m6m.results.infer, "Identify", "Infer", "Caprisa 002 V3 1m6m\nIdentify vs Infer" );
@@ -596,11 +611,25 @@ dev.off();
 
 ## RV217
 rv217.nflg.1m.results <- postProcessEvaluateFounders( "nflg", "1m" );
+out.file <- paste( RESULTS.DIR, "nflg/1m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.1m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 rv217.nflg.1m.results.infer <- postProcessEvaluateFounders( "nflg", "1m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "nflg/1m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.1m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+
 rv217.nflg.6m.results <- postProcessEvaluateFounders( "nflg", "6m" );
+out.file <- paste( RESULTS.DIR, "nflg/6m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.6m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 rv217.nflg.6m.results.infer <- postProcessEvaluateFounders( "nflg", "6m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "nflg/6m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.6m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
+
 rv217.nflg.1m6m.results <- postProcessEvaluateFounders( "nflg", "1m6m" );
+out.file <- paste( RESULTS.DIR, "nflg/1m6m/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.1m6m.results, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 rv217.nflg.1m6m.results.infer <- postProcessEvaluateFounders( "nflg", "1m6m", use.infer = TRUE );
+out.file <- paste( RESULTS.DIR, "nflg/1m6m/infer/postProcessEvaluateFounders.tab", sep = "" );
+write.table( apply( rv217.nflg.1m6m.results.infer, 1:2, function( .x ) { sprintf( "%0.4f", .x ) } ), quote = FALSE, file = out.file, sep = "\t" );
 
 ### Identify results:
 rv217.nflg.1m.Identify.results <-
@@ -609,16 +638,16 @@ pdf( file = "rv217.nflg.1m.Identify.pdf" );
 rv217.nflg.1m.Identify.results$ggp;
 dev.off();
 rv217.nflg.1m.Identify.results$stats
-#              NFLG.AA      NFLG.NA
-# n       35.000000000 35.000000000
-# Min.     0.000000000  0.000000000
-# 1st Qu.  0.000428000  0.000000000
-# Median   0.000556500  0.000000000
-# Mean     0.002214000  0.001243000
-# 3rd Qu.  0.001569000  0.000622500
-# Max.     0.025360000  0.013160000
-# sd       0.004827571  0.002900712
-# frac.zero  0.200000000  0.571428571
+#               NFLG.AA      NFLG.NA
+# n         36.000000000 36.000000000
+# Min.       0.000000000  0.000000000
+# 1st Qu.    0.000274700  0.000000000
+# Median     0.000805500  0.000192500
+# Mean       0.002535000  0.001467000
+# 3rd Qu.    0.001570000  0.000659500
+# Max.       0.025360000  0.013160000
+# sd         0.004928037  0.003019404
+# frac.zero  0.166666667  0.388888889
 
 rv217.nflg.6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results, "Identify (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (6m)" )
@@ -626,16 +655,16 @@ pdf( file = "rv217.nflg.6m.Identify.pdf" );
 rv217.nflg.6m.Identify.results$ggp;
 dev.off();
 rv217.nflg.6m.Identify.results$stats
-#              NFLG.AA      NFLG.NA
-# n       34.000000000 34.000000000
-# Min.     0.000000000  0.000000000
-# 1st Qu.  0.001113000  0.000185500
-# Median   0.002208000  0.000687400
-# Mean     0.004128000  0.002344000
-# 3rd Qu.  0.004435000  0.002725000
-# Max.     0.021760000  0.013880000
-# sd       0.005147759  0.003385765
-# frac.zero  0.058823529  0.176470588
+#               NFLG.AA      NFLG.NA
+# n         34.000000000 34.000000000
+# Min.       0.000000000  0.000000000
+# 1st Qu.    0.001559000  0.000410300
+# Median     0.003258000  0.001387000
+# Mean       0.005606000  0.003064000
+# 3rd Qu.    0.007899000  0.004123000
+# Max.       0.021760000  0.015270000
+# sd         0.005888187  0.003949968
+# frac.zero  0.029411765  0.117647059
 
 rv217.nflg.1m6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (1m6m)" )
@@ -643,16 +672,16 @@ pdf( file = "rv217.nflg.1m6m.Identify.pdf" );
 rv217.nflg.1m6m.Identify.results$ggp;
 dev.off();
 rv217.nflg.1m6m.Identify.results$stats
-#              NFLG.AA      NFLG.NA
-# n       24.000000000 24.000000000
-# Min.     0.000000000  0.000000000
-# 1st Qu.  0.000555700  0.000000000
-# Median   0.000949400  0.000263500
-# Mean     0.001915000  0.001173000
-# 3rd Qu.  0.002591000  0.001240000
-# Max.     0.014450000  0.011050000
-# sd       0.002967604  0.002391149
-# frac.zero  0.166666667  0.416666667
+#               NFLG.AA     NFLG.NA
+# n         24.000000000 24.00000000
+# Min.       0.000000000  0.00000000
+# 1st Qu.    0.000554600  0.00010860
+# Median     0.000949400  0.00027530
+# Mean       0.003868000  0.00126900
+# 3rd Qu.    0.002519000  0.00138400
+# Max.       0.046160000  0.01048000
+# sd         0.009502685  0.00239576
+# frac.zero  0.083333333  0.25000000
 
 ### Infer results:
 rv217.nflg.1m.Infer.results <-
@@ -661,16 +690,16 @@ pdf( file = "rv217.nflg.1m.Infer.pdf" );
 rv217.nflg.1m.Infer.results$ggp;
 dev.off();
 rv217.nflg.1m.Infer.results$stats
-#              NFLG.AA      NFLG.NA
-# n       40.000000000 40.000000000
-# Min.     0.000000000  0.000000000
-# 1st Qu.  0.000257100  0.000105700
-# Median   0.001617000  0.000544500
-# Mean     0.002852000  0.001615000
-# 3rd Qu.  0.002661000  0.001065000
-# Max.     0.025360000  0.013160000
-# sd       0.005011051  0.003087946
-# frac.zero  0.225000000  0.225000000
+#               NFLG.AA      NFLG.NA
+# n         34.000000000 34.000000000
+# Min.       0.000000000  0.000000000
+# 1st Qu.    0.000000000  0.000000000
+# Median     0.000532600  0.000039210
+# Mean       0.003338000  0.002039000
+# 3rd Qu.    0.001961000  0.000811700
+# Max.       0.028870000  0.018290000
+# sd         0.006942697  0.004343099
+# frac.zero  0.382352941  0.500000000
 
 rv217.nflg.6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (6m)" )
@@ -678,16 +707,16 @@ pdf( file = "rv217.nflg.6m.Infer.pdf" );
 rv217.nflg.6m.Infer.results$ggp;
 dev.off();
 rv217.nflg.6m.Infer.results$stats
-#              NFLG.AA     NFLG.NA
-# n       40.000000000 40.00000000
-# Min.     0.000000000  0.00000000
-# 1st Qu.  0.002503000  0.00083460
-# Median   0.005354000  0.00253100
-# Mean     0.008142000  0.00439300
-# 3rd Qu.  0.009778000  0.00456600
-# Max.     0.047770000  0.02841000
-# sd       0.009208334  0.00572519
-# frac.zero  0.125000000  0.07500000
+#               NFLG.AA      NFLG.NA
+# n         33.000000000 33.000000000
+# Min.       0.000000000  0.000000000
+# 1st Qu.    0.002145000  0.000806300
+# Median     0.004231000  0.001411000
+# Mean       0.007215000  0.003770000
+# 3rd Qu.    0.008830000  0.003671000
+# Max.       0.032580000  0.019270000
+# sd         0.007983511  0.004920596
+# frac.zero  0.121212121  0.121212121
 
 rv217.nflg.1m6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (1m6m)" )
@@ -695,16 +724,16 @@ pdf( file = "rv217.nflg.1m6m.Infer.pdf" );
 rv217.nflg.1m6m.Infer.results$ggp;
 dev.off();
 rv217.nflg.1m6m.Infer.results$stats
-#              NFLG.AA      NFLG.NA
-# n       23.000000000 23.000000000
-# Min.     0.000000000  0.000000000
-# 1st Qu.  0.000428400  0.000105600
-# Median   0.000947000  0.000525400
-# Mean     0.003038000  0.001887000
-# 3rd Qu.  0.002446000  0.001087000
-# Max.     0.024020000  0.018010000
-# sd       0.005810557  0.004418947
-# frac.zero  0.130434783  0.173913043
+#               NFLG.AA      NFLG.NA
+# n         22.000000000 22.000000000
+# Min.       0.000000000  0.000000000
+# 1st Qu.    0.001422000  0.000501400
+# Median     0.002569000  0.001087000
+# Mean       0.004328000  0.002429000
+# 3rd Qu.    0.004020000  0.001538000
+# Max.       0.017440000  0.012530000
+# sd         0.004894294  0.003625868
+# frac.zero  0.045454545  0.090909091
 
 ### Identify, over time:
 rv217.nflg.6m.vs.1m.Identify.results <-
@@ -719,7 +748,7 @@ rv217.nflg.1m6m.vs.1m.Identify.results <-
 pdf( file = "rv217.nflg.1m6m.vs.1m.Identify.pdf" );
 rv217.nflg.1m6m.vs.1m.Identify.results$ggp;
 dev.off();
-## Conclusion: Using Identify, we do about the same with both 1m6m data than with only 1m data.
+## Conclusion: Using Identify, we do about the same with both 1m6m data than with only 1m data.  Maybe in one case we do better with 1m6m on the AAs, and there is some trend towards doing better overall on the NAs -- if anything it is BETTER using 1m rather than 1m6m!
 
 ### Infer, over time:
 rv217.nflg.6m.vs.1m.Infer.results <-
@@ -734,7 +763,7 @@ rv217.nflg.1m6m.vs.1m.Infer.results <-
 pdf( file = "rv217.nflg.1m6m.vs.1m.Infer.pdf" );
 rv217.nflg.1m6m.vs.1m.Infer.results$ggp;
 dev.off();
-## Conclusion: Using Infer, we do about the same with both 1m6m data than with only 1m data.
+## Conclusion: Suprisingly, using Infer, we do worse with both 1m6m data than with only 1m data.
 
 ### IdentifyVsInfer:
 rv217.nflg.1m.IdentifyVsInfer.results <-
@@ -742,98 +771,19 @@ rv217.nflg.1m.IdentifyVsInfer.results <-
 pdf( file = "rv217.nflg.1m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m.IdentifyVsInfer.results$ggp;
 dev.off();
-## Conclusion: Using 1m RV217 NFLG data, we do about the same when using Infer as when using Identify.
+## Conclusion: Using 1m RV217 NFLG data, we do about the same when using Infer as when using Identify, but if anything the Infer results are better.
 
 rv217.nflg.6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.6m.results, rv217.nflg.6m.results.infer, "Identify", "Infer", "RV217 NFLG 6m\nIdentify vs Infer" );
 pdf( file = "rv217.nflg.6m.IdentifyVsInfer.pdf" );
 rv217.nflg.6m.IdentifyVsInfer.results$ggp;
 dev.off();
-## Conclusion: Using 6m RV217 NFLG data, we do significantly worse when using Infer as when using Identify.
+## Conclusion: Using 6m RV217 NFLG data, we do significantly worse when using Identify than when using Infer.
 
 rv217.nflg.1m6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.1m6m.results, rv217.nflg.1m6m.results.infer, "Identify", "Infer", "RV217 NFLG 1m6m\nIdentify vs Infer" );
 pdf( file = "rv217.nflg.1m6m.IdentifyVsInfer.pdf" );
 rv217.nflg.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
-## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify.
-
-# ===== OLD =======
-##
-pdf( file = "rv217.nflg.1m.results.pdf" )
-boxplot( rv217.nflg.1m.results[,1], rv217.nflg.1m.results[,2 ], names = colnames( rv217.nflg.1m.results ) )
-dev.off()
-
-pdf( file = "rv217.nflg.1m.results.infer.pdf" )
-boxplot( rv217.nflg.1m.results.infer[,1], rv217.nflg.1m.results.infer[,2 ], names = colnames( rv217.nflg.1m.results.infer ) )
-dev.off()
-
-pdf( file = "rv217.nflg.6m.results.pdf" )
-boxplot( rv217.nflg.6m.results[,1], rv217.nflg.6m.results[,2 ], names = colnames( rv217.nflg.6m.results ) )
-dev.off()
-
-pdf( file = "rv217.nflg.6m.results.infer.pdf" )
-boxplot( rv217.nflg.6m.results.infer[,1], rv217.nflg.6m.results.infer[,2 ], names = colnames( rv217.nflg.6m.results.infer ) )
-dev.off()
-
-pdf( file = "rv217.nflg.1m6m.results.pdf" )
-boxplot( rv217.nflg.1m6m.results[,1], rv217.nflg.1m6m.results[,2 ], names = colnames( rv217.nflg.1m6m.results ) )
-dev.off()
-
-pdf( file = "rv217.nflg.1m6m.results.infer.pdf" )
-boxplot( rv217.nflg.1m6m.results.infer[,1], rv217.nflg.1m6m.results.infer[,2 ], names = colnames( rv217.nflg.1m6m.results.infer ) )
-dev.off()
-
-pdf( file = "rv217.nflg.NA.over.time.pdf" )
-boxplot( rv217.nflg.1m.results[,1 ], rv217.nflg.6m.results[,1 ], rv217.nflg.1m6m.results[,1 ], names = c( "1m.NFLG.NA", "6m.NFLG.NA", "1m6m.NFLG.NA" ) )
-dev.off()
-
-pdf( file = "rv217.nflg.AA.over.time.pdf" )
-boxplot( rv217.nflg.1m.results[,2 ], rv217.nflg.6m.results[,2 ], rv217.nflg.1m6m.results[,2 ], names = c( "1m.NFLG.AA", "6m.NFLG.AA", "1m6m.NFLG.AA" ) )
-dev.off()
-
-## For like subjects, take diffs
-.shared.ptids.6m <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.6m.results ) );
-.shared.ptids.1m6m <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.1m6m.results ) );
-pdf( file = "rv217.nflg.NA.over.time.within.subjects.pdf" )
-boxplot( rv217.nflg.6m.results[.shared.ptids.6m,1 ] - rv217.nflg.1m.results[.shared.ptids.6m,1 ], rv217.nflg.1m6m.results[.shared.ptids.1m6m,1 ] - rv217.nflg.1m.results[.shared.ptids.1m6m,1 ], names = c( "6m.NFLG.AA-1m.NFLG.AA", "1m6m.NFLG.AA-1m.NFLG.AA" ) )
-dev.off()
-.shared.ptids <- intersect( rownames( rv217.nflg.1m.results ), rownames( rv217.nflg.6m.results ) );
-pdf( file = "rv217.nflg.AA.over.time.within.subjects.pdf" )
-boxplot( rv217.nflg.6m.results[.shared.ptids,2 ] - rv217.nflg.1m.results[.shared.ptids,2 ], rv217.nflg.1m6m.results[.shared.ptids,2 ] - rv217.nflg.1m.results[.shared.ptids,2 ], names = c( "6m.NFLG.AA-1m.NFLG.AA", "1m6m.NFLG.AA-1m.NFLG.AA" ) )
-dev.off()
-##
-
-pdf( file = "rv217.nflg.1m.NA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.1m.results.infer[, 1:9 ] ), c( rv217.nflg.1m.results[, 1:9 ] ), names = c( "nflg.1m.NA.mean", "nflg.1m.NA.infer.mean" ) )
-dev.off()
-pdf( file = "rv217.nflg.1m.AA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.1m.results.infer[, 10:18 ] ), c( rv217.nflg.1m.results[, 10:18 ] ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
-dev.off()
-
-pdf( file = "rv217.nflg.1m.NA.methods.pdf" )
-boxplot( apply( rv217.nflg.1m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.1m.NA.infer.mean", "nflg.1m.NA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
-pdf( file = "rv217.nflg.1m.AA.methods.pdf" )
-boxplot( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.1m.AA.infer.mean", "nflg.1m.AA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.1m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.1m.results[, 10:18 ], 1, mean, na.rm = T ) )
-
-
-pdf( file = "rv217.nflg.6m.NA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.6m.results.infer[, 1:9 ] ), c( rv217.nflg.6m.results[, 1:9 ] ), names = c( "nflg.6m.NA.mean", "nflg.6m.NA.infer.mean" ) )
-dev.off()
-pdf( file = "rv217.nflg.6m.AA.methods.scatter.pdf" )
-boxplot( c( rv217.nflg.6m.results.infer[, 10:18 ] ), c( rv217.nflg.6m.results[, 10:18 ] ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
-dev.off()
-
-pdf( file = "rv217.nflg.6m.NA.methods.pdf" )
-boxplot( apply( rv217.nflg.6m.results.infer[, 1:9 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 1:9 ], 1, mean, na.rm = T ), names = c( "nflg.6m.NA.infer.mean", "nflg.6m.NA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
-pdf( file = "rv217.nflg.6m.AA.methods" )
-boxplot( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ), names = c( "nflg.6m.AA.infer.mean", "nflg.6m.AA.mean" ) )
-dev.off()
-t.test( apply( rv217.nflg.6m.results.infer[, 10:18 ], 1, mean, na.rm = T ), apply( rv217.nflg.6m.results[, 10:18 ], 1, mean, na.rm = T ) )
+## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify, with one case of Identify doing better on AAs -- however in NAs the results are significantly better using Infer.
 
