@@ -9,6 +9,10 @@ use.partitions <- TRUE;
 results.dirname <- "raw_edited_20160216";
 #results.dirname <- "raw";
 
+force.recomputation <- FALSE;
+timings.results.by.region.and.time.Rda.filename <-
+    paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/timings.results.by.region.and.time.Rda", sep = "" );
+
 identify.founders.date.estimates <-
     c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
 
@@ -37,6 +41,31 @@ phi <- sqrt(1+4/3);
 daysFromLambda <- function ( lambda, nb, epsilon = default.epsilon ) {
     1.5 * ((phi)/(1+phi)) * (lambda/(epsilon*nb) - (1-phi)/(phi^2) )
 }
+
+compute.results.one.per.ppt <- function ( results, weights ) {
+    apply( results, 2, function ( .column ) {
+        .rv <- 
+        sapply( unique( rownames( results ) ), function( .ppt ) {
+            .ppt.cells <- .column[ rownames( results ) == .ppt ];
+            .ppt.weights <- weights[ rownames( results ) == .ppt ];
+            .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+            sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+        } );
+        names( .rv ) <- unique( rownames( results ) );
+        return( .rv );
+    } );
+} # compute.results.one.per.ppt
+
+compute.diffs.by.stat <- function ( results.one.per.ppt ) {
+    diffs.by.stat <- 
+        lapply( colnames( results.one.per.ppt ), function( .stat ) {
+            .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
+            names( .rv ) <- rownames( results.one.per.ppt );
+            return( .rv );
+        } );
+    names( diffs.by.stat ) <- colnames( results.one.per.ppt );
+    return( diffs.by.stat );
+} # compute.diffs.by.stat ( results.one.per.ppt )
 
 getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
     if( !is.na( partition.size ) ) {
@@ -82,24 +111,81 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
                
                ## proof of concept:
-               # results.days.est.new <- 
-               #     t( apply( results, 1, function( .row ) {
-               #         .rv <- 
-               #             sapply( 1:length( days.est.colnames ), function ( .col.i ) {
-               #                 if( is.na( .row[ days.est.colnames.nb[ .col.i ] ] ) || .row[ days.est.colnames.nb[ .col.i ] ] == 0 ) {
-               #                     return( NA );
-               #                 }
-               #                 daysFromLambda( .row[ lambda.est.colnames[ .col.i ] ], .row[ days.est.colnames.nb[ .col.i ] ], epsilon = default.epsilon )
-               #             } );
-               #         names( .rv ) <- days.est.colnames;
-               #         return( .rv );
-               #     } ) );
-               ## Bizarrely it's not exactly the same, but it is very
-               ## close -- some strange rounding must be happening
-               ## within PFitter.
-               #hist( ( days.est -            results.days.est.new ) )
+               create.function.to.be.optimized <- # defaults to use rmse aka sqrt( sum( bias^2 ) ), but you can change that to abs( bias ).
+                   function ( days.est.col.i, for.bias = FALSE, weights = days.est.nseq*days.est.nb ) {
+
+                       return( function( log.epsilon, return.days.est.new = FALSE ) {
+                       .days.est.new <- 
+                         apply( results, 1, function( .row ) {
+                             if( is.na( .row[ days.est.colnames.nb[ days.est.col.i ] ] ) || .row[ days.est.colnames.nb[ days.est.col.i ] ] == 0 ) {
+                                 return( NA );
+                             }
+                             return( daysFromLambda( .row[ lambda.est.colnames[ days.est.col.i ] ], .row[ days.est.colnames.nb[ days.est.col.i ] ], epsilon = exp( log.epsilon ) ) );
+                         } );
+                       .mat <- matrix( .days.est.new, ncol = 1 );
+                       colnames( .mat ) <- days.est.colnames[ days.est.col.i ];
+                       rownames( .mat ) <- rownames( days.est );
+                       if( return.days.est.new ) {
+                           return( .mat );
+                       }
+                       .results.one.per.ppt <-
+                           compute.results.one.per.ppt( .mat, weights );
+                       .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt );
+                       if( for.bias ) {
+                         .bias <- mean( .diffs.by.stat[[1]], na.rm = TRUE );
+                         return( abs( .bias ) );
+                       } else {
+                           .rmse <- rmse( .diffs.by.stat[[1]], na.rm = TRUE );
+                           return( .rmse );
+                       }
+                     } );
+                   } # create.function.to.be.optimized (..)
+               optimal.log.epsilons.and.rmses <- sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+                   function.to.be.optimized <- create.function.to.be.optimized( .col.i );
+                   optimize( function.to.be.optimized, interval = c( log( default.epsilon ) - log( 1000 ), log( default.epsilon ) + log( 1000 ) ) );
+               } );
+               colnames( optimal.log.epsilons.and.rmses ) <- days.est.colnames;
+               rownames( optimal.log.epsilons.and.rmses ) <- c( "log.epsilon", "rmse" );
+               optimal.epsilons <-
+                   exp( unlist( optimal.log.epsilons.and.rmses[ "log.epsilon", ] ) );
+               optimized.results <- 
+                   sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+                   .optimal.log.epsilon <- optimal.log.epsilons.and.rmses[[ "log.epsilon", .col.i ]];
+                   .new.column <- create.function.to.be.optimized( .col.i )( .optimal.log.epsilon, return.days.est.new = TRUE );
+                   return( .new.column );
+               } );
+               colnames( optimized.results ) <-
+                   paste( "optimized", days.est.colnames, sep = "." );
+               rownames( optimized.results ) <-
+                   rownames( results );
+
+               ## Also do it for for.bias results (objective fn to minimize is abs( bias ))
+               optimal.log.epsilons.and.biases <- sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+                   function.to.be.optimized.for.bias <- create.function.to.be.optimized( .col.i, for.bias = TRUE );
+
+                   optimize( function.to.be.optimized.for.bias, interval = c( log( default.epsilon ) - log( 1000 ), log( default.epsilon ) + log( 1000 ) ) );
+               } );
+               colnames( optimal.log.epsilons.and.biases ) <- days.est.colnames;
+               rownames( optimal.log.epsilons.and.biases ) <- c( "log.epsilon", "bias" );
+               optimal.for.bias.epsilons <-
+                   exp( unlist( optimal.log.epsilons.and.biases[ "log.epsilon", ] ) );
+               optimized.for.bias.results <- 
+                   sapply( 1:length( days.est.colnames ), function ( .col.i ) {
+                   .optimal.for.bias.log.epsilon <- optimal.log.epsilons.and.biases[[ "log.epsilon", .col.i ]];
+                   .new.column <- create.function.to.be.optimized( .col.i, for.bias = TRUE )( .optimal.for.bias.log.epsilon, return.days.est.new = TRUE );
+                   return( .new.column );
+               } );
+               colnames( optimized.for.bias.results ) <-
+                   paste( "optimized.for.bias", days.est.colnames, sep = "." );
+               rownames( optimized.for.bias.results ) <-
+                   rownames( results );
                
-               results <- results[ , identify.founders.date.estimates, drop = FALSE ];
+               results <-
+                   cbind(
+                       results[ , days.est.colnames, drop = FALSE ],
+                       optimized.results,
+                       optimized.for.bias.results
+                   );
                
                if( use.infer && is.na( partition.size ) ) { ## TODO: Handle the infer results for the partitions
                  ## Add to results: "infer" results.
@@ -200,28 +286,13 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                } # End if use.ancher and the.time is 1m6m, add anchre results too.
 
                if( is.na( partition.size ) ) {
-                 ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average, maybe?
+                 ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
                  .weights <- days.est.nseq*days.est.nb;
-                 results.one.per.ppt <- apply( results, 2, function ( .column ) {
-                     .rv <- 
-                     sapply( unique( rownames( results ) ), function( .ppt ) {
-                         .ppt.cells <- .column[ rownames( results ) == .ppt ];
-                         .ppt.weights <- .weights[ rownames( results ) == .ppt ];
-                         .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
-                         sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
-                     } );
-                     names( .rv ) <- unique( rownames( results ) );
-                     return( .rv );
-                 } );
-                 diffs.by.stat <-
-                     lapply( colnames( results.one.per.ppt ), function( .stat ) {
-                         .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
-                         names( .rv ) <- rownames( results.one.per.ppt );
-                         return( .rv );
-                     } );
-                 names( diffs.by.stat ) <- colnames( results );
+                 results.one.per.ppt <-
+                     compute.results.one.per.ppt( results, .weights );
+                 diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt );
     
-                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ) ) );
+                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = c( rep( default.epsilon, length( days.est.colnames ) ), optimal.epsilons, optimal.for.bias.epsilons ) ) );
                } else {
                    ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
                    results.per.ppt <- apply( results, 2, function ( .column ) {
@@ -253,7 +324,13 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
   return( timings.results.by.region.and.time );
 } # getTimingsResultsByRegionAndTime ( partition.size )
 
-timings.results.by.region.and.time <- getTimingsResultsByRegionAndTime();
+if( force.recomputation || !file.exists( timings.results.by.region.and.time.Rda.filename ) ) {
+    timings.results.by.region.and.time <- getTimingsResultsByRegionAndTime();
+    save( timings.results.by.region.and.time, file = timings.results.by.region.and.time.Rda.filename );
+} else {
+    # loads timings.results.by.region.and.time
+    load( file = timings.results.by.region.and.time.Rda.filename );
+}
 
 # Make a table out of it. (one per study).
 results.table.by.region.and.time <-
