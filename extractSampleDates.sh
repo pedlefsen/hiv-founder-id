@@ -5,6 +5,7 @@
 # ./evaluateTimings.sh /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw/v3/1m/ > /fh/fast/edlefsen_p/bakeoff_analysis_results/raw/v3/1m/sampleDates.tbl
 
 # Note that if you provide a second argument, it will look for "list files" called eg nnnnnnn.list instead of eg processed_nnnnnnn.list.
+## SEE NOTE BELOW REGARDING VARYING DATES: USES DATE OF FINAL FASTA ENTRY IN EACH INPUT FILE!
 export mainDir=$1
 
 if [ -z $2 ]; then
@@ -18,5 +19,8 @@ do
     export listFile=${mainDir}/${listPrefix}${patient}.list
     
     export fastaFile=`head -n 1 ${listFile} | sed "s/\/home\/tholzman\/edf/\/fh\/fast\/edlefsen_p/g"`
-    echo ${patient} `head -n 1 ${fastaFile} | head -n 1 | cut -d '|' -f 5`
+    #echo ${patient} ${fastaFile}
+
+    ## NOTE that this uses the last entry in the file to extract the date.  This is done to ensure that if there are multiple dates in the file, only the latest will be used -- but THIS ASSUMES THAT THE DATES ARE IN ORDER.
+    echo ${patient} `grep "^>" ${fastaFile} | tail -n 1  | head -n 1 | cut -d '|' -f 5`
 done

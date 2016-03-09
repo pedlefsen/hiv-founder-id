@@ -1,3 +1,9 @@
+### This is for the partitions, for the main results see (first) README.postprocessing.txt.
+
+### First ensure you have done everything in README.preprocessing.txt (this one is not specific to the paritions).
+
+### And of course you need to run the code [TED, can you please make README.processing_partitions.txt like this one with how you created the partitions and the partitions results?]
+
 ## Assuming you've already done the prep in README.postprocessing.txt
 
 ### First we need to gather the identify_founders results.  We do this using the postProcessIdentifyFounders.sh script, which essetntially just concatenates all of the identify_founders.tab files from the subdirectories, but retains only one header.

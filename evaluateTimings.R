@@ -1,5 +1,6 @@
-
 ## First do all the stuff in README.postprocessing.txt.
+
+## TODO: add in evaluation of the "default method" which is to take the halfway point of the prior bounds -- see createArtificialBoundsOnInfectionDate.R
 
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
@@ -96,8 +97,6 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                            rv217.gold.standard.infection.dates
                        );
                }
-               days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.region == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
-               names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
                    
                ## identify-founders results
                if( is.na( partition.size ) ) {
