@@ -2,6 +2,7 @@
 ## First do all the stuff in README.postprocessing.txt.
 
 source( "readIdentifyFounders_safetosource.R" );
+source( "getDaysSinceInfection_safetosource.R" );
 
 use.infer <- TRUE;
 use.anchre <- TRUE;
@@ -79,14 +80,22 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
            lapply( times, function( the.time ) {
                ## TODO: REMOVE
                cat( the.time, fill = T );
-               sample.dates.in <- read.delim( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" ), sep = " ", header = F, fill = T );
-               colnames( sample.dates.in ) <- c( "ptid", "date" );
-               ## Remove anything that's not really a ptid/date combo
-               sample.dates.in <- sample.dates.in[ grep( "^\\d+$", as.character( sample.dates.in[ , 1 ] ) ), , drop = FALSE ];
-               # remove anything with a missing date.
-               sample.dates.in <-
-                   sample.dates.in[ sample.dates.in[ , 2 ] != "", , drop = FALSE ];
-               
+
+               .days.since.infection.filename <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
+               if( the.region == "v3" ) {
+                   days.since.infection <-
+                       getDaysSinceInfection(
+                           .days.since.infection.filename,
+                           caprisa002.gold.standard.infection.dates
+                       );
+               } else {
+                   stopifnot( ( the.region == "nflg" ) || ( length( grep( "rv217", the.region ) ) > 0 ) );
+                   days.since.infection <-
+                       getDaysSinceInfection(
+                           .days.since.infection.filename,
+                           rv217.gold.standard.infection.dates
+                       );
+               }
                days.since.infection <- sapply( 1:nrow( sample.dates.in ), function( .i ) { as.numeric( as.Date( as.character( sample.dates.in[ .i, 2 ] ) ) - ifelse( the.region == "v3", caprisa002.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ], rv217.gold.standard.infection.dates[ as.character( sample.dates.in[ .i, 1 ] ) ] ) ) } );
                names( days.since.infection ) <- sample.dates.in[ , "ptid" ];
                    
@@ -237,53 +246,53 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                    
                } # End if use.infer
   
-               if( use.anchre && ( the.time == "1m6m" ) && is.na( partition.size ) ) {  ## TODO: Handle the anchre results for the partitions
-                 ## Add to results: "anchre" results. (only at 1m6m)
-                 anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
-                 if( length( anchre.results.directories ) > 0 ) {
-                   anchre.results.files <-
-                       sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
-                   anchre.results <- do.call( rbind,
-                       lapply( unlist( anchre.results.files ), function( .file ) {
-                           stopifnot( file.exists( .file ) );
-                           .file.short <-
-                               gsub( "^.*?\\/?([^\\/]+?)$", "\\1", .file, perl = TRUE );
-                           .file.short.nosuffix <-
-                               gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
-                           .file.converted <-
-                               paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
-                           # convert it.
-                           system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
-                           stopifnot( file.exists( .file.converted ) );
-                           .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
-                           ## No negative dates!  Just call it NA.
-                           .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { NA } else { .str } } );
-                           stopifnot( ncol( .rv ) == 4 );
-                           return( .rv );
-                       } ) );
-                   colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
-                   rownames( anchre.results ) <-
-                       gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
-                   # Special: for v3, only use caprisa seqs (not rv217, for now).
-                   if( the.region == "v3" ) {
-                       anchre.results <-
-                           anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
-                   } else if( the.region == "rv217_v3" ) {
-                       anchre.results <-
-                           anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ), invert = TRUE ), , drop = FALSE ];
-                   }
-                   # Add just the estimate from anchre.
-                   sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
-                   names( sample.dates ) <- sample.dates.in[ , 1 ];
-                   anchre.r2t.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
-                   names( anchre.r2t.days.before.sample ) <- rownames( anchre.results );
-                   anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 2 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
-                   names( anchre.days.before.sample ) <- rownames( anchre.results );
-      
-                   results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
-                   colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
-                 } # End if there's any anchre results.
-               } # End if use.ancher and the.time is 1m6m, add anchre results too.
+#                if( use.anchre && ( the.time == "1m6m" ) && is.na( partition.size ) ) {  ## TODO: Handle the anchre results for the partitions
+#                  ## Add to results: "anchre" results. (only at 1m6m)
+#                  anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+#                  if( length( anchre.results.directories ) > 0 ) {
+#                    anchre.results.files <-
+#                        sapply( anchre.results.directories, dir, "mrca.csv", full.name = TRUE );
+#                    anchre.results <- do.call( rbind,
+#                        lapply( unlist( anchre.results.files ), function( .file ) {
+#                            stopifnot( file.exists( .file ) );
+#                            .file.short <-
+#                                gsub( "^.*?\\/?([^\\/]+?)$", "\\1", .file, perl = TRUE );
+#                            .file.short.nosuffix <-
+#                                gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
+#                            .file.converted <-
+#                                paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
+#                            # convert it.
+#                            system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
+#                            stopifnot( file.exists( .file.converted ) );
+#                            .rv <- as.matrix( read.delim( .file.converted, header = TRUE, sep = "\t" ), nrow = 1 );
+#                            ## No negative dates!  Just call it NA.
+#                            .rv <- apply( .rv, 1:2, function( .str ) { if( length( grep( "^-", .str ) ) > 0 ) { NA } else { .str } } );
+#                            stopifnot( ncol( .rv ) == 4 );
+#                            return( .rv );
+#                        } ) );
+#                    colnames( anchre.results ) <- c( "Anchre.r2t.est", "Anchre.est", "Anchre.CI.low", "Anchre.CI.high" );
+#                    rownames( anchre.results ) <-
+#                        gsub( "^.+_(\\d+)$", "\\1", names( unlist( anchre.results.files ) ) );
+#                    # Special: for v3, only use caprisa seqs (not rv217, for now).
+#                    if( the.region == "v3" ) {
+#                        anchre.results <-
+#                            anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ) ), , drop = FALSE ];
+#                    } else if( the.region == "rv217_v3" ) {
+#                        anchre.results <-
+#                            anchre.results[ grep( "^100\\d\\d\\d", rownames( anchre.results ), invert = TRUE ), , drop = FALSE ];
+#                    }
+#                    # Add just the estimate from anchre.
+#                    sample.dates <- as.Date( as.character( sample.dates.in[ , 2 ] ) );
+#                    names( sample.dates ) <- sample.dates.in[ , 1 ];
+#                    anchre.r2t.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 1 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+#                    names( anchre.r2t.days.before.sample ) <- rownames( anchre.results );
+#                    anchre.days.before.sample <- sapply( 1:nrow( anchre.results ), function( .i ) { 0 - as.numeric( as.Date( anchre.results[ .i, 2 ] ) - sample.dates[ rownames( anchre.results )[ .i ] ] ) } );
+#                    names( anchre.days.before.sample ) <- rownames( anchre.results );
+#       
+#                    results <- cbind( results, anchre.r2t.days.before.sample, anchre.days.before.sample );
+#                    colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
+#                  } # End if there's any anchre results.
+#                } # End if use.ancher and the.time is 1m6m, add anchre results too.
 
                if( is.na( partition.size ) ) {
                  ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
