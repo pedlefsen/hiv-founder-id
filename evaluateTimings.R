@@ -5,6 +5,27 @@
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 
+# TODO: check out whether the center-of-bounds approach applied to the correct, actual HIV testing results is consistent with the gold standard infection dates.
+
+## The "center of bounds" approach is the way that we do it at the
+## VTN, and the way it was done in RV144, etc: use the midpoint
+## between the bounds on the actual infection time computed from the
+## dates and results of the HIV positivity tests (antibody or PCR).
+## The typical approach is to perform antibody testing every X days
+## (historically this is 6 months in most HIV vaccine trials, except
+## during the vaccination phase there are more frequent visits and on
+## every visit HIV testing is conducted).  The (fake) bounds used here
+## are calculated in the createArtificialBoundsOnInfectionDate.R file.
+## The actual bounds would be too tight, since the participants were
+## detected HIV+ earlier in these people than what we expect to see in
+## a trial in which testing is conducted every X days.  For the center
+## of bounds approach we load the bounds files in subdirs of the
+## "bounds" subdirectory eg at
+## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
+## These files have names beginning with "artificialBounds_" and
+## ending with ".tab".
+
+use.center.of.bounds <- TRUE;
 use.infer <- TRUE;
 use.anchre <- TRUE;
 use.partitions <- TRUE;
@@ -98,16 +119,17 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                        );
                }
                    
-               ## identify-founders results
+               ## identify-founders results; we always get and use these.
                if( is.na( partition.size ) ) {
                    results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
                } else {
                    results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
                }
-               days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
-  
+               
                ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
                ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
+               days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
+
                days.est.colnames <- grep( "est", days.colnames, value = TRUE );
                days.est <- results[ , days.est.colnames, drop = FALSE ];
                lambda.est.colnames <-
@@ -194,7 +216,7 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                        optimized.results,
                        optimized.for.bias.results
                    );
-               
+
                if( use.infer && is.na( partition.size ) ) { ## TODO: Handle the infer results for the partitions
                  ## Add to results: "infer" results.
                  if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
@@ -298,9 +320,52 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                  .weights <- days.est.nseq*days.est.nb;
                  results.one.per.ppt <-
                      compute.results.one.per.ppt( results, .weights );
+
+                 if( use.center.of.bounds ) {
+                   ## The "center of bounds" approach is the way that
+                   ## we do it at the VTN, and the way it was done in
+                   ## RV144, etc: use the midpoint between the bounds
+                   ## on the actual infection time computed from the
+                   ## dates and results of the HIV positivity tests
+                   ## (antibody or PCR).  The typical approach is to
+                   ## perform antibody testing every X days
+                   ## (historically this is 6 months in most HIV
+                   ## vaccine trials, except during the vaccination
+                   ## phase there are more frequent visits and on
+                   ## every visit HIV testing is conducted).  The
+                   ## (fake) bounds used here are calculated in the
+                   ## createArtificialBoundsOnInfectionDate.R file.
+                   ## The actual bounds would be too tight, since the
+                   ## participants were detected HIV+ earlier in these
+                   ## people than what we expect to see in a trial in
+                   ## which testing is conducted every X days.  For
+                   ## the center of bounds approach we load the bounds
+                   ## files in subdirs of the "bounds" subdirectory eg
+                   ## at
+                   ## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
+                   ## These files have names beginning with
+                   ## "artificialBounds_" and ending with ".tab".
+
+                   .artificial.bounds.dirname <-
+                       paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
+                   artificial.bounds.filenames <-
+                       dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
+                   names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
+                   center.of.bounds.table <- sapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
+                       the.artificial.bounds <- read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" );
+                       round( apply( the.artificial.bounds, 1, mean ) )
+                   } );
+
+                   stopifnot( all( rownames( results.one.per.ppt ) == rownames( center.of.bounds.table ) ) );
+                   results.one.per.ppt <- cbind( results.one.per.ppt, center.of.bounds.table );
+                 } # End if use.center.of.bounds
+                 
                  diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt );
-    
-                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = c( rep( default.epsilon, length( days.est.colnames ) ), optimal.epsilons, optimal.for.bias.epsilons ) ) );
+
+                 .epsilon <- c( rep( default.epsilon, length( days.est.colnames ) ), optimal.epsilons, optimal.for.bias.epsilons, rep( NA, ncol( results.one.per.ppt ) - 3 * length( days.est.colnames ) ) );
+                 names( .epsilon ) <- colnames( results.one.per.ppt );
+                 
+                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = .epsilon ) );
                } else {
                    ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
                    results.per.ppt <- apply( results, 2, function ( .column ) {
