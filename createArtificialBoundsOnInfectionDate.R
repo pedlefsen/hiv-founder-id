@@ -117,4 +117,15 @@ createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), inte
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = uniform.interval.generation.fn, output.file.suffix = "uniform_20weeks.tab" );
 
+## Deterministic, 30 weeks, centered.
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.50 ), output.file.suffix = "deterministic_30weeks_centered.tab" );
+## Deterministic, 30 weeks, 10th percentile.
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_30weeks_percentile10.tab" );
+## Deterministic, 30 weeks, 90th percentile.
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_30weeks_percentile90.tab" );
+
+## Uniform, 30 weeks.
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = uniform.interval.generation.fn, output.file.suffix = "uniform_30weeks.tab" );
+
 
