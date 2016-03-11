@@ -40,7 +40,7 @@ evaluateTimings <- function (
                              use.anchre = TRUE,
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE
-                             )
+                            )
 {
     timings.results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/timings.results.by.region.and.time.Rda", sep = "" );
@@ -138,10 +138,32 @@ evaluateTimings <- function (
                        
                    ## identify-founders results; we always get and use these.
                    if( is.na( partition.size ) ) {
-                       results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
+                       results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
                    } else {
-                       results <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
+                       results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
                    }
+                   results <- results.in;
+
+                   results.covars.colnames <- c( "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "inf.sites.clusters", "multifounder.Synonymous.PFitter.is.poisson" );
+                   results.covars <- results.in[ , results.covars.colnames ];
+                   ## For all of these covars (except "sd.entropy" and
+                   ## "multifounder.Synonymous.PFitter.is.poisson",
+                   ## see below), we use the max over all seqs of each
+                   ## covariate -- note that one effect of this is
+                   ## that the resulting "inf.to.priv.ratio" is not
+                   ## necessarily the ratio of the resulting
+                   ## "inf.sites" and "priv.sites" values.
+                   
+                   ## For "sd.entropy" we use the one corresponding to
+                   ## the resulting "mean.entropy" value (the max of
+                   ## the originals), and for isSingleFounder results
+                   ## (eg
+                   ## "multifounder.Synonymous.PFitter.is.poisson") we
+                   ## use logical AND, that is, we only call a
+                   ## person's infection single-founder (by a
+                   ## particular method) if all calls for all input
+                   ## seqs are that it is single-founder; this is
+                   ## consistent with evaluateIsMultiple.R.
                    
                    ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
                    ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
