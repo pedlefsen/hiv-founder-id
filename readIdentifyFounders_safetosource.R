@@ -34,18 +34,18 @@ readIdentifyFounders <- function ( identify.founders.tab.filename, partition.siz
              single.exceptInSites.colnames.nb[ single.exceptInSites.colnames == "StarPhy.is.one.founder" ] <- "Synonymous.PFitter.nbases";
              single.exceptInSites.nb <- results[ , single.exceptInSites.colnames.nb, drop = FALSE ];
              
-             ## Results for which nbases == 0 should be NAs!  Remove the time and lambda estimates.
+             ## Results for which nbases == 0 [should] reflect no variation in the input sequences.  Use lambda estimate 0, days est 0, and isSingle 1 (TRUE).
              results[ , lambda.colnames ] <-
                  t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ lambda.colnames.nb ] == 0, NA, .row[ lambda.colnames ] )
+                     ifelse( .row[ lambda.colnames.nb ] == 0, 0, .row[ lambda.colnames ] )
                  } ) );
              results[ , days.colnames ] <-
                  t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ days.colnames.nb ] == 0, NA, .row[ days.colnames ] )
+                     ifelse( .row[ days.colnames.nb ] == 0, 0, .row[ days.colnames ] )
                  } ) );
              results[ , single.exceptInSites.colnames ] <-
                  t( apply( results, 1, function( .row ) {
-                     ifelse( .row[ single.exceptInSites.colnames.nb ] == 0, NA, .row[ single.exceptInSites.colnames ] )
+                     ifelse( .row[ single.exceptInSites.colnames.nb ] == 0, 1, .row[ single.exceptInSites.colnames ] )
                  } ) );
              
              return( results );
