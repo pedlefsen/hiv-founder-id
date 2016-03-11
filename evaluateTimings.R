@@ -25,7 +25,7 @@ source( "getDaysSinceInfection_safetosource.R" );
 ## These files have names beginning with "artificialBounds_" and
 ## ending with ".tab".
 
-use.center.of.bounds <- TRUE;
+use.center.of.bounds <- FALSE;#TRUE;
 use.infer <- TRUE;
 use.anchre <- TRUE;
 use.partitions <- TRUE;
@@ -70,6 +70,9 @@ compute.results.one.per.ppt <- function ( results, weights ) {
         .rv <- 
         sapply( unique( rownames( results ) ), function( .ppt ) {
             .ppt.cells <- .column[ rownames( results ) == .ppt ];
+            if( all( is.na( .ppt.cells ) ) ) {
+              return( NA );
+            }
             .ppt.weights <- weights[ rownames( results ) == .ppt ];
             .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
             sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
@@ -243,25 +246,54 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
   
                  if( length( infer.results.list ) > 0 ) {
                      infer.results <- do.call( rbind, infer.results.list );
-                     colnames( infer.results ) <- c( "Infer", "Infer.CI.low", "Infer.CI.high" );
-                     .tmp <- gsub( "^.+_(\\d+)/.+$", "\\1", names( infer.results.list ) );
-                     rownames( infer.results ) <- .tmp;
+                     colnames( infer.results ) <- c( "Infer", "Infer.CI.high", "Infer.CI.low" );
+                     ## reorder them
+                     infer.results <- infer.results[ , c( "Infer", "Infer.CI.low", "Infer.CI.high" ), drop = FALSE ];
+                     infer.results.bounds.ptid <- gsub( "^.+_(\\d+)/.+$", "\\1", names( infer.results.list ) );
+                     rownames( infer.results ) <- infer.results.bounds.ptid;
                      
-                     # Add just the estimate from infer.
-                     new.results.columns <- matrix( NA, nrow = nrow( results ), ncol = 1 );
+                     ## Separate it into separate tables by bounds type.
+                     infer.results.bounds.type <-
+                       gsub( "^.+_artificialBounds_(.+)_\\d+/.+$", "\\1", names( infer.results.list ) );
+                     infer.results.bounds.type[ grep( "csv$", infer.results.bounds.type ) ] <- NA;
+                     infer.results.nobounds.table <- infer.results[ is.na( infer.results.bounds.type ), , drop = FALSE ];
+                     infer.results.bounds.types <- setdiff( unique( infer.results.bounds.type ), NA );
+                     infer.results.bounds.tables <- lapply( infer.results.bounds.types, function ( .bounds.type ) {
+                       return( infer.results[ !is.na( infer.results.bounds.type ) & ( infer.results.bounds.type == .bounds.type ), , drop = FALSE ] );
+                     } );
+                     names( infer.results.bounds.tables ) <- infer.results.bounds.types;
+                     
+                     # Add just the estimates from infer (not the CIs) to the results table.
+                     new.results.columns <-
+                       matrix( NA, nrow = nrow( results ), ncol = 1 + length( infer.results.bounds.tables ) );
                      rownames( new.results.columns ) <- rownames( results );
-                     colnames( new.results.columns ) <- "Infer.time.est";
-                     .shared.ptids <-
-                         intersect( rownames( new.results.columns ), rownames( infer.results ) );
-                     .result.ignored <- sapply( .shared.ptids, function( .ptid ) {
+                     colnames( new.results.columns ) <- c( "Infer.time.est", infer.results.bounds.types );
+                     
+                     .shared.ptids.nobounds <-
+                         intersect( rownames( new.results.columns ), rownames( infer.results.nobounds.table ) );
+                     .result.ignored <- sapply( .shared.ptids.nobounds, function( .ptid ) {
                          .infer.subtable <-
-                             infer.results[ rownames( infer.results ) == .ptid, 1, drop = FALSE ];
-                         stopifnot( sum( rownames( infer.results ) == .ptid ) == nrow( .infer.subtable ) );
-                         new.results.columns[ rownames( infer.results ) == .ptid, ] <<-
+                             infer.results.nobounds.table[ rownames( infer.results.nobounds.table ) == .ptid, 1, drop = FALSE ];
+                         stopifnot( sum( rownames( infer.results.nobounds.table ) == .ptid ) == nrow( .infer.subtable ) );
+                         new.results.columns[ rownames( new.results.columns ) == .ptid, 1 ] <<-
                              .infer.subtable;
                          return( NULL );
                      } );
+                     .result.ignored <- sapply( names( infer.results.bounds.tables ), function ( .bounds.type ) {
+                       .shared.ptids <-
+                           intersect( rownames( new.results.columns ), rownames( infer.results.bounds.tables[[ .bounds.type ]] ) );
+                       ..result.ignored <- sapply( .shared.ptids, function( .ptid ) {
+                           .infer.subtable <-
+                             infer.results.bounds.tables[[ .bounds.type ]][ rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid, 1, drop = FALSE ];
+                           stopifnot( sum( rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid ) == nrow( .infer.subtable ) );
+                           new.results.columns[ rownames( new.results.columns ) == .ptid, .bounds.type ] <<-
+                               .infer.subtable;
+                           return( NULL );
+                       } );                       
+                       return( NULL );
+                     } );
                        
+                     colnames( new.results.columns ) <- c( "Infer.time.est", paste( "Infer", gsub( "_", ".", infer.results.bounds.types ), "time.est", sep = "." ) ); 
                      results <- cbind( results, new.results.columns );
                  }
                    
@@ -345,27 +377,82 @@ getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
                    ## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
                    ## These files have names beginning with
                    ## "artificialBounds_" and ending with ".tab".
-
+                   bounds.subdirname <- "bounds";
                    .artificial.bounds.dirname <-
                        paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
                    artificial.bounds.filenames <-
                        dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
                    names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
-                   center.of.bounds.table <- sapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
-                       the.artificial.bounds <- read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" );
-                       round( apply( the.artificial.bounds, 1, mean ) )
+                   the.artificial.bounds <- lapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
+                     return( read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" ) );
                    } );
+                   names( the.artificial.bounds ) <- names( artificial.bounds.filenames );
+                   
+                   center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
+                       round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
+                   } );
+                   colnames( center.of.bounds.table ) <-
+                     paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
 
-                   stopifnot( all( rownames( results.one.per.ppt ) == rownames( center.of.bounds.table ) ) );
-                   results.one.per.ppt <- cbind( results.one.per.ppt, center.of.bounds.table );
+                   ## Ok, well, now we can also evaluate versions of variants of each
+                   ## method, but bounding the results.  Ie if the
+                   ## estimated time is within the bounds, that time
+                   ## is used, otherwise, the boundary.
+                   
+                   results.one.per.ppt.bounded <-
+                     lapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
+                       .mat <-
+                       apply( results.one.per.ppt, 2, function ( .results.column ) {
+                       sapply( names( .results.column ), function ( .ppt ) {
+                         .value <- .results.column[ .ppt ];
+                         if( !is.na( .value ) ) {
+                           .value.is.below.lb <- ( .value < the.artificial.bounds[[ .artificial.bounds.name ]][ .ppt, "lower" ] );
+                           if( .value.is.below.lb ) {
+                             return( the.artificial.bounds[[ .artificial.bounds.name ]][ .ppt, "lower" ] );
+                           }
+                           .value.is.above.ub <- ( .value > the.artificial.bounds[[ .artificial.bounds.name ]][ .ppt, "upper" ] );
+                           if( .value.is.above.ub ) {
+                             return( the.artificial.bounds[[ .artificial.bounds.name ]][ .ppt, "upper" ] );
+                           }
+                         }
+                         return( .value );
+                       } );
+                     } );
+                       rownames( .mat ) <- rownames( results.one.per.ppt );
+                       return( .mat );
+                   } );
+                   names( results.one.per.ppt.bounded ) <- names( the.artificial.bounds );
+
+                   ## NOTE: we add the COB bounds only to the
+                   ## original, unbounded results, after computing the
+                   ## bounded ones.
+                   results.one.per.ppt <-
+                     cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
                  } # End if use.center.of.bounds
-                 
+
+                 ## unbounded results:
                  diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt );
 
                  .epsilon <- c( rep( default.epsilon, length( days.est.colnames ) ), optimal.epsilons, optimal.for.bias.epsilons, rep( NA, ncol( results.one.per.ppt ) - 3 * length( days.est.colnames ) ) );
                  names( .epsilon ) <- colnames( results.one.per.ppt );
+
+                 unbounded.results <- 
+                   list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = .epsilon );
                  
-                 return( list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = .epsilon ) );
+                 ## bounded results:
+                 if( use.center.of.bounds ) {
+                   bounded.results.by.bound.type <- lapply( results.one.per.ppt.bounded, function ( .results.one.per.ppt ) {
+                     .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt );
+    
+                     .epsilon <- c( rep( default.epsilon, length( days.est.colnames ) ), optimal.epsilons, optimal.for.bias.epsilons, rep( NA, ncol( .results.one.per.ppt ) - 3 * length( days.est.colnames ) ) );
+                     names( .epsilon ) <- colnames( .results.one.per.ppt );
+    
+                     return( list( bias = lapply( .diffs.by.stat, mean, na.rm = T ), se = lapply( .diffs.by.stat, sd, na.rm = T ), rmse = lapply( .diffs.by.stat, rmse, na.rm = T ), n = lapply( .diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), epsilon = .epsilon ) );
+                   } );
+                   return( c( unbounded = unbounded.results, bounded.results.by.bound.type ) );
+                 } else {
+                   return( unbounded.results );
+                 }
                } else {
                    ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
                    results.per.ppt <- apply( results, 2, function ( .column ) {

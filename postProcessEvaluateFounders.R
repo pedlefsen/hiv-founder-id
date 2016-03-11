@@ -455,7 +455,7 @@ write.table( apply( caprisa002.v3.1m6m.results.infer, 1:2, function( .x ) { spri
 ### Identify results:
 caprisa002.v3.1m.Identify.results <-
     evaluateResultsMatrix( caprisa002.v3.1m.results, "Identify (1m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (1m)" )
-pdf( file = "caprisa002.v3.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m.Identify.pdf", sep = "" ) );
 caprisa002.v3.1m.Identify.results$ggp;
 dev.off();
 caprisa002.v3.1m.Identify.results$stats
@@ -472,7 +472,7 @@ caprisa002.v3.1m.Identify.results$stats
 
 caprisa002.v3.6m.Identify.results <-
     evaluateResultsMatrix( caprisa002.v3.6m.results, "Identify (6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (6m)" )
-pdf( file = "caprisa002.v3.6m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.6m.Identify.pdf", sep = "" ) );
 caprisa002.v3.6m.Identify.results$ggp;
 dev.off();
 caprisa002.v3.6m.Identify.results$stats
@@ -489,7 +489,7 @@ caprisa002.v3.6m.Identify.results$stats
 
 caprisa002.v3.1m6m.Identify.results <-
     evaluateResultsMatrix( caprisa002.v3.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nIdentify (1m6m)" )
-pdf( file = "caprisa002.v3.1m6m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m6m.Identify.pdf", sep = "" ) );
 caprisa002.v3.1m6m.Identify.results$ggp;
 dev.off();
 caprisa002.v3.1m6m.Identify.results$stats
@@ -507,7 +507,7 @@ caprisa002.v3.1m6m.Identify.results$stats
 ### Infer results:
 caprisa002.v3.1m.Infer.results <-
     evaluateResultsMatrix( caprisa002.v3.1m.results.infer, "Infer (1m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (1m)" )
-pdf( file = "caprisa002.v3.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m.Infer.pdf", sep = "" ) );
 caprisa002.v3.1m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.1m.Infer.results$stats
@@ -524,7 +524,7 @@ caprisa002.v3.1m.Infer.results$stats
 
 caprisa002.v3.6m.Infer.results <-
     evaluateResultsMatrix( caprisa002.v3.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (6m)" )
-pdf( file = "caprisa002.v3.6m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.6m.Infer.pdf", sep = "" ) );
 caprisa002.v3.6m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.6m.Infer.results$stats
@@ -541,7 +541,7 @@ caprisa002.v3.6m.Infer.results$stats
 
 caprisa002.v3.1m6m.Infer.results <-
     evaluateResultsMatrix( caprisa002.v3.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nCaprisa 002 V3\nInfer (1m6m)" )
-pdf( file = "caprisa002.v3.1m6m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m6m.Infer.pdf", sep = "" ) );
 caprisa002.v3.1m6m.Infer.results$ggp;
 dev.off();
 caprisa002.v3.1m6m.Infer.results$stats
@@ -559,14 +559,14 @@ caprisa002.v3.1m6m.Infer.results$stats
 ### Identify, over time:
 caprisa002.v3.6m.vs.1m.Identify.results <-
     compareResultsMatrix( caprisa002.v3.6m.results, caprisa002.v3.1m.results, "6m", "1m", "Caprisa 002 V3\nIdentify: 6m vs 1m" );
-pdf( file = "caprisa002.v3.6m.vs.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.6m.vs.1m.Identify.pdf", sep = "" ) );
 caprisa002.v3.6m.vs.1m.Identify.results$ggp;
 dev.off();
 ## Conclusion: Using Identify with Caprisa 002 v3, we do aobut the same with only 6m data as with only 1m data.
 
 caprisa002.v3.1m6m.vs.1m.Identify.results <-
     compareResultsMatrix( caprisa002.v3.1m6m.results, caprisa002.v3.1m.results, "1m6m", "1m", "Caprisa 002 V3\nIdentify: 1m6m vs 1m" );
-pdf( file = "caprisa002.v3.1m6m.vs.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m6m.vs.1m.Identify.pdf", sep = "" ) );
 caprisa002.v3.1m6m.vs.1m.Identify.results$ggp;
 dev.off();
 ## Conclusion: Using Identify with Caprisa 002 v3, we do aobut the same with both 1m and 6m data as with only 1m data.
@@ -574,14 +574,14 @@ dev.off();
 ### Infer, over time:
 caprisa002.v3.6m.vs.1m.Infer.results <-
     compareResultsMatrix( caprisa002.v3.6m.results.infer, caprisa002.v3.1m.results.infer, "6m", "1m", "Caprisa 002 V3\nInfer: 6m vs 1m" );
-pdf( file = "caprisa002.v3.6m.vs.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.6m.vs.1m.Infer.pdf", sep = "" ) );
 caprisa002.v3.6m.vs.1m.Infer.results$ggp;
 dev.off();
 ## Conclusion: Using Infer, we do about the same with both 6m data than with only 1m data.
 
 caprisa002.v3.1m6m.vs.1m.Infer.results <-
     compareResultsMatrix( caprisa002.v3.1m6m.results.infer, caprisa002.v3.1m.results.infer, "1m6m", "1m", "Caprisa 002 V3\nInfer: 1m6m vs 1m" );
-pdf( file = "caprisa002.v3.1m6m.vs.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m6m.vs.1m.Infer.pdf", sep = "" ) );
 caprisa002.v3.1m6m.vs.1m.Infer.results$ggp;
 dev.off();
 ## Conclusion: Using Infer, we do about the same with both 1m6m data than with only 1m data.
@@ -589,21 +589,21 @@ dev.off();
 ### IdentifyVsInfer:
 caprisa002.v3.1m.IdentifyVsInfer.results <-
     compareResultsMatrix( caprisa002.v3.1m.results, caprisa002.v3.1m.results.infer, "Identify", "Infer", "Caprisa 002 V3 1m\nIdentify vs Infer" );
-pdf( file = "caprisa002.v3.1m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m.IdentifyVsInfer.pdf", sep = "" ) );
 caprisa002.v3.1m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m Caprisa 002 data, we do about the same when using Infer as when using Identify.
 
 caprisa002.v3.6m.IdentifyVsInfer.results <-
     compareResultsMatrix( caprisa002.v3.6m.results, caprisa002.v3.6m.results.infer, "Identify", "Infer", "Caprisa 002 V3 6m\nIdentify vs Infer" );
-pdf( file = "caprisa002.v3.6m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.6m.IdentifyVsInfer.pdf", sep = "" ) );
 caprisa002.v3.6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 6m Caprisa 002 data, we do about the same when using Infer as when using Identify (maybe slightly better using Identify in NAs)
 
 caprisa002.v3.1m6m.IdentifyVsInfer.results <-
     compareResultsMatrix( caprisa002.v3.1m6m.results, caprisa002.v3.1m6m.results.infer, "Identify", "Infer", "Caprisa 002 V3 1m6m\nIdentify vs Infer" );
-pdf( file = "caprisa002.v3.1m6m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "caprisa002.v3.1m6m.IdentifyVsInfer.pdf", sep = "" ) );
 caprisa002.v3.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m6m Caprisa 002 data, we do about the same when using Infer as when using Identify.
@@ -634,7 +634,7 @@ write.table( apply( rv217.nflg.1m6m.results.infer, 1:2, function( .x ) { sprintf
 ### Identify results:
 rv217.nflg.1m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.1m.results, "Identify (1m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (1m)" )
-pdf( file = "rv217.nflg.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m.Identify.pdf", sep = "" ) );
 rv217.nflg.1m.Identify.results$ggp;
 dev.off();
 rv217.nflg.1m.Identify.results$stats
@@ -651,7 +651,7 @@ rv217.nflg.1m.Identify.results$stats
 
 rv217.nflg.6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results, "Identify (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (6m)" )
-pdf( file = "rv217.nflg.6m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.6m.Identify.pdf", sep = "" ) );
 rv217.nflg.6m.Identify.results$ggp;
 dev.off();
 rv217.nflg.6m.Identify.results$stats
@@ -668,7 +668,7 @@ rv217.nflg.6m.Identify.results$stats
 
 rv217.nflg.1m6m.Identify.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results, "Identify (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nIdentify (1m6m)" )
-pdf( file = "rv217.nflg.1m6m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m6m.Identify.pdf", sep = "" ) );
 rv217.nflg.1m6m.Identify.results$ggp;
 dev.off();
 rv217.nflg.1m6m.Identify.results$stats
@@ -686,7 +686,7 @@ rv217.nflg.1m6m.Identify.results$stats
 ### Infer results:
 rv217.nflg.1m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.1m.results.infer, "Infer (1m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (1m)" )
-pdf( file = "rv217.nflg.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m.Infer.pdf", sep = "" ) );
 rv217.nflg.1m.Infer.results$ggp;
 dev.off();
 rv217.nflg.1m.Infer.results$stats
@@ -703,7 +703,7 @@ rv217.nflg.1m.Infer.results$stats
 
 rv217.nflg.6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.6m.results.infer, "Infer (6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (6m)" )
-pdf( file = "rv217.nflg.6m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.6m.Infer.pdf", sep = "" ) );
 rv217.nflg.6m.Infer.results$ggp;
 dev.off();
 rv217.nflg.6m.Infer.results$stats
@@ -720,7 +720,7 @@ rv217.nflg.6m.Infer.results$stats
 
 rv217.nflg.1m6m.Infer.results <-
     evaluateResultsMatrix( rv217.nflg.1m6m.results.infer, "Infer (1m6m) founders", "Founder Mean HD to True\nRV217 NFLG\nInfer (1m6m)" )
-pdf( file = "rv217.nflg.1m6m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m6m.Infer.pdf", sep = "" ) );
 rv217.nflg.1m6m.Infer.results$ggp;
 dev.off();
 rv217.nflg.1m6m.Infer.results$stats
@@ -738,14 +738,14 @@ rv217.nflg.1m6m.Infer.results$stats
 ### Identify, over time:
 rv217.nflg.6m.vs.1m.Identify.results <-
     compareResultsMatrix( rv217.nflg.6m.results, rv217.nflg.1m.results, "6m", "1m", "RV217 NFLG\nIdentify: 6m vs 1m" );
-pdf( file = "rv217.nflg.6m.vs.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.6m.vs.1m.Identify.pdf", sep = "" ) );
 rv217.nflg.6m.vs.1m.Identify.results$ggp;
 dev.off();
 ## Conclusion: Using Identify, we do worse with only 6m data than with only 1m data.
 
 rv217.nflg.1m6m.vs.1m.Identify.results <-
     compareResultsMatrix( rv217.nflg.1m6m.results, rv217.nflg.1m.results, "1m6m", "1m", "RV217 NFLG\nIdentify: 1m6m vs 1m" );
-pdf( file = "rv217.nflg.1m6m.vs.1m.Identify.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m6m.vs.1m.Identify.pdf", sep = "" ) );
 rv217.nflg.1m6m.vs.1m.Identify.results$ggp;
 dev.off();
 ## Conclusion: Using Identify, we do about the same with both 1m6m data than with only 1m data.  Maybe in one case we do better with 1m6m on the AAs, and there is some trend towards doing better overall on the NAs -- if anything it is BETTER using 1m rather than 1m6m!
@@ -753,14 +753,14 @@ dev.off();
 ### Infer, over time:
 rv217.nflg.6m.vs.1m.Infer.results <-
     compareResultsMatrix( rv217.nflg.6m.results.infer, rv217.nflg.1m.results.infer, "6m", "1m", "RV217 NFLG\nInfer: 6m vs 1m" );
-pdf( file = "rv217.nflg.6m.vs.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.6m.vs.1m.Infer.pdf", sep = "" ) );
 rv217.nflg.6m.vs.1m.Infer.results$ggp;
 dev.off();
 ## Conclusion: Using Infer, we do worse with only 6m data than with only 1m data.
 
 rv217.nflg.1m6m.vs.1m.Infer.results <-
     compareResultsMatrix( rv217.nflg.1m6m.results.infer, rv217.nflg.1m.results.infer, "1m6m", "1m", "RV217 NFLG\nInfer: 1m6m vs 1m" );
-pdf( file = "rv217.nflg.1m6m.vs.1m.Infer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m6m.vs.1m.Infer.pdf", sep = "" ) );
 rv217.nflg.1m6m.vs.1m.Infer.results$ggp;
 dev.off();
 ## Conclusion: Suprisingly, using Infer, we do worse with both 1m6m data than with only 1m data.
@@ -768,21 +768,21 @@ dev.off();
 ### IdentifyVsInfer:
 rv217.nflg.1m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.1m.results, rv217.nflg.1m.results.infer, "Identify", "Infer", "RV217 NFLG 1m\nIdentify vs Infer" );
-pdf( file = "rv217.nflg.1m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m.IdentifyVsInfer.pdf", sep = "" ) );
 rv217.nflg.1m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m RV217 NFLG data, we do about the same when using Infer as when using Identify, but if anything the Infer results are better.
 
 rv217.nflg.6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.6m.results, rv217.nflg.6m.results.infer, "Identify", "Infer", "RV217 NFLG 6m\nIdentify vs Infer" );
-pdf( file = "rv217.nflg.6m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.6m.IdentifyVsInfer.pdf", sep = "" ) );
 rv217.nflg.6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 6m RV217 NFLG data, we do significantly worse when using Identify than when using Infer.
 
 rv217.nflg.1m6m.IdentifyVsInfer.results <-
     compareResultsMatrix( rv217.nflg.1m6m.results, rv217.nflg.1m6m.results.infer, "Identify", "Infer", "RV217 NFLG 1m6m\nIdentify vs Infer" );
-pdf( file = "rv217.nflg.1m6m.IdentifyVsInfer.pdf" );
+pdf( file = paste( RESULTS.DIR, "rv217.nflg.1m6m.IdentifyVsInfer.pdf", sep = "" ) );
 rv217.nflg.1m6m.IdentifyVsInfer.results$ggp;
 dev.off();
 ## Conclusion: Using 1m6m RV217 NFLG data, we do about the same when using Infer as when using Identify, with one case of Identify doing better on AAs -- however in NAs the results are significantly better using Infer.
