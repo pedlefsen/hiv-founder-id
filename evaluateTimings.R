@@ -3,6 +3,7 @@
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
+source( "daysFromLambda_safetosource.R" );
 
 #' Evaluate timings estimates and produce results tables.
 #'
@@ -68,18 +69,6 @@ evaluateTimings <- function (
         return( sqrt( mean( x ** 2 ) ) );
     }
     
-    ## This is from PFitter.  Epsilon is the per position mutation rate, per generation -- but I think that the generations / day is fixed at 2, so really this is the mutation rate position per half-day.
-    default.epsilon <- 2.16e-05;
-    phi <- sqrt( 1 + 4/3 );
-    phi.scalar <- 1.5 * ( phi / ( 1 + phi ) );
-    daysFromLambda.coefficient.of.inverse.epsilon <- function ( lambda, nb ) {
-        phi.scalar * ( lambda / nb )
-    }
-    daysFromLambda.constant <- ( phi.scalar * ( - (1-phi)/(phi^2) ) );
-    daysFromLambda <- function ( lambda, nb, inverse.epsilon = (1/default.epsilon) ) {
-        daysFromLambda.constant + daysFromLambda.coefficient.of.inverse.epsilon( lambda, nb ) * inverse.epsilon;
-    }
-
     compute.results.one.per.ppt <- function ( results, weights ) {
         apply( results, 2, function ( .column ) {
             .rv <- 
