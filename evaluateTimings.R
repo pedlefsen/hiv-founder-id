@@ -146,92 +146,7 @@ evaluateTimings <- function (
                    days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
                    days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
 
-                   ## proof of concept:
-                   create.function.to.be.optimized <- # defaults to use rmse aka sqrt( sum( bias^2 ) ), but you can change that to abs( bias ).
-                       function ( days.est.col.i, for.bias = FALSE, weights = days.est.nseq*days.est.nb, held.out.ptids = c() ) {
-                           .retained.rows <- which( !( rownames( results ) %in% held.out.ptids ) );
-                           return( function( log.epsilon, return.days.est.new = FALSE, retained.rows = .retained.rows ) {
-                           .days.est.new <- 
-                             apply( results[ retained.rows, , drop = FALSE ], 1, function( .row ) {
-                                 if( is.na( .row[ days.est.colnames.nb[ days.est.col.i ] ] ) ) {
-                                     return( NA );
-                                 }
-                                 return( daysFromLambda( .row[ lambda.est.colnames[ days.est.col.i ] ], .row[ days.est.colnames.nb[ days.est.col.i ] ], inverse.epsilon = ( 1 / exp( log.epsilon ) ) ) );
-                             } );
-                           .mat <- matrix( .days.est.new, ncol = 1 );
-                           colnames( .mat ) <- days.est.colnames[ days.est.col.i ];
-                           rownames( .mat ) <- rownames( days.est )[ retained.rows ];
-                           if( return.days.est.new ) {
-                               return( .mat );
-                           }
-                           .results.one.per.ppt <-
-                               compute.results.one.per.ppt( .mat, weights[ retained.rows, ] );
-                           .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
-                           if( for.bias ) {
-                             .bias <- mean( .diffs.by.stat[[1]], na.rm = TRUE );
-                             return( abs( .bias ) );
-                           } else {
-                               .rmse <- rmse( .diffs.by.stat[[1]], na.rm = TRUE );
-                               return( .rmse );
-                           }
-                         } );
-                       } # create.function.to.be.optimized (..)
-
-                   ## Optimized for minimal RMSE, holding each ppt out in turn
-                   optimal.for.rmse.log.epsilons <-
-                       sapply( 1:length( days.est.colnames ), function( .col.i ) {
-                           ## Hold each ptid out, one at a time.
-                           sapply( rownames( results ), function( .ptid ) {
-                               function.to.be.optimized <- create.function.to.be.optimized( .col.i, held.out.ptids = .ptid );
-                               optimize( function.to.be.optimized, interval = c( log( default.epsilon ) - log( 1000 ), log( default.epsilon ) + log( 1000 ) ) )[ 1 ];
-                           } );
-                       } );
-                   colnames( optimal.for.rmse.log.epsilons ) <- days.est.colnames;
-                   rownames( optimal.for.rmse.log.epsilons ) <- rownames( results );
-                   optimal.for.rmse.validation.results <- matrix( NA, nrow = nrow( results ), ncol = length( days.est.colnames ) );
-                   for( .row.i in 1:nrow( results ) ) {
-                       for( .col.i in 1:length( days.est.colnames ) ) {
-                           .optimal.for.rmse.log.epsilon <- optimal.for.rmse.log.epsilons[[ .row.i, .col.i ]];
-                           optimal.for.rmse.validation.results[ .row.i, .col.i ] <- 
-                               create.function.to.be.optimized( .col.i )( .optimal.for.rmse.log.epsilon, return.days.est.new = TRUE, retained.rows = .row.i );
-                       }
-                   }
-                   colnames( optimal.for.rmse.validation.results ) <-
-                       paste( "optimal.for.rmse.validation", days.est.colnames, sep = "." );
-                   rownames( optimal.for.rmse.validation.results ) <-
-                       rownames( results );
-    
-                   ## Also do it for for.bias results (objective fn to minimize is abs( bias ))
-                   ## Optimized for minimal bias, holding each ppt out in turn
-                   optimal.for.bias.log.epsilons <-
-                       sapply( 1:length( days.est.colnames ), function( .col.i ) {
-                           ## Hold each ptid out, one at a time.
-                           sapply( rownames( results ), function( .ptid ) {
-                               function.to.be.optimized <- create.function.to.be.optimized( .col.i, for.bias = TRUE, held.out.ptids = .ptid );
-                               optimize( function.to.be.optimized, interval = c( log( default.epsilon ) - log( 1000 ), log( default.epsilon ) + log( 1000 ) ) )[ 1 ];
-                           } );
-                       } );
-                   colnames( optimal.for.bias.log.epsilons ) <- days.est.colnames;
-                   rownames( optimal.for.bias.log.epsilons ) <- rownames( results );
-                   optimal.for.bias.validation.results <- matrix( NA, nrow = nrow( results ), ncol = length( days.est.colnames ) );
-                   for( .row.i in 1:nrow( results ) ) {
-                       for( .col.i in 1:length( days.est.colnames ) ) {
-                           .optimal.for.bias.log.epsilon <- optimal.for.bias.log.epsilons[[ .row.i, .col.i ]];
-                           optimal.for.bias.validation.results[ .row.i, .col.i ] <- 
-                               create.function.to.be.optimized( .col.i, for.bias = TRUE )( .optimal.for.bias.log.epsilon, return.days.est.new = TRUE, retained.rows = .row.i );
-                       }
-                   }
-                   colnames( optimal.for.bias.validation.results ) <-
-                       paste( "optimal.for.bias.validation", days.est.colnames, sep = "." );
-                   rownames( optimal.for.bias.validation.results ) <-
-                       rownames( results );
-                   
-                   results <-
-                       cbind(
-                           results[ , days.est.colnames, drop = FALSE ],
-                           optimal.for.rmse.validation.results,
-                           optimal.for.bias.validation.results
-                       );
+                   results <- results[ , days.est.colnames, drop = FALSE ];
     
                    if( use.infer && is.na( partition.size ) ) { ## TODO: Handle the infer results for the partitions
                      ## Add to results: "infer" results.
@@ -384,52 +299,78 @@ evaluateTimings <- function (
                    ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
                    ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
                    
-                   # .keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
-                   #                 grep( "mut\\.rate\\.coef", .keep.cols, invert = TRUE, value = TRUE ) )
-                   #.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+                   # mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
+                   #                 grep( "mut\\.rate\\.coef", mut.rate.coef.keep.cols, invert = TRUE, value = TRUE ) )
+                   #mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
                    ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
                    helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
-                   mutation.rate.coefs <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
-                   .keep.cols <- c( mutation.rate.coefs, helpful.additional.cols );
+                   mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
+                     
+                   ## Also include all of the date estimates, which is
+                   ## everything in "results.one.per.ppt" so
+                   ## far. (However we will exclude some bounded
+                   ## results with deterministic bounds from the
+                   ## optimization, see below). It's also redundant to
+                   ## use PFitter-based days estimates, since we are
+                   ## using the mutation rate coefs, which are a
+                   ## linear fn of the corresponding days ests (I have
+                   ## confirmed that the predictions are the same
+                   ## (within +- 0.6 days, due to the rounding that
+                   ## PFitter does to its days estimates).  So
+                   ## basically unless we added non-PFitter results
+                   ## (PREAST/infer or anchre), there won't be
+                   ## anything to do here.
+                   days.est.cols <- colnames( results.one.per.ppt );
+                   results.covars.one.per.ppt.with.extra.cols <-
+                       cbind( results.one.per.ppt, results.covars.one.per.ppt.with.extra.cols );
+                   days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
+                   # days.est.colnames was the non-infer ones.
+                   days.est.cols <- setdiff( days.est.cols, days.est.colnames );
+
+                   keep.cols <- c( helpful.additional.cols, mut.rate.coef.cols, days.est.cols );
+                   estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
+                     
                    results.covars.one.per.ppt <-
-                       results.covars.one.per.ppt.with.extra.cols[ , .keep.cols, drop = FALSE ];
+                       results.covars.one.per.ppt.with.extra.cols[ , keep.cols, drop = FALSE ];
                    results.covars.one.per.ppt.df <-
                        data.frame( results.covars.one.per.ppt );
 
                    regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df );
                    
-                   ## ERE I AM...
-                   # library( "glmnet" )
-                   # cv.glmnet.fit <- cv.glmnet( results.covars.one.per.ppt, days.since.infection, nfolds = nrow( results.covars.one.per.ppt ), type.measure = "mae", grouped = FALSE, intercept = FALSE ); # mean absolute error, corresponding to the "for.bias" version of the other exploration.
-                   
-                   #library( "boot" );
-                   ## ENDMARK
-                     gaussian.fit.formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
-                   gaussian.fit <- glm( gaussian.fit.formula, family = "gaussian", data = regression.df );
-                   summary( gaussian.fit );
-                   #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
-                   ## new proof of concept:
-                   glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mutation.rate.coefs ) );
+                   glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
                    for( .row.i in 1:nrow( regression.df ) ) {
-                       for( .col.i in 1:length( mutation.rate.coefs ) ) {
-                           .mut.rate.coef.colname <- mutation.rate.coefs[ .col.i ];
+                       for( .col.i in 1:length( estimate.cols ) ) {
+                           .estimate.colname <- estimate.cols[ .col.i ];
                            ## Ok build a regression model with no intercept, including only the helpful.additional.cols
-                           .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .mut.rate.coef.colname ), collapse = "+" ) ) );
+                           .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .estimate.colname ), collapse = "+" ) ) );
                            .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
                            glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
                                .pred.value;
                        } # End foreach .col.i
                    } # End foreach .row.i
                    colnames( glm.validation.results.one.per.ppt ) <-
-                       paste( "glm.validation", mutation.rate.coefs, sep = "." );
+                       paste( "glm.validation.results", estimate.cols, sep = "." );
                    rownames( glm.validation.results.one.per.ppt ) <-
                        rownames( regression.df );
-
-                     ## TODO ERE I AM: ALSO do Infer, just starting from its days estimate.  Can shift it, anyway.  Should do all days estimates.
                      
                      results.one.per.ppt <-
                          cbind( results.one.per.ppt,
                                glm.validation.results.one.per.ppt );
+
+                     ## For fairness in evaluating when some methods
+                     ## completely fail to give a result, (so it's NA
+                     ## presently), we change all of these estimates
+                     ## from NA to 0.  When we put bounds on the
+                     ## results, below, they will be changed from 0 to
+                     ## a boundary endpoint if 0 is outside of the
+                     ## bounds.
+                     results.one.per.ppt <- apply( results.one.per.ppt, 1:2, function( .value ) {
+                         if( is.na( .value ) ) {
+                             0
+                         } else {
+                             .value
+                         }
+                     } );
                      
                      if( use.center.of.bounds ) {
                        ## The "center of bounds" approach is the way that
