@@ -83,37 +83,90 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         identify.founders.ptids <- rownames( identify.founders.study );
         ## Sometimes there are multiple entries for one ptid/sample, eg for the NFLGs there are often right half and left half (RH and LH) and sometimes additionally NFLG results.  If so, for something to be called single founder, all of the estimates (across regions, for a given test) must agree that it is one founder.
 
-        ## Note that this also transposes it, so the ptids are in columns and the tests are in rows.
         estimates.is.one.founder.one.per.person <- 
-          sapply( unique( identify.founders.ptids ), function ( .ptid ) {
+          t( sapply( unique( identify.founders.ptids ), function ( .ptid ) {
             .ptid.subtable <- estimates.is.one.founder[ identify.founders.ptids == .ptid, , drop = FALSE ];
             # Use the AND condition, meaning it's only called single-founder if all rows call it single-founder.
             if( nrow( .ptid.subtable ) == 1 ) {
               return( .ptid.subtable );
             }
             apply( .ptid.subtable, 2, function( .column ) { as.numeric( all( as.logical( .column ) ) ) } );
-          } );
+          } ) );
+        colnames( estimates.is.one.founder.one.per.person ) <- colnames( estimates.is.one.founder );
 
-        gold.is.one.founder.per.person <- 1-gold.is.multiple[ colnames( estimates.is.one.founder.one.per.person ) ];
+        ## ERE I AM.  I'm going to add some estimates made by prediction using leave-one-out cross-validatino.
+        # MARK
+#         results.covars.one.per.ppt.with.extra.cols <-
+#             summarizeCovariatesOnePerParticipant( identify.founders.study );
+#                      
+#                    .keep.cols <-
+#                        grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+#                    ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
+#                    ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
+#                    
+#                    # .keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
+#                    #                 grep( "mut\\.rate\\.coef", .keep.cols, invert = TRUE, value = TRUE ) )
+#                    #.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+#                    ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
+#                    helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
+#                    .keep.cols <- c( grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE ), helpful.additional.cols );
+#                    results.covars.one.per.ppt <-
+#                        results.covars.one.per.ppt.with.extra.cols[ , .keep.cols, drop = FALSE ];
+#                    results.covars.one.per.ppt.df <-
+#                        data.frame( results.covars.one.per.ppt );
+# 
+#                    regression.df <- cbind( data.frame( days.since.infection = days.since.infection ), results.covars.one.per.ppt.df );
+#                    
+#                    ## ERE I AM...
+#                    # library( "glmnet" )
+#                    # cv.glmnet.fit <- cv.glmnet( results.covars.one.per.ppt, days.since.infection, nfolds = nrow( results.covars.one.per.ppt ), type.measure = "mae", grouped = FALSE, intercept = FALSE ); # mean absolute error, corresponding to the "for.bias" version of the other exploration.
+#                    
+#                    #library( "boot" );
+#                    ## ENDMARK
+#                    # gaussian.fit.formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
+#                    # gaussian.fit <- glm( gaussian.fit.formula, family = "gaussian", data = regression.df );
+#                    # summary( gaussian.fit );
+#                    #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
+#                    ## new proof of concept:
+#                    helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( days.est.colnames ) );
+#                    for( .row.i in 1:nrow( regression.df ) ) {
+#                        for( .col.i in 1:length( days.est.colnames ) ) {
+#                            .mut.rate.coef.colname <- colnames( mutation.rate.coefs )[ .col.i ];
+#                            ## Ok build a regression model with no intercept, including only the helpful.additional.cols
+#                            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .mut.rate.coef.colname ), collapse = "+" ) ) );
+#                            .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
+#                            helpful.additional.parameters.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+#                                .pred.value;
+#                        } # End foreach .col.i
+#                    } # End foreach .row.i
+#                    colnames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
+#                        paste( "helpful.additional.cols.validation", days.est.colnames, sep = "." );
+#                    rownames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
+#                        rownames( regression.df );
+#                    
+#                      results.one.per.ppt <-
+#                          cbind( results.one.per.ppt,
+#                                helpful.additional.parameters.validation.results.one.per.ppt );
+#         
+#         # ENDMARK
         
-        # Cols are gold.is.multiple
-        # gold.is.multiple.tables <- 
-        #     sapply( 1:length( single.colnames ), function( .i ) { table( 1 - estimates.is.one.founder[ , .i ], gold.is.multiple[ identify.founders.ptids ] ) } );
-        # names( gold.is.multiple.tables ) <- single.colnames;
-
         mode( estimates.is.one.founder.one.per.person ) <- "numeric";
-        sum.correct.among.one.founder.people <-
-          apply( estimates.is.one.founder.one.per.person[ , as.logical( gold.is.one.founder.per.person ) ], 1, sum );
-        sum.incorrect.among.one.founder.people <-
-          apply( estimates.is.one.founder.one.per.person[ , as.logical( gold.is.one.founder.per.person ) ], 1, function( .row ) { sum( 1-.row ) } );
-        sum.correct.among.multiple.founder.people <-
-          apply( estimates.is.one.founder.one.per.person[ , !as.logical( gold.is.one.founder.per.person ) ], 1, function( .row ) { sum( 1-.row ) } );
-        sum.incorrect.among.multiple.founder.people <-
-          apply( estimates.is.one.founder.one.per.person[ , !as.logical( gold.is.one.founder.per.person ) ], 1, sum );
+        
+        gold.is.one.founder.per.person <-
+            1-gold.is.multiple[ rownames( estimates.is.one.founder.one.per.person ) ];
+
+        # sum.correct.among.one.founder.people <-
+        #   apply( estimates.is.one.founder.one.per.person[ as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
+        # sum.incorrect.among.one.founder.people <-
+        #   apply( estimates.is.one.founder.one.per.person[ as.logical( gold.is.one.founder.per.person ),  ], 2, function( .row ) { sum( 1-.row ) } );
+        # sum.correct.among.multiple.founder.people <-
+        #   apply( estimates.is.one.founder.one.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, function( .row ) { sum( 1-.row ) } );
+        # sum.incorrect.among.multiple.founder.people <-
+        #   apply( estimates.is.one.founder.one.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
         
         isMultiple.aucs <- 
-            sapply( 1:length( single.colnames ), function( .i ) {
-                performance( prediction( unlist( estimates.is.one.founder.one.per.person[ .i, ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
+            sapply( 1:ncol( estimates.is.one.founder.one.per.person ), function( .col.i ) {
+                performance( prediction( unlist( estimates.is.one.founder.one.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
             } );
         names( isMultiple.aucs ) <- single.colnames;
 
