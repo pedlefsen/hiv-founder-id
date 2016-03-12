@@ -409,25 +409,27 @@ evaluateTimings <- function (
                    summary( gaussian.fit );
                    #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
                    ## new proof of concept:
-                   helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mutation.rate.coefs ) );
+                   glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mutation.rate.coefs ) );
                    for( .row.i in 1:nrow( regression.df ) ) {
                        for( .col.i in 1:length( mutation.rate.coefs ) ) {
                            .mut.rate.coef.colname <- mutation.rate.coefs[ .col.i ];
                            ## Ok build a regression model with no intercept, including only the helpful.additional.cols
                            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .mut.rate.coef.colname ), collapse = "+" ) ) );
                            .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
-                           helpful.additional.parameters.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                           glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
                                .pred.value;
                        } # End foreach .col.i
                    } # End foreach .row.i
-                   colnames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
-                       paste( "helpful.additional.cols.validation", days.est.colnames, sep = "." );
-                   rownames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
+                   colnames( glm.validation.results.one.per.ppt ) <-
+                       paste( "glm.validation", mutation.rate.coefs, sep = "." );
+                   rownames( glm.validation.results.one.per.ppt ) <-
                        rownames( regression.df );
-                   
+
+                     ## TODO ERE I AM: ALSO do Infer, just starting from its days estimate.  Can shift it, anyway.  Should do all days estimates.
+                     
                      results.one.per.ppt <-
                          cbind( results.one.per.ppt,
-                               helpful.additional.parameters.validation.results.one.per.ppt );
+                               glm.validation.results.one.per.ppt );
                      
                      if( use.center.of.bounds ) {
                        ## The "center of bounds" approach is the way that
