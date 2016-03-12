@@ -137,7 +137,7 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         # summary( gaussian.fit );
         #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
         ## new proof of concept:
-        helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( days.est.colnames ) );
+        helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mut.rate.cols ) );
         for( .row.i in 1:nrow( regression.df ) ) {
             for( .col.i in 1:length( mut.rate.cols ) ) {
                 .mut.rate.coef.colname <- mut.rate.cols[ .col.i ];
