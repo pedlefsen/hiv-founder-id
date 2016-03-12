@@ -507,7 +507,7 @@ evaluateTimings <- function (
                      } # End if use.center.of.bounds
     
                      ## unbounded results:
-                     diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt );
+                     diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt, days.since.infection );
     
                      unbounded.results <- 
                        list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) );
@@ -515,7 +515,7 @@ evaluateTimings <- function (
                      ## bounded results:
                      if( use.center.of.bounds ) {
                        bounded.results.by.bound.type <- lapply( results.one.per.ppt.bounded, function ( .results.one.per.ppt ) {
-                         .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt );
+                         .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
         
                          return( list( bias = lapply( .diffs.by.stat, mean, na.rm = T ), se = lapply( .diffs.by.stat, sd, na.rm = T ), rmse = lapply( .diffs.by.stat, rmse, na.rm = T ), n = lapply( .diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) ) );
                        } );
