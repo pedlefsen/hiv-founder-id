@@ -3,7 +3,6 @@
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
-source( "daysFromLambda_safetosource.R" );
 
 #' Evaluate timings estimates and produce results tables.
 #'

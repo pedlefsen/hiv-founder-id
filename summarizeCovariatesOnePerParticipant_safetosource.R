@@ -1,4 +1,4 @@
-# hello.
+source( "daysFromLambda_safetosource.R" );
 
 summarizeCovariatesOnePerParticipant <- function ( results ) {
   
