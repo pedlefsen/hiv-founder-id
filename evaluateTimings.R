@@ -404,15 +404,15 @@ evaluateTimings <- function (
                    
                    #library( "boot" );
                    ## ENDMARK
-                   # gaussian.fit.formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
-                   # gaussian.fit <- glm( gaussian.fit.formula, family = "gaussian", data = regression.df );
-                   # summary( gaussian.fit );
+                     gaussian.fit.formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
+                   gaussian.fit <- glm( gaussian.fit.formula, family = "gaussian", data = regression.df );
+                   summary( gaussian.fit );
                    #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
                    ## new proof of concept:
-                   helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( days.est.colnames ) );
+                   helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mutation.rate.coefs ) );
                    for( .row.i in 1:nrow( regression.df ) ) {
-                       for( .col.i in 1:length( days.est.colnames ) ) {
-                           .mut.rate.coef.colname <- colnames( mutation.rate.coefs )[ .col.i ];
+                       for( .col.i in 1:length( mutation.rate.coefs ) ) {
+                           .mut.rate.coef.colname <- mutation.rate.coefs[ .col.i ];
                            ## Ok build a regression model with no intercept, including only the helpful.additional.cols
                            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .mut.rate.coef.colname ), collapse = "+" ) ) );
                            .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
