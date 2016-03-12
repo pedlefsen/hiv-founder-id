@@ -97,7 +97,7 @@ evaluateTimings <- function (
         } );
     } # compute.results.one.per.ppt
     
-    compute.diffs.by.stat <- function ( results.one.per.ppt ) {
+    compute.diffs.by.stat <- function ( results.one.per.ppt, days.since.infection ) {
         diffs.by.stat <- 
             lapply( colnames( results.one.per.ppt ), function( .stat ) {
                 .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
@@ -106,7 +106,7 @@ evaluateTimings <- function (
             } );
         names( diffs.by.stat ) <- colnames( results.one.per.ppt );
         return( diffs.by.stat );
-    } # compute.diffs.by.stat ( results.one.per.ppt )
+    } # compute.diffs.by.stat ( results.one.per.ppt, days.since.infection )
     
     getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
         if( !is.na( partition.size ) ) {
@@ -178,7 +178,7 @@ evaluateTimings <- function (
                            }
                            .results.one.per.ppt <-
                                compute.results.one.per.ppt( .mat, weights[ retained.rows, ] );
-                           .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt );
+                           .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
                            if( for.bias ) {
                              .bias <- mean( .diffs.by.stat[[1]], na.rm = TRUE );
                              return( abs( .bias ) );
