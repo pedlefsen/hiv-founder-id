@@ -401,7 +401,8 @@ evaluateTimings <- function (
                    #.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
                    ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
                    helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
-                   .keep.cols <- c( grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE ), helpful.additional.cols );
+                   mutation.rate.coefs <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
+                   .keep.cols <- c( mutation.rate.coefs, helpful.additional.cols );
                    results.covars.one.per.ppt <-
                        results.covars.one.per.ppt.with.extra.cols[ , .keep.cols, drop = FALSE ];
                    results.covars.one.per.ppt.df <-
