@@ -1,6 +1,33 @@
 # hello.
 
-summarizeCovariatesOnePerParticipant <- function ( covars ) {
+summarizeCovariatesOnePerParticipant <- function ( results ) {
+
+                   results.covars.colnames <- c( "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+
+                   ## Setting up.  Add a column for the coefficients that are used by the daysFromLambda function.
+                   mutation.rate.coefs <-
+                       sapply( 1:length( days.est.colnames.nb ), function( days.est.col.i ) {
+                             apply( results, 1, function( .row ) {
+                                 if( is.na( .row[ days.est.colnames.nb[ days.est.col.i ] ] ) ) {
+                                     return( NA );
+                                 }
+                                 return( daysFromLambda.coefficient.of.inverse.epsilon( .row[ lambda.est.colnames[ days.est.col.i ] ], .row[ days.est.colnames.nb[ days.est.col.i ] ] ) );
+                             } );
+                         } );
+                   colnames( mutation.rate.coefs ) <-
+                       gsub( "(?:days|time)\\.est", "mut.rate.coef", days.est.colnames );
+
+                   mutation.rate.coefs.totalbases <- days.est.nseq*days.est.nb;
+                   colnames( mutation.rate.coefs.totalbases ) <-
+                       gsub( "(?:days|time)\\.est", "mut.rate.coef.totalbases", days.est.colnames );
+
+                   covars <-
+                       cbind(
+                           results[ , results.covars.colnames, drop = FALSE ],
+                           mutation.rate.coefs,
+                           mutation.rate.coefs.totalbases
+                       );
+    
     # Five cases: diversity, entropy, single, mut.rate.coef, and the rest ("max").
     # Case 1: for diversity, we create combined measures weighted using num.diversity.seqs.
     diversity.colnames <-
