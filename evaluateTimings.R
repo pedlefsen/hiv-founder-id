@@ -79,6 +79,113 @@ evaluateTimings <- function (
         daysFromLambda.constant + daysFromLambda.coefficient.of.inverse.epsilon( lambda, nb ) * inverse.epsilon;
     }
     
+    summarize.covars.one.per.ppt <- function ( covars ) {
+        # Five cases: diversity, entropy, single, mut.rate.coef, and the rest ("max").
+        # Case 1: for diversity, we create combined measures weighted using num.diversity.seqs.
+        diversity.colnames <-
+            grep( "diversity", colnames( covars ), value = TRUE, perl = TRUE )
+        diversity.one.per.ppt <- 
+        sapply( diversity.colnames, function ( .col.name ) {
+            .column <- covars[ , .col.name ];
+            .rv <- 
+            sapply( unique( rownames( covars ) ), function( .ppt ) {
+                .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+                if( all( is.na( .ppt.cells ) ) ) {
+                  return( NA );
+                }
+                .ppt.weights <- covars[ rownames( covars ) == .ppt, "num.diversity.seqs" ];
+                .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+                sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+            } );
+            names( .rv ) <- unique( rownames( covars ) );
+            return( .rv );
+        } );
+        
+        # Case 2: for entropy, we create combined measures weighted using num.seqs
+        entropy.colnames <-
+            c( "num.seqs", grep( "entropy", colnames( covars ), value = TRUE, perl = TRUE ) );
+        entropy.one.per.ppt <- 
+        sapply( entropy.colnames, function ( .col.name ) {
+            .column <- covars[ , .col.name ];
+            .rv <- 
+            sapply( unique( rownames( covars ) ), function( .ppt ) {
+                .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+                if( all( is.na( .ppt.cells ) ) ) {
+                  return( NA );
+                }
+                .ppt.weights <- covars[ rownames( covars ) == .ppt, "num.seqs" ];
+                .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+                sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+            } );
+            names( .rv ) <- unique( rownames( covars ) );
+            return( .rv );
+        } );
+        
+        # Case 3: for isSingleFounder columns, we create combined measures using the AND of the individual values (so any indication that there are multiple founders results in a call of multiple founders).
+        single.colnames <-
+            grep( "\\.is\\.|fits", colnames( covars ), perl = TRUE, value = TRUE );
+        single.one.per.ppt <- 
+        sapply( single.colnames, function ( .col.name ) {
+            .column <- covars[ , .col.name ];
+            .rv <- 
+            sapply( unique( rownames( covars ) ), function( .ppt ) {
+                .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+                if( all( is.na( .ppt.cells ) ) ) {
+                  return( NA );
+                }
+                # TODO: REMOVE. FOR DEBUGGING.
+                if( FALSE && !all( as.logical( .ppt.cells ), na.rm = TRUE ) ) {
+                    print( .ppt );
+                    print( .ppt.cells );
+                }
+                as.numeric( all( as.logical( .ppt.cells ), na.rm = TRUE ) );
+            } );
+            names( .rv ) <- unique( rownames( covars ) );
+            return( .rv );
+        } );
+        
+        # Case 4: for mut.rate.coef columns, we create combined measures weighted using mut.rate.coef.totalbases.
+        mut.rate.coef.colnames <-
+            grep( "mut\\.rate\\.coef", colnames( covars ), perl = TRUE, value = TRUE );
+        mut.rate.coef.one.per.ppt <- 
+        sapply( mut.rate.coef.colnames, function ( .col.name ) {
+            .column <- covars[ , .col.name ];
+            .rv <- 
+            sapply( unique( rownames( covars ) ), function( .ppt ) {
+                .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+                if( all( is.na( .ppt.cells ) ) ) {
+                  return( NA );
+                }
+                .weights.col <- gsub( "coef$", "coef.totalbases", .col.name );
+                .ppt.weights <- covars[ rownames( covars ) == .ppt, .weights.col ];
+                .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
+                sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
+            } );
+            names( .rv ) <- unique( rownames( covars ) );
+            return( .rv );
+        } );
+        
+        ## Case 5: the rest of them.  For these we select the maximum.
+        max.colnames <-
+            setdiff( colnames( covars ), c( diversity.colnames, entropy.colnames, single.colnames, mut.rate.coef.colnames ) );
+        max.one.per.ppt <- 
+        sapply( max.colnames, function ( .col.name ) {
+            .column <- covars[ , .col.name ];
+            .rv <- 
+            sapply( unique( rownames( covars ) ), function( .ppt ) {
+                .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+                if( all( is.na( .ppt.cells ) ) ) {
+                  return( NA );
+                }
+                max( .ppt.cells, na.rm = TRUE );
+            } );
+            names( .rv ) <- unique( rownames( covars ) );
+            return( .rv );
+        } );
+
+        return( cbind( diversity.one.per.ppt, entropy.one.per.ppt, single.one.per.ppt, mut.rate.coef.one.per.ppt, max.one.per.ppt )[ , colnames( covars ) ] );
+    } # summarize.covars.one.per.ppt (..)
+    
     compute.results.one.per.ppt <- function ( results, weights ) {
         apply( results, 2, function ( .column ) {
             .rv <- 
@@ -142,31 +249,9 @@ evaluateTimings <- function (
                    } else {
                        results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
                    }
+                   
                    results <- results.in;
-
-                   results.covars.colnames <- c( "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "inf.sites.clusters", "multifounder.Synonymous.PFitter.is.poisson" );
-                   results.covars <- results.in[ , results.covars.colnames ];
-                   ## For all of these covars (except "sd.entropy" and
-                   ## "multifounder.Synonymous.PFitter.is.poisson",
-                   ## see below), we use the max over all seqs of each
-                   ## covariate -- note that one effect of this is
-                   ## that the resulting "inf.to.priv.ratio" is not
-                   ## necessarily the ratio of the resulting
-                   ## "inf.sites" and "priv.sites" values.
                    
-                   ## For "sd.entropy" we use the one corresponding to
-                   ## the resulting "mean.entropy" value (the max of
-                   ## the originals), and for isSingleFounder results
-                   ## (eg
-                   ## "multifounder.Synonymous.PFitter.is.poisson") we
-                   ## use logical AND, that is, we only call a
-                   ## person's infection single-founder (by a
-                   ## particular method) if all calls for all input
-                   ## seqs are that it is single-founder; this is
-                   ## consistent with evaluateIsMultiple.R.
-                   
-                   ### TODO: HERE IS WHERE I CAN DO SOME PLAYING AROUND WITH RECALIBRATION.
-                   ## The current problem is that I can't reproduce the days perfectly -- in some cases the recomputed days are way off, so something is wrong with the identify_founders table info about the synonymous pfitter, perhaps.
                    days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
     
                    days.est.colnames <- grep( "est", days.colnames, value = TRUE );
@@ -178,7 +263,7 @@ evaluateTimings <- function (
                    days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
                    days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
                    days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
-                   
+
                    ## proof of concept:
                    create.function.to.be.optimized <- # defaults to use rmse aka sqrt( sum( bias^2 ) ), but you can change that to abs( bias ).
                        function ( days.est.col.i, for.bias = FALSE, weights = days.est.nseq*days.est.nb, held.out.ptids = c() ) {
@@ -408,7 +493,85 @@ evaluateTimings <- function (
                      .weights <- days.est.nseq*days.est.nb;
                      results.one.per.ppt <-
                          compute.results.one.per.ppt( results, .weights );
-    
+
+                   ## MARK
+                   results.covars.colnames <- c( "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+
+                   ## Setting up.  Add a column for the coefficients that are used by the daysFromLambda function.
+                   mutation.rate.coefs <-
+                       sapply( 1:length( days.est.colnames.nb ), function( days.est.col.i ) {
+                             apply( results.in, 1, function( .row ) {
+                                 if( is.na( .row[ days.est.colnames.nb[ days.est.col.i ] ] ) ) {
+                                     return( NA );
+                                 }
+                                 return( daysFromLambda.coefficient.of.inverse.epsilon( .row[ lambda.est.colnames[ days.est.col.i ] ], .row[ days.est.colnames.nb[ days.est.col.i ] ] ) );
+                             } );
+                         } );
+                   colnames( mutation.rate.coefs ) <-
+                       gsub( "(?:days|time)\\.est", "mut.rate.coef", days.est.colnames );
+
+                   mutation.rate.coefs.totalbases <- days.est.nseq*days.est.nb;
+                   colnames( mutation.rate.coefs.totalbases ) <-
+                       gsub( "(?:days|time)\\.est", "mut.rate.coef.totalbases", days.est.colnames );
+
+                   results.covars <-
+                       cbind(
+                           results.in[ , results.covars.colnames ],
+                           mutation.rate.coefs,
+                           mutation.rate.coefs.totalbases
+                       );
+                   
+                   results.covars.one.per.ppt.with.extra.cols <-
+                       summarize.covars.one.per.ppt( results.covars );
+                   .keep.cols <-
+                       grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+                   ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
+                   ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
+                   
+                   # .keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
+                   #                 grep( "mut\\.rate\\.coef", .keep.cols, invert = TRUE, value = TRUE ) )
+                   #.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+                   ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
+                   helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
+                   .keep.cols <- c( grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE ), helpful.additional.cols );
+                   results.covars.one.per.ppt <-
+                       results.covars.one.per.ppt.with.extra.cols[ , .keep.cols, drop = FALSE ];
+                   results.covars.one.per.ppt.df <-
+                       data.frame( results.covars.one.per.ppt );
+
+                   regression.df <- cbind( data.frame( days.since.infection = days.since.infection ), results.covars.one.per.ppt.df );
+                   
+                   ## ERE I AM...
+                   # library( "glmnet" )
+                   # cv.glmnet.fit <- cv.glmnet( results.covars.one.per.ppt, days.since.infection, nfolds = nrow( results.covars.one.per.ppt ), type.measure = "mae", grouped = FALSE, intercept = FALSE ); # mean absolute error, corresponding to the "for.bias" version of the other exploration.
+                   
+                   #library( "boot" );
+                   ## ENDMARK
+                   # gaussian.fit.formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
+                   # gaussian.fit <- glm( gaussian.fit.formula, family = "gaussian", data = regression.df );
+                   # summary( gaussian.fit );
+                   #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
+                   ## new proof of concept:
+                   helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( days.est.colnames ) );
+                   for( .row.i in 1:nrow( regression.df ) ) {
+                       for( .col.i in 1:length( days.est.colnames ) ) {
+                           .mut.rate.coef.colname <- colnames( mutation.rate.coefs )[ .col.i ];
+                           ## Ok build a regression model with no intercept, including only the helpful.additional.cols
+                           .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .mut.rate.coef.colname ), collapse = "+" ) ) );
+                           .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
+                           helpful.additional.parameters.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                               .pred.value;
+                       } # End foreach .col.i
+                   } # End foreach .row.i
+                   colnames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
+                       paste( "helpful.additional.cols.validation", days.est.colnames, sep = "." );
+                   rownames( helpful.additional.parameters.validation.results.one.per.ppt ) <-
+                       rownames( regression.df );
+                   
+                     results.one.per.ppt <-
+                         cbind( results.one.per.ppt,
+                               helpful.additional.parameters.validation.results.one.per.ppt );
+                     
                      if( use.center.of.bounds ) {
                        ## The "center of bounds" approach is the way that
                        ## we do it at the VTN, and the way it was done in
@@ -526,7 +689,7 @@ evaluateTimings <- function (
                        max.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
                        return( list( median.mean.bias = median.mean.bias, min.mean.bias = min.mean.bias, max.mean.bias = max.mean.bias,  median.sd.bias = median.sd.bias, min.sd.bias = min.sd.bias, max.sd.bias = max.sd.bias ) );
                    }
-               } ); # End foreach the.time
+               } );
            names( timings.results.by.time ) <- times;
            return( timings.results.by.time );
        } ); # End foreach the.region
