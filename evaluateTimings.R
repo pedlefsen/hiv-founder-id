@@ -401,7 +401,7 @@ evaluateTimings <- function (
                        results.covars.one.per.ppt.df <-
                            data.frame( results.covars.one.per.ppt );
                        
-                       regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df, the.artificial.bounds );
+                       regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.one.per.ppt.df ), , drop = FALSE ] } ) );
                        
                        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
                        if( the.time == "6m" ) {
@@ -411,6 +411,7 @@ evaluateTimings <- function (
                            .lower.bound.colname <- "uniform_5weeks.lower";
                            .upper.bound.colname <- "uniform_5weeks.upper";
                        }
+                       
                        if( use.glm.validate ) {
                            glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
                        }
@@ -422,7 +423,6 @@ evaluateTimings <- function (
                                regression.df[ -.row.i, , drop = FALSE ];
                            for( .col.i in 1:length( estimate.cols ) ) {
                                .estimate.colname <- estimate.cols[ .col.i ];
-
                                if( use.glm.validate ) {
                                  # covariates for glm
                                  .covariates.glm <- c();
@@ -435,10 +435,18 @@ evaluateTimings <- function (
                                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                                  }
                                  # glm:
-                                 .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( .covariates.glm, .estimate.colname ), collapse = "+" ) ) );
-                                 .pred.value.glm <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                                 glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
-                                     .pred.value.glm;
+                                 .covars.to.exclude <- apply( regression.df.without.row.i, 2, function ( .col ) {
+                                     return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+                                 } );
+                                 .retained.covars <- setdiff( colnames( regression.df.without.row.i ), names( which( .covars.to.exclude ) ) );
+                                 if( .estimate.colname %in% .retained.covars ) {
+                                   .df <- regression.df.without.row.i[ , .retained.covars, drop = FALSE ];
+                                   .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
+                                   .pred.value.glm <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
+                                   glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                                       .pred.value.glm;
+                                 } # If the estimate can be used
+
                                } # End if use.glm.validate
 
                                if( use.lasso.validate ) {
@@ -455,25 +463,29 @@ evaluateTimings <- function (
                                  .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
                                      return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                                  } );
-                                 .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
-                                 # penalty.factor = 0 to force the .estimate.colname variable.
-
-                                 tryCatch( {
-                                 cv.glmnet.fit <- cv.glmnet( .mat1, .out, intercept = FALSE,
-                                                            penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
-                                 .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
-                                  },
-                                  error = function( e ) {
-                                      warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                                      .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
-                                      .pred.value.lasso <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                                  },
-                                     finally = {
-                                         lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
-                                     .pred.value.lasso;
-                                     }
-                                     );
-
+                                 .retained.covars <- setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) );
+                                 if( .estimate.colname %in% .retained.covars ) {
+                                   .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                                   # penalty.factor = 0 to force the .estimate.colname variable.
+  
+                                   tryCatch( {
+                                   cv.glmnet.fit <- cv.glmnet( .mat1, .out, intercept = FALSE,
+                                                              penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                                   .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
+                                           lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <<- 
+                                       .pred.value.lasso;
+                                    },
+                                    error = function( e ) {
+                                        warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                                        .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                                        .pred.value.lasso <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
+                                           lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <<- 
+                                       .pred.value.lasso;
+                                    },
+                                       finally = {
+                                       }
+                                       );
+                                 } # End if the estimate variable is usable
                                } # End if use.lasso.validate
 
                            } # End foreach .col.i
