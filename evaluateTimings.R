@@ -53,7 +53,8 @@ evaluateTimings <- function (
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
-                             partition.bootstrap.samples = 100
+                             partition.bootstrap.samples = 100,
+                             partition.bootstrap.num.cores = detectCores()
                             )
 {
     timings.results.by.region.and.time.Rda.filename <-
@@ -666,7 +667,7 @@ evaluateTimings <- function (
                        
                      set.seed( partition.bootstrap.seed );
                      bootstrap.results <- 
-                         mclapply( 1:partition.bootstrap.samples, do.one.sample );
+                         mclapply( 1:partition.bootstrap.samples, do.one.sample, mc.cores = partition.bootstrap.num.cores );
 
                        ## TODO: REMOVE
                        matrix.of.unbounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "unbounded" ]]$rmse } );
