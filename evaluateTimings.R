@@ -1,5 +1,7 @@
 ## First do all the stuff in README.postprocessing.txt.
 
+library( "glmnet" )
+
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
@@ -45,7 +47,7 @@ evaluateTimings <- function (
                              use.glm.validate = TRUE,
                              use.lasso.validate = TRUE,
                              include.bounds.in.glm = TRUE,
-                             include.bounds.in.lasso = FALSE,
+                             include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE
