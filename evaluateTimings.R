@@ -612,25 +612,39 @@ evaluateTimings <- function (
     }
     
     # Make a table out of it. (one per study).
-    results.table.by.region.and.time <-
+    results.table.by.region.and.time.and.bounds.type <-
         lapply( names( timings.results.by.region.and.time ), function( the.region ) {
             .rv <- 
                 lapply( names( timings.results.by.region.and.time[[ the.region ]] ), function( the.time ) {
-                    sapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
+                  ..rv <- 
+                    lapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]], function( results.by.bounds.type ) {
+                      sapply( results.by.bounds.type, function( results.list ) { results.list } );
+                    } );
+                  names( ..rv ) <- names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] )
+                  return( ..rv );
+                } );
             names( .rv ) <- times;
             return( .rv );
         } );
-    names( results.table.by.region.and.time ) <- regions;
+    names( results.table.by.region.and.time.and.bounds.type ) <- regions;
     
     ## Write these out.
+    bounds.types <- names( results.table.by.region.and.time.and.bounds.type[[1]][[1]] );
     .result.ignored <- sapply( regions, function ( the.region ) {
         ..result.ignored <- 
         sapply( times, function ( the.time ) {
-            out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings.tab", sep = "" );
-            .tbl <-
-                apply( results.table.by.region.and.time[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
-            write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
-            return( NULL );
+          ...result.ignored <- 
+            sapply( bounds.types, function ( the.bounds.type ) {
+              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, "_evaluateTimings.tab", sep = "" );
+              ## TODO: REMOVE
+              print( the.bounds.type );
+              .tbl <-
+                apply( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]][[ the.bounds.type ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+              #print( .tbl );
+              write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
+              return( NULL );
+            } );
+          return( NULL );
         } );
         return( NULL );
     } );
