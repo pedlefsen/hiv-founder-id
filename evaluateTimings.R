@@ -1,6 +1,7 @@
 ## First do all the stuff in README.postprocessing.txt.
 
-library( "glmnet" )
+library( "parallel" ); # for mclapply
+library( "glmnet" ); # for cv.glmnet
 
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
@@ -50,7 +51,9 @@ evaluateTimings <- function (
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              results.dirname = "raw_edited_20160216",
-                             force.recomputation = FALSE
+                             force.recomputation = FALSE,
+                             partition.bootstrap.seed = 98103,
+                             partition.bootstrap.samples = 100
                             )
 {
     timings.results.by.region.and.time.Rda.filename <-
@@ -294,65 +297,59 @@ evaluateTimings <- function (
     #                    colnames( results )[ ncol( results ) - 1:0 ] <- c( "Anchre.r2t.time.est", "Anchre.bst.time.est" ) ;
     #                  } # End if there's any anchre results.
     #                } # End if use.ancher and the.time is 1m6m, add anchre results too.
-    
-                   if( is.na( partition.size ) ) {
-                     ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
-                     .weights <- days.est.nseq*days.est.nb;
-                     results.one.per.ppt <-
-                         compute.results.one.per.ppt( results, .weights );
 
-                     if( use.bounds ) {
-                       ## The "center of bounds" approach is the way that
-                       ## we do it at the VTN, and the way it was done in
-                       ## RV144, etc: use the midpoint between the bounds
-                       ## on the actual infection time computed from the
-                       ## dates and results of the HIV positivity tests
-                       ## (antibody or PCR).  The typical approach is to
-                       ## perform antibody testing every X days
-                       ## (historically this is 6 months in most HIV
-                       ## vaccine trials, except during the vaccination
-                       ## phase there are more frequent visits and on
-                       ## every visit HIV testing is conducted).  The
-                       ## (fake) bounds used here are calculated in the
-                       ## createArtificialBoundsOnInfectionDate.R file.
-                       ## The actual bounds would be too tight, since the
-                       ## participants were detected HIV+ earlier in these
-                       ## people than what we expect to see in a trial in
-                       ## which testing is conducted every X days.  For
-                       ## the center of bounds approach we load the bounds
-                       ## files in subdirs of the "bounds" subdirectory eg
-                       ## at
-                       ## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
-                       ## These files have names beginning with
-                       ## "artificialBounds_" and ending with ".tab".
-                       bounds.subdirname <- "bounds";
-                       .artificial.bounds.dirname <-
-                           paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
-                       artificial.bounds.filenames <-
-                           dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
-                       names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
-                       the.artificial.bounds <- lapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
-                         return( read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" ) );
-                       } );
-                       names( the.artificial.bounds ) <- names( artificial.bounds.filenames );
-                       
-                       center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
-                           round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
-                       } );
-                       colnames( center.of.bounds.table ) <-
-                         paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
-                       
-                       ## NOTE: we add the COB bounds only to the
-                       ## original, unbounded results, after computing the
-                       ## bounded ones.
-                       results.one.per.ppt <-
-                         cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
-                     } # End if use.bounds
 
-                     if( use.glm.validate || use.lasso.validate ) {
+                   if( use.bounds ) {
+                     ## The "center of bounds" approach is the way that
+                     ## we do it at the VTN, and the way it was done in
+                     ## RV144, etc: use the midpoint between the bounds
+                     ## on the actual infection time computed from the
+                     ## dates and results of the HIV positivity tests
+                     ## (antibody or PCR).  The typical approach is to
+                     ## perform antibody testing every X days
+                     ## (historically this is 6 months in most HIV
+                     ## vaccine trials, except during the vaccination
+                     ## phase there are more frequent visits and on
+                     ## every visit HIV testing is conducted).  The
+                     ## (fake) bounds used here are calculated in the
+                     ## createArtificialBoundsOnInfectionDate.R file.
+                     ## The actual bounds would be too tight, since the
+                     ## participants were detected HIV+ earlier in these
+                     ## people than what we expect to see in a trial in
+                     ## which testing is conducted every X days.  For
+                     ## the center of bounds approach we load the bounds
+                     ## files in subdirs of the "bounds" subdirectory eg
+                     ## at
+                     ## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
+                     ## These files have names beginning with
+                     ## "artificialBounds_" and ending with ".tab".
+                     bounds.subdirname <- "bounds";
+                     .artificial.bounds.dirname <-
+                         paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
+                     artificial.bounds.filenames <-
+                         dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
+                     names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
+                     the.artificial.bounds <- lapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
+                       return( read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" ) );
+                     } );
+                     names( the.artificial.bounds ) <- names( artificial.bounds.filenames );
+                     
+                     center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
+                         round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
+                     } );
+                     colnames( center.of.bounds.table ) <-
+                       paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
+                     
+                   } # End if use.bounds
+
+                   if( use.glm.validate || use.lasso.validate ) {
                        results.covars.one.per.ppt.with.extra.cols <-
                          summarizeCovariatesOnePerParticipant( results.in );
                        ## TODO: Add to that the loading of the viralloads.csv files (in the gold_standards dirs).
+                   }
+
+                   bound.and.evaluate.results.per.ppt <- function ( results.one.per.ppt ) {
+                     if( use.glm.validate || use.lasso.validate ) {
                        .keep.cols <-
                            grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
                        ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
@@ -517,7 +514,7 @@ evaluateTimings <- function (
                      ## results, below, they will be changed from 0 to
                      ## a boundary endpoint if 0 is outside of the
                      ## bounds.
-                     results.one.per.ppt <- apply( results.one.per.ppt, 1:2, function( .value ) {
+                     results.one.per.ppt.zeroNAs <- apply( results.one.per.ppt, 1:2, function( .value ) {
                          if( is.na( .value ) ) {
                              0
                          } else {
@@ -526,21 +523,36 @@ evaluateTimings <- function (
                      } );
                      
                      ## unbounded results:
+                     diffs.by.stat.zeroNAs <- compute.diffs.by.stat( results.one.per.ppt.zeroNAs, days.since.infection );
                      diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt, days.since.infection );
     
                      unbounded.results <- 
-                       list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) );
+                       list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), bias.zeroNAs = lapply( diffs.by.stat.zeroNAs, mean, na.rm = T ), se.zeroNAs = lapply( diffs.by.stat.zeroNAs, sd, na.rm = T ), rmse.zeroNAs = lapply( diffs.by.stat.zeroNAs, rmse, na.rm = T ), n.zeroNAs = lapply( diffs.by.stat.zeroNAs, function( .vec ) { sum( !is.na( .vec ) ) } ) );
                      
                      ## bounded results:
                      if( use.bounds ) {
 
-                       ## Ok, well, now we can also evaluate versions of variants of each
-                       ## method, but bounding the results.  Ie if the
-                       ## estimated time is within the bounds, that time
-                       ## is used, otherwise, the boundary.
-                       
+                       ## Ok, well, now we can also evaluate versions
+                       ## of variants of each method, but bounding the
+                       ## results.  Ie if the estimated time is within
+                       ## the bounds, that time is used, otherwise,
+                       ## the boundary.  Note we don't do this with
+                       ## the deterministic bounds, and we only do it
+                       ## for the time corresponding to the sample (
+                       ## 5weeks for "1m" and 30weeks for "6m" ) [each
+                       ## gets an additional week for the difference
+                       ## between the 2 weeks added at the beginning
+                       ## and 1 week subtracted at the end, for
+                       ## eclipse phase; also this accounts for a bit
+                       ## (~10%) additional variation in the time
+                       ## between visits at 6 months than at 1-2
+                       ## months -- a totally made up number as at
+                       ## this time I have no idea what the right
+                       ## number is, but this seems reasonable.]
+                       .artificial.bounds.to.use <-
+                           grep( ifelse( the.time == "6m", "30weeks", "5weeks" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
                        results.one.per.ppt.bounded <-
-                         lapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
+                         lapply( .artificial.bounds.to.use, function ( .artificial.bounds.name ) {
                            .mat <-
                            apply( results.one.per.ppt, 2, function ( .results.column ) {
                            sapply( names( .results.column ), function ( .ppt ) {
@@ -561,7 +573,7 @@ evaluateTimings <- function (
                            rownames( .mat ) <- rownames( results.one.per.ppt );
                            return( .mat );
                        } );
-                       names( results.one.per.ppt.bounded ) <- names( the.artificial.bounds );
+                       names( results.one.per.ppt.bounded ) <- .artificial.bounds.to.use;
     
                        bounded.results.by.bound.type <- lapply( results.one.per.ppt.bounded, function ( .results.one.per.ppt ) {
                          .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
@@ -572,29 +584,101 @@ evaluateTimings <- function (
                      } else {
                        return( unbounded.results );
                      }
-                   } else {
+                   } # bound.and.evaluate.results.per.ppt (..)
+
+                   if( is.na( partition.size ) ) {
+                     ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
+                     .weights <- days.est.nseq*days.est.nb;
+                     results.one.per.ppt <-
+                         compute.results.one.per.ppt( results, .weights );
+
+                     if( use.bounds ) {
+                       ## NOTE: we add the COB bounds only to the
+                       ## original, unbounded results, after computing the
+                       ## bounded ones.
+                       results.one.per.ppt <-
+                         cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
+                     } # End if use.bounds
+
+                     return( bound.and.evaluate.results.per.ppt( results.one.per.ppt ) );
+                   } else { # else !is.na( partition.size )
                        ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
-                       results.per.ppt <- apply( results, 2, function ( .column ) {
+                       partition.id <- results.in[ , "partition.id" ];
+                       
+                       diffs.per.ppt.by.id <- apply( results, 2, function ( .column ) {
                          .rv <- 
                            lapply( unique( rownames( results ) ), function( .ppt ) {
                                .values <- .column[ rownames( results ) == .ppt ];
-                               .diffs <- ( as.numeric( .values ) - as.numeric( days.since.infection[ .ppt ] ) );
-                               return( list( values = .values, diffs = .diffs ) );
+                               .partition.ids <- partition.id[ rownames( results ) == .ppt ];
+                               sapply( unique( .partition.ids ), function( the.partition.id ) {
+                                   ..values <- .values[ .partition.ids == the.partition.id ];
+                                   return( as.numeric( ..values ) - as.numeric( days.since.infection[ .ppt ] ) );
+                               } );
                          } );
                          names( .rv ) <- unique( rownames( results ) );
                          return( .rv );
                        } );
-                       diffs.per.ppt <- lapply( results.per.ppt, function( .lst ) { lapply( .lst, function( ..lst ) { ..lst[[ "diffs" ]] } ) } );
-                       mean.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, mean, na.rm = T ) } );
-                       sd.bias.per.ppt <- lapply( diffs.per.ppt, function( .lst ) { lapply( .lst, sd, na.rm = T ) } );
+                       
+                       mean.bias.per.ppt <- lapply( diffs.per.ppt.by.id, function( .lst ) { sapply( .lst, mean, na.rm = T ) } );
+                       sd.bias.per.ppt <- lapply( diffs.per.ppt.by.id, function( .lst ) { sapply( .lst, sd, na.rm = T ) } );
                        median.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
                        min.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
                        max.mean.bias <- lapply( mean.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
                        median.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { median( unlist( .lst ), na.rm = T ) } );
                        min.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { min( unlist( .lst ), na.rm = T ) } );
                        max.sd.bias <- lapply( sd.bias.per.ppt, function( .lst ) { max( unlist( .lst ), na.rm = T ) } );
-                       return( list( median.mean.bias = median.mean.bias, min.mean.bias = min.mean.bias, max.mean.bias = max.mean.bias,  median.sd.bias = median.sd.bias, min.sd.bias = min.sd.bias, max.sd.bias = max.sd.bias ) );
-                   }
+
+                       num.partitions.per.ppt <- sapply( diffs.per.ppt.by.id[[1]], length );
+
+                       the.summary <- list( median.mean.bias = median.mean.bias, min.mean.bias = min.mean.bias, max.mean.bias = max.mean.bias,  median.sd.bias = median.sd.bias, min.sd.bias = min.sd.bias, max.sd.bias = max.sd.bias );
+                       
+                       results.per.ppt.by.id <- apply( results, 2, function ( .column ) {
+                         .rv <- 
+                           lapply( unique( rownames( results ) ), function( .ppt ) {
+                               .values <- .column[ rownames( results ) == .ppt ];
+                               .partition.ids <- partition.id[ rownames( results ) == .ppt ];
+                               sapply( unique( .partition.ids ), function( the.partition.id ) {
+                                   return( .values[ .partition.ids == the.partition.id ] );
+                               } );
+                           } );
+                         names( .rv ) <- unique( rownames( results ) );
+                         return( .rv );
+                       } );
+
+                       .the.partition.ids.by.sample <-
+                           sapply( 1:partition.bootstrap.samples, function( .sample.id ) {
+                               sapply( num.partitions.per.ppt, sample, size = 1 );
+                           } );
+                       do.one.sample <- function ( .sample.id ) {
+                            print( .sample.id );
+
+                            .thissample.the.partition.ids <-
+                                .the.partition.ids.by.sample[ , .sample.id ];
+                           .thissample.results.one.per.ppt <-
+                               sapply( colnames( results ), function( est.name ) {
+                                   sapply( names( .thissample.the.partition.ids ), function( .ppt ) {
+                                       unname( results.per.ppt.by.id[[ est.name ]][[ .ppt ]][ .thissample.the.partition.ids[ .ppt ] ] )
+                                   } ) } );
+                           return( 
+                               bound.and.evaluate.results.per.ppt( .thissample.results.one.per.ppt )
+                           );
+                     } # do.one.sample (..)
+                       
+                     set.seed( partition.bootstrap.seed );
+                     bootstrap.results <- 
+                         mclapply( 1:partition.bootstrap.samples, do.one.sample );
+
+                       ## TODO: REMOVE
+                       matrix.of.unbounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "unbounded" ]]$rmse } );
+                       mode( matrix.of.unbounded.results.rmses ) <- "numeric";
+                       ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "5weeks" unless the.time is "1m" in which case it is "30weeks".
+                       matrix.of.bounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ 2 ]]$rmse } );
+                       mode( matrix.of.bounded.results.rmses ) <- "numeric";
+                       
+                       #hist( apply( matrix.of.unbounded.results.rmses, 1, diff ) )
+                       
+                     return( list( summary = the.summary, mean.bias.per.ppt.by.est = mean.bias.per.ppt, sd.bias.per.ppt.by.est = sd.bias.per.ppt, num.partitions.per.ppt = num.partitions.per.ppt, bootstrap.results = bootstrap.results, bootstrap.unbounded.rmse = matrix.of.unbounded.results.rmses, bootstrap.bounded.rmse = matrix.of.bounded.results.rmses ) );
+                   } # End if is.na( partition.size ) .. else ..
                } );
            names( timings.results.by.time ) <- times;
            return( timings.results.by.time );

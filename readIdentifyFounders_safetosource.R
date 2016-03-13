@@ -13,6 +13,11 @@ readIdentifyFounders <- function ( identify.founders.tab.filename, partition.siz
 
              if( !is.na( partition.size ) ) {
                  results <- results[ grep( paste( "_p", partition.size, "_\\d+\\.fasta$", sep = "" ), results.in[ , 1 ] ), , drop = FALSE ];
+                 .in.file.name <- as.character( unlist( results.in[ grep( paste( "_p", partition.size, "_\\d+\\.fasta$", sep = "" ), results.in[ , 1 ] ), 1, drop = FALSE ] ) );
+                 results.partition.id <- as.numeric( gsub( paste( "^.+_p", partition.size, "_(\\d+)\\.fasta$", sep = "" ), "\\1", .in.file.name ) );
+                 # Replace the unused "infile" and "file" columns with a numeric "partition.size" column.
+                 results <-
+                     cbind( partition.id = results.partition.id, results[ , 3:ncol( results ) ] );
              }
 
              lambda.colnames <- grep( "lambda", colnames( results ), value = T );
