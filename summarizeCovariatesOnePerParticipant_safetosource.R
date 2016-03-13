@@ -2,6 +2,10 @@ source( "daysFromLambda_safetosource.R" );
 
 summarizeCovariatesOnePerParticipant <- function ( results ) {
   
+    single.colnames <-
+        grep( "\\.is\\.|fits", colnames( results ), perl = TRUE, value = TRUE );
+    Starphy.R.colnames <-
+        grep( "Star[Pp]hy\\.R", colnames( results ), perl = TRUE, value = TRUE );
     days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
     
     days.est.colnames <- grep( "est", days.colnames, value = TRUE );
@@ -14,7 +18,7 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
     days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
     
-    results.covars.colnames <- c( "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+    results.covars.colnames <- c( "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
     
     ## Setting up.  Add a column for the coefficients that are used by the daysFromLambda function.
     mutation.rate.coefs <-
@@ -40,7 +44,7 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
             mutation.rate.coefs.totalbases
         );
     
-    # Five cases: diversity, entropy, single, mut.rate.coef, and the rest ("max").
+    # Six cases: diversity, entropy, single, mut.rate.coef, Starphy.R, and the rest ("max").
     # Case 1: for diversity, we create combined measures weighted using num.diversity.seqs.
     diversity.colnames <-
         grep( "diversity", colnames( covars ), value = TRUE, perl = TRUE )
@@ -125,7 +129,25 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
         return( .rv );
     } );
     
-    ## Case 5: the rest of them.  For these we select the maximum.
+    ## Case 5: the Starphy results.  For these we select the minimum R (the most information).
+    Starphy.R.colnames <-
+        grep( "Star[Pp]hy\\.R", colnames( covars ), perl = TRUE, value = TRUE );
+    Starphy.R.one.per.ppt <- 
+    sapply( Starphy.R.colnames, function ( .col.name ) {
+        .column <- covars[ , .col.name ];
+        .rv <- 
+        sapply( unique( rownames( covars ) ), function( .ppt ) {
+            .ppt.cells <- .column[ rownames( covars ) == .ppt ];
+            if( all( is.na( .ppt.cells ) ) ) {
+              return( NA );
+            }
+            min( .ppt.cells, na.rm = TRUE );
+        } );
+        names( .rv ) <- unique( rownames( covars ) );
+        return( .rv );
+    } );
+    
+    ## Case 6: the rest of them.  For these we select the maximum.
     max.colnames <-
         setdiff( colnames( covars ), c( diversity.colnames, entropy.colnames, single.colnames, mut.rate.coef.colnames ) );
     max.one.per.ppt <- 
@@ -143,6 +165,6 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
         return( .rv );
     } );
     
-    return( cbind( diversity.one.per.ppt, entropy.one.per.ppt, single.one.per.ppt, mut.rate.coef.one.per.ppt, max.one.per.ppt )[ , colnames( covars ) ] );
+    return( cbind( diversity.one.per.ppt, entropy.one.per.ppt, single.one.per.ppt, mut.rate.coef.one.per.ppt, Starphy.R.one.per.ppt, max.one.per.ppt )[ , colnames( covars ) ] );
 } # summarizeCovariatesOnePerParticipant (..)
         

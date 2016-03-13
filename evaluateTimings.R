@@ -26,9 +26,12 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 #' These files have names beginning with "artificialBounds_" and
 #' ending with ".tab".
 #'
-#' @param use.center.of.bounds compute results for the COB approach, and also return evaluations of bounded versions of the other results.
+#' @param use.bounds compute results for the COB approach, and also return evaluations of bounded versions of the other results.
 #' @param use.infer compute results for the PREAST approach.
 #' @param use.anchre compute results for the anchre approach (presently disabled).
+#' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation.
+#' @param include.bounds.in.glm include the corresponding prior bounds in the regression equations used for cross-validation.
+#' @param include.helpful.additional.cols.in.glm include "priv.sites" and "multifounder.Synonymous.PFitter.is.poisson" in the regression equations used for cross-validation.
 #' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
 #'
@@ -36,9 +39,14 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 #' @export
 
 evaluateTimings <- function (
-                             use.center.of.bounds = TRUE,
+                             use.bounds = TRUE,
                              use.infer = TRUE,
                              use.anchre = TRUE,
+                             use.glm.validate = TRUE,
+                             use.lasso.validate = TRUE,
+                             include.bounds.in.glm = TRUE,
+                             include.bounds.in.lasso = FALSE,
+                             include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE
                             )
@@ -291,88 +299,7 @@ evaluateTimings <- function (
                      results.one.per.ppt <-
                          compute.results.one.per.ppt( results, .weights );
 
-                   results.covars.one.per.ppt.with.extra.cols <-
-                       summarizeCovariatesOnePerParticipant( results.in );
-                     
-                   .keep.cols <-
-                       grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
-                   ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
-                   ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
-                   
-                   # mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
-                   #                 grep( "mut\\.rate\\.coef", mut.rate.coef.keep.cols, invert = TRUE, value = TRUE ) )
-                   #mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
-                   ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
-                   helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
-                   mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
-                     
-                   ## Also include all of the date estimates, which is
-                   ## everything in "results.one.per.ppt" so
-                   ## far. (However we will exclude some bounded
-                   ## results with deterministic bounds from the
-                   ## optimization, see below). It's also redundant to
-                   ## use PFitter-based days estimates, since we are
-                   ## using the mutation rate coefs, which are a
-                   ## linear fn of the corresponding days ests (I have
-                   ## confirmed that the predictions are the same
-                   ## (within +- 0.6 days, due to the rounding that
-                   ## PFitter does to its days estimates).  So
-                   ## basically unless we added non-PFitter results
-                   ## (PREAST/infer or anchre), there won't be
-                   ## anything to do here.
-                   days.est.cols <- colnames( results.one.per.ppt );
-                   results.covars.one.per.ppt.with.extra.cols <-
-                       cbind( results.one.per.ppt, results.covars.one.per.ppt.with.extra.cols );
-                   days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
-                   # days.est.colnames was the non-infer ones.
-                   days.est.cols <- setdiff( days.est.cols, days.est.colnames );
-
-                   keep.cols <- c( helpful.additional.cols, mut.rate.coef.cols, days.est.cols );
-                   estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
-                     
-                   results.covars.one.per.ppt <-
-                       results.covars.one.per.ppt.with.extra.cols[ , keep.cols, drop = FALSE ];
-                   results.covars.one.per.ppt.df <-
-                       data.frame( results.covars.one.per.ppt );
-
-                   regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df );
-                   
-                   glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
-                   for( .row.i in 1:nrow( regression.df ) ) {
-                       for( .col.i in 1:length( estimate.cols ) ) {
-                           .estimate.colname <- estimate.cols[ .col.i ];
-                           ## Ok build a regression model with no intercept, including only the helpful.additional.cols
-                           .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( helpful.additional.cols, .estimate.colname ), collapse = "+" ) ) );
-                           .pred.value <- predict( lm( .formula, data = regression.df[ -.row.i, ] ), regression.df[ .row.i, , drop = FALSE ] );
-                           glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
-                               .pred.value;
-                       } # End foreach .col.i
-                   } # End foreach .row.i
-                   colnames( glm.validation.results.one.per.ppt ) <-
-                       paste( "glm.validation.results", estimate.cols, sep = "." );
-                   rownames( glm.validation.results.one.per.ppt ) <-
-                       rownames( regression.df );
-                     
-                     results.one.per.ppt <-
-                         cbind( results.one.per.ppt,
-                               glm.validation.results.one.per.ppt );
-
-                     ## For fairness in evaluating when some methods
-                     ## completely fail to give a result, (so it's NA
-                     ## presently), we change all of these estimates
-                     ## from NA to 0.  When we put bounds on the
-                     ## results, below, they will be changed from 0 to
-                     ## a boundary endpoint if 0 is outside of the
-                     ## bounds.
-                     results.one.per.ppt <- apply( results.one.per.ppt, 1:2, function( .value ) {
-                         if( is.na( .value ) ) {
-                             0
-                         } else {
-                             .value
-                         }
-                     } );
-                     
-                     if( use.center.of.bounds ) {
+                     if( use.bounds ) {
                        ## The "center of bounds" approach is the way that
                        ## we do it at the VTN, and the way it was done in
                        ## RV144, etc: use the midpoint between the bounds
@@ -412,7 +339,187 @@ evaluateTimings <- function (
                        } );
                        colnames( center.of.bounds.table ) <-
                          paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
+                       
+                       ## NOTE: we add the COB bounds only to the
+                       ## original, unbounded results, after computing the
+                       ## bounded ones.
+                       results.one.per.ppt <-
+                         cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
+                     } # End if use.bounds
+
+                     if( use.glm.validate || use.lasso.validate ) {
+                       results.covars.one.per.ppt.with.extra.cols <-
+                         summarizeCovariatesOnePerParticipant( results.in );
+                       ## TODO: Add to that the loading of the viralloads.csv files (in the gold_standards dirs).
+                       .keep.cols <-
+                           grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+                       ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
+                       ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
+                       
+                       # mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef",
+                       #                 grep( "mut\\.rate\\.coef", mut.rate.coef.keep.cols, invert = TRUE, value = TRUE ) )
+                       #mut.rate.coef.keep.cols <- c( "multifounder.Synonymous.PFitter.mut.rate.coef", "inf.to.priv.ratio", "priv.sites", "inf.sites.clusters", "InSites.founders", "multifounder.Synonymous.PFitter.is.poisson" );
+                       ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
+                       mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
+                       all.additional.cols <- setdiff( .keep.cols, mut.rate.coef.cols );
+                       helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
+                         
+                       ## Also include all of the date estimates, which is
+                       ## everything in "results.one.per.ppt" so
+                       ## far. (However we will exclude some bounded
+                       ## results with deterministic bounds from the
+                       ## optimization, see below). It's also redundant to
+                       ## use PFitter-based days estimates, since we are
+                       ## using the mutation rate coefs, which are a
+                       ## linear fn of the corresponding days ests (I have
+                       ## confirmed that the predictions are the same
+                       ## (within +- 0.6 days, due to the rounding that
+                       ## PFitter does to its days estimates).  So
+                       ## basically unless we added non-PFitter results
+                       ## (PREAST/infer, anchre, or center-of-bounds), there won't be
+                       ## anything to do here.
+                       days.est.cols <- colnames( results.one.per.ppt );
+                       days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
+                       # days.est.colnames was the non-infer ones.
+                       days.est.cols <- setdiff( days.est.cols, days.est.colnames );
+
+                       results.covars.one.per.ppt.with.extra.cols <-
+                           cbind( results.one.per.ppt[ , days.est.cols, drop = FALSE ], results.covars.one.per.ppt.with.extra.cols );
+                       
+                       if( use.lasso.validate ) {
+                           keep.cols <- c( all.additional.cols, mut.rate.coef.cols, days.est.cols );
+                           estimate.cols <- setdiff( keep.cols, all.additional.cols );
+                       } else {
+                           keep.cols <- c( helpful.additional.cols, mut.rate.coef.cols, days.est.cols );
+                           estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
+                       }
+                         
+                       results.covars.one.per.ppt <-
+                           results.covars.one.per.ppt.with.extra.cols[ , keep.cols, drop = FALSE ];
+                       results.covars.one.per.ppt.df <-
+                           data.frame( results.covars.one.per.ppt );
+                       
+                       regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df, the.artificial.bounds );
+                       
+                       ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
+                       if( the.time == "6m" ) {
+                           .lower.bound.colname <- "uniform_30weeks.lower";
+                           .upper.bound.colname <- "uniform_30weeks.upper";
+                       } else {
+                           .lower.bound.colname <- "uniform_5weeks.lower";
+                           .upper.bound.colname <- "uniform_5weeks.upper";
+                       }
+                       if( use.glm.validate ) {
+                           glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
+                       }
+                       if( use.lasso.validate ) {
+                           lasso.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
+                       }
+                       for( .row.i in 1:nrow( regression.df ) ) {
+                           regression.df.without.row.i <-
+                               regression.df[ -.row.i, , drop = FALSE ];
+                           for( .col.i in 1:length( estimate.cols ) ) {
+                               .estimate.colname <- estimate.cols[ .col.i ];
+
+                               if( use.glm.validate ) {
+                                 # covariates for glm
+                                 .covariates.glm <- c();
+                                 if( include.helpful.additional.cols.in.glm ) {
+                                     .covariates.glm <-
+                                         c( .covariates.glm, helpful.additional.cols );
+                                 }
+                                 if( include.bounds.in.glm ) {
+                                     .covariates.glm <-
+                                         c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                                 }
+                                 # glm:
+                                 .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( c( .covariates.glm, .estimate.colname ), collapse = "+" ) ) );
+                                 .pred.value.glm <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
+                                 glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                                     .pred.value.glm;
+                               } # End if use.glm.validate
+
+                               if( use.lasso.validate ) {
+                                 # covariates for lasso
+                                 .covariates.lasso <- c( all.additional.cols );
+                                 if( include.bounds.in.lasso ) {
+                                     .covariates.lasso <-
+                                         c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                                 }
+                                 # lasso:
+                                 .mat1 <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso, .estimate.colname ) ] );
+                                 .out <- regression.df.without.row.i[[ "days.since.infection" ]];
+  
+                                 .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
+                                     return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+                                 } );
+                                 .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                                 # penalty.factor = 0 to force the .estimate.colname variable.
+
+                                 tryCatch( {
+                                 cv.glmnet.fit <- cv.glmnet( .mat1, .out, intercept = FALSE,
+                                                            penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                                 .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
+                                  },
+                                  error = function( e ) {
+                                      warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                                      .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                                      .pred.value.lasso <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
+                                  },
+                                     finally = {
+                                         lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                                     .pred.value.lasso;
+                                     }
+                                     );
+
+                               } # End if use.lasso.validate
+
+                           } # End foreach .col.i
+                       } # End foreach .row.i
+                       if( use.glm.validate ) {
+                           colnames( glm.validation.results.one.per.ppt ) <-
+                               paste( "glm.validation.results", estimate.cols, sep = "." );
+                           rownames( glm.validation.results.one.per.ppt ) <-
+                               rownames( regression.df );
+                           results.one.per.ppt <-
+                               cbind( results.one.per.ppt,
+                                     glm.validation.results.one.per.ppt );
+                       }
+                       if( use.lasso.validate ) {
+                           colnames( lasso.validation.results.one.per.ppt ) <-
+                               paste( "lasso.validation.results", estimate.cols, sep = "." );
+                           rownames( lasso.validation.results.one.per.ppt ) <-
+                               rownames( regression.df );
+                           results.one.per.ppt <-
+                               cbind( results.one.per.ppt,
+                                     lasso.validation.results.one.per.ppt );
+                       }
+                     } # End if use.glm.validate || use.lasso.validate
+                     
+                     ## For fairness in evaluating when some methods
+                     ## completely fail to give a result, (so it's NA
+                     ## presently), we change all of these estimates
+                     ## from NA to 0.  When we put bounds on the
+                     ## results, below, they will be changed from 0 to
+                     ## a boundary endpoint if 0 is outside of the
+                     ## bounds.
+                     results.one.per.ppt <- apply( results.one.per.ppt, 1:2, function( .value ) {
+                         if( is.na( .value ) ) {
+                             0
+                         } else {
+                             .value
+                         }
+                     } );
+                     
+                     ## unbounded results:
+                     diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt, days.since.infection );
     
+                     unbounded.results <- 
+                       list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) );
+                     
+                     ## bounded results:
+                     if( use.bounds ) {
+
                        ## Ok, well, now we can also evaluate versions of variants of each
                        ## method, but bounding the results.  Ie if the
                        ## estimated time is within the bounds, that time
@@ -442,21 +549,6 @@ evaluateTimings <- function (
                        } );
                        names( results.one.per.ppt.bounded ) <- names( the.artificial.bounds );
     
-                       ## NOTE: we add the COB bounds only to the
-                       ## original, unbounded results, after computing the
-                       ## bounded ones.
-                       results.one.per.ppt <-
-                         cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
-                     } # End if use.center.of.bounds
-    
-                     ## unbounded results:
-                     diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt, days.since.infection );
-    
-                     unbounded.results <- 
-                       list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) );
-                     
-                     ## bounded results:
-                     if( use.center.of.bounds ) {
                        bounded.results.by.bound.type <- lapply( results.one.per.ppt.bounded, function ( .results.one.per.ppt ) {
                          .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
         
