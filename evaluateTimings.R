@@ -289,7 +289,7 @@ evaluateTimings <- function (
         ## anything to do here.
         days.est.cols <- colnames( results.one.per.ppt );
         days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
-        days.est.cols <- grep( "PFitter|Star[Pp]y", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
+        days.est.cols <- grep( "PFitter|Star[Pp]hy", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
     
       if( use.glm.validate || use.lasso.validate ) {
         results.covars.one.per.ppt.with.extra.cols <-
@@ -758,13 +758,15 @@ evaluateTimings <- function (
                } );
            names( timings.results.by.time ) <- times;
 
+            ## TODO: a present limitation is that you really want to bound each time's values by its correct bounds, so instead of using eg 5weeks or 30weeks, we should use 5weeks for the 1m results and 30weeks for the 6m results.  Should make a new bounds called "matching" or something, with this..
+        
            .vars <- setdiff( names( timings.results.by.time[[1]] ), "evaluated.results" );
            timings.results.1m.6m <- lapply( .vars, function ( .varname ) {
-               print( .varname );
+               #print( .varname );
                if( .varname == "bounds" ) {
                    .rv <- 
                    lapply( names( timings.results.by.time[[ "1m" ]][[ .varname ]] ), function( .bounds.type ) {
-                       print( .bounds.type );
+                       #print( .bounds.type );
                        missing.column.safe.rbind(
                            timings.results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
                            timings.results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
@@ -805,7 +807,6 @@ evaluateTimings <- function (
        } ); # End foreach the.region
       names( timings.results.by.region.and.time ) <- regions;
 
-      ## MARK
       timings.results.across.regions.by.time <-
           lapply( times, function ( the.time ) {
               .vars <-
@@ -819,8 +820,8 @@ evaluateTimings <- function (
                        missing.column.safe.rbind(
                            timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
                            timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
-                           "nflg.1m",
-                           "v3.1m"
+                           paste( "nflg", the.time, sep = "." ),
+                           paste( "v3", the.time, sep = "." )
                        )
                    } );
                    names( .rv ) <-
@@ -852,20 +853,21 @@ evaluateTimings <- function (
             return( .rv.for.time );
           } );
         names( timings.results.across.regions.by.time ) <- times;
+
+        # Add the evaluated.results:
         timings.results.across.regions.by.time.2 <-
             lapply( times,
                    function( the.time ) {
                        print( the.time );
                        timings.results.across.regions <-
                            timings.results.across.regions.by.time[[ the.time ]];
-            c( timings.results.across.regions,
-              list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.across.regions[[ "results.one.per.ppt" ]], timings.results.across.regions[[ "days.since.infection" ]], timings.results.across.regions[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, timings.results.across.regions[[ "bounds" ]] ) ) );
-        return( timings.results.across.regions );
-                   } );
-        names( timings.results.across.regions.by.time ) <- times;
-        ## ENDMARK
+                       return( c( timings.results.across.regions,
+              list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.across.regions[[ "results.one.per.ppt" ]], timings.results.across.regions[[ "days.since.infection" ]], timings.results.across.regions[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, timings.results.across.regions[[ "bounds" ]] ) ) )
+                              );
+                     } );
+        names( timings.results.across.regions.by.time.2 ) <- times;
         
-        return( c( timings.results.by.region.and.time, timings.results.across.regions.by.time ) );
+        return( c( timings.results.by.region.and.time, timings.results.across.regions.by.time.2 ) );
     } # getTimingsResultsByRegionAndTime ( partition.size )
     
     if( force.recomputation || !file.exists( timings.results.by.region.and.time.Rda.filename ) ) {
