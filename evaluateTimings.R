@@ -263,7 +263,16 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.one.per.ppt, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds = NA ) {
+        function ( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\.([^\\.]+)?\\.[16]m(6m)?$" ) {
+
+       ## Special: the ppt names might have suffices in results.one.per.ppt; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
+       ppt.names <- rownames( results.one.per.ppt );
+       if( !is.na( ppt.suffix.pattern ) ) {
+           .ppt.names <- ppt.names;
+           ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
+           names( ppt.names ) <- .ppt.names;
+       }
+        
         ## Also include all of the date estimates, which is
         ## everything in "results.one.per.ppt" so
         ## far. (However we will exclude some bounded
@@ -311,7 +320,7 @@ evaluateTimings <- function (
             results.covars.one.per.ppt.with.extra.cols[ , keep.cols, drop = FALSE ];
         results.covars.one.per.ppt.df <-
             data.frame( results.covars.one.per.ppt );
-        
+
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.one.per.ppt.df ), , drop = FALSE ] } ) );
         
         ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
@@ -720,19 +729,19 @@ evaluateTimings <- function (
 
     missing.column.safe.rbind <- function ( matA, matB, matA.name, matB.name ) {
         all.colnames <- union( colnames( matA ), colnames( matB ) );
-        .rv <- matrix( NA, nrow = nrow( matA ) + nrow( matB ) );
+        .rv <- matrix( NA, nrow = nrow( matA ) + nrow( matB ), ncol = length( all.colnames ) );
         colnames( .rv ) <- all.colnames;
         rownames( .rv ) <-
             c( paste( rownames( matA ), matA.name, sep = "." ),
               paste( rownames( matB ), matB.name, sep = "." ) );
         .rv[ 1:nrow( matA ), colnames( matA ) ] <-
-            matA;
+            as.matrix( matA );
         .rv[ nrow( matA ) + 1:nrow( matB ), colnames( matB ) ] <-
-            matB;
+            as.matrix( matB );
         
         return( .rv );
     } # missing.column.safe.rbind (..)
-n    
+    
     getTimingsResultsByRegionAndTime <- function ( partition.size = NA ) {
         if( !is.na( partition.size ) ) {
             regions <- "v3"; # Only v3 has partition results at this time.
@@ -741,7 +750,7 @@ n
             lapply( regions, function( the.region ) {
                 ## TODO: REMOVE
                 cat( the.region, fill = T );
-           timings.results.by.time <- 
+           timings.results.by.time <-
                lapply( times, function( the.time ) {
                    ## TODO: REMOVE
                    cat( the.time, fill = T );
@@ -749,11 +758,13 @@ n
                } );
            names( timings.results.by.time ) <- times;
 
-           timings.results.1m.6m <- lapply( setdiff( names( timings.results.by.time[[1]] ), "evaluated.results" ), function ( .varname ) {
-               #print( .varname );
+           .vars <- setdiff( names( timings.results.by.time[[1]] ), "evaluated.results" );
+           timings.results.1m.6m <- lapply( .vars, function ( .varname ) {
+               print( .varname );
                if( .varname == "bounds" ) {
                    .rv <- 
                    lapply( names( timings.results.by.time[[ "1m" ]][[ .varname ]] ), function( .bounds.type ) {
+                       print( .bounds.type );
                        missing.column.safe.rbind(
                            timings.results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
                            timings.results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
@@ -762,7 +773,7 @@ n
                        )
                    } );
                    names( .rv ) <-
-                       names( timings.results.by.time[[ .matA.name ]][[ .varname ]] );
+                       names( timings.results.by.time[[ "1m" ]][[ .varname ]] );
                    return( .rv );
                } else if( .varname == "days.since.infection" ) {
                    # one dimensional
@@ -786,7 +797,7 @@ n
                  }
            } );
            names( timings.results.1m.6m ) <-
-               setdiff( names( timings.results.by.time[[1]] ), "evaluated.results" );
+               .vars;
            timings.results.1m.6m <-
                c( timings.results.1m.6m,
                  list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.6m[[ "results.one.per.ppt" ]], timings.results.1m.6m[[ "days.since.infection" ]], timings.results.1m.6m[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = "1m.6m", timings.results.1m.6m[[ "bounds" ]] ) ) );
@@ -795,51 +806,66 @@ n
       names( timings.results.by.region.and.time ) <- regions;
 
       ## MARK
-      timings.results.1m.across.regions <- lapply( setdiff( names( timings.results.by.region.and.time[[1]][[1]] ), "evaluated.results" ), function ( .varname ) {
+      timings.results.across.regions.by.time <-
+          lapply( times, function ( the.time ) {
+              .vars <-
+                  setdiff( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]] ), "evaluated.results" );
+              .rv.for.time <- 
+              lapply( .vars, function ( .varname ) {
                #print( .varname );
                if( .varname == "bounds" ) {
                    .rv <- 
-                   lapply( names( timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]] ), function( .bounds.type ) {
+                   lapply( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] ), function( .bounds.type ) {
                        missing.column.safe.rbind(
-                           timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]][[ .bounds.type ]],
-                           timings.results.by.region.and.time[[ "v3" ]][[ "1m" ]][[ .varname ]][[ .bounds.type ]],
+                           timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
+                           timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
                            "nflg.1m",
                            "v3.1m"
                        )
                    } );
                    names( .rv ) <-
-                       names( timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]] );
+                       names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] );
                    return( .rv );
                } else if( .varname == "days.since.infection" ) {
                    # one dimensional
                    .rv <- c( 
-                             timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]],
-                             timings.results.by.region.and.time[[ "v3" ]][[ "1m" ]][[ .varname ]]
+                             timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]],
+                             timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]]
                        );
                      names( .rv ) <-
-                         c( paste( names( timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]] ), "nflg.1m", sep = "." ),
-                           paste( names( timings.results.by.region.and.time[[ "v3" ]][[ "1m" ]][[ .varname ]] ), "v3.1m", sep = "." ) );
+                         c( paste( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] ), paste( "nflg", the.time, sep = "." ), sep = "." ),
+                           paste( names( timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]] ), paste( "v3", the.time, sep = "." ), sep = "." ) );
                    return( .rv );
                } else {
                      .rv <-
                          missing.column.safe.rbind(
-                             timings.results.by.region.and.time[[ "nflg" ]][[ "1m" ]][[ .varname ]],
-                             timings.results.by.region.and.time[[ "v3" ]][[ "1m" ]][[ .varname ]],
-                           "nflg.1m",
-                           "v3.1m"
+                             timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]],
+                             timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]],
+                           paste( "nflg", the.time, sep = "." ),
+                           paste( "v3", the.time, sep = "." )
                        );
                      return( .rv );
                  }
            } );
-        names( timings.results.1m.across.regions ) <-
-            setdiff( names( timings.results.by.region.and.time[[1]][[1]] ), "evaluated.results" );
-        timings.results.1m.across.regions <-
-            c( timings.results.1m.across.regions,
-              list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.across.regions[[ "results.one.per.ppt" ]], timings.results.1m.across.regions[[ "days.since.infection" ]], timings.results.1m.across.regions[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = "1m.across.regions", timings.results.1m.across.regions[[ "bounds" ]] ) ) );
-        return( c( list( "1m.across.regions" = timings.results.1m.across.regions ), timings.results.by.region.and.time ) );
+           names( .rv.for.time ) <-
+               .vars;
+            return( .rv.for.time );
+          } );
+        names( timings.results.across.regions.by.time ) <- times;
+        timings.results.across.regions.by.time.2 <-
+            lapply( times,
+                   function( the.time ) {
+                       print( the.time );
+                       timings.results.across.regions <-
+                           timings.results.across.regions.by.time[[ the.time ]];
+            c( timings.results.across.regions,
+              list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.across.regions[[ "results.one.per.ppt" ]], timings.results.across.regions[[ "days.since.infection" ]], timings.results.across.regions[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, timings.results.across.regions[[ "bounds" ]] ) ) );
+        return( timings.results.across.regions );
+                   } );
+        names( timings.results.across.regions.by.time ) <- times;
         ## ENDMARK
         
-      return( timings.results.by.region.and.time );
+        return( c( timings.results.by.region.and.time, timings.results.across.regions.by.time ) );
     } # getTimingsResultsByRegionAndTime ( partition.size )
     
     if( force.recomputation || !file.exists( timings.results.by.region.and.time.Rda.filename ) ) {
