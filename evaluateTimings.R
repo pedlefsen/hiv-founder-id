@@ -275,8 +275,7 @@ evaluateTimings <- function (
         ## anything to do here.
         days.est.cols <- colnames( results.one.per.ppt );
         days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
-        # days.est.colnames was the non-infer ones.
-        days.est.cols <- setdiff( days.est.cols, days.est.colnames );
+        days.est.cols <- grep( "PFitter|Star[Pp]y", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
     
       if( use.glm.validate || use.lasso.validate ) {
         results.covars.one.per.ppt.with.extra.cols <-
