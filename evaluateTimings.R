@@ -99,7 +99,7 @@ evaluateTimings <- function (
         } );
     } # compute.results.one.per.ppt
 
-    get.infer.results.columns <- function ( the.region, the.time, partition.size = NA ) {
+    get.infer.results.columns <- function ( the.region, the.time, the.ptids, partition.size = NA ) {
         ## Add to results: "infer" results.
         if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
             the.region.dir <- "v3_edited_20160216";
@@ -151,8 +151,8 @@ evaluateTimings <- function (
         
         # Add just the estimates from infer (not the CIs) to the results table.
         new.results.columns <-
-          matrix( NA, nrow = nrow( results ), ncol = 1 + length( infer.results.bounds.tables ) );
-        rownames( new.results.columns ) <- rownames( results );
+          matrix( NA, nrow = length( the.ptids ), ncol = 1 + length( infer.results.bounds.tables ) );
+        rownames( new.results.columns ) <- the.ptids;
         colnames( new.results.columns ) <- c( "Infer.time.est", infer.results.bounds.types );
         
         .shared.ptids.nobounds <-
@@ -192,7 +192,6 @@ evaluateTimings <- function (
         colnames( new.results.columns ) <- c( "Infer.time.est", paste( "Infer", gsub( "_", ".", infer.results.bounds.types ), "time.est", sep = "." ) );
         return( new.results.columns );
     } # get.infer.results.columns (..)
-
 
     get.anchre.results.columns <- function ( the.region, the.time, sample.dates.in, partition.size = NA ) {
         stopifnot( is.na( partition.size ) ); # TODO: Implement support for anchre on partitions.
@@ -545,7 +544,7 @@ evaluateTimings <- function (
         results <- results[ , days.est.colnames, drop = FALSE ];
         
         if( use.infer && is.na( partition.size ) ) { ## TODO: process infer results on partitions.
-          infer.results.columns <- get.infer.results.columns( the.region, the.time, partition.size );
+          infer.results.columns <- get.infer.results.columns( the.region, the.time, rownames( results ), partition.size );
           results <- cbind( results, infer.results.columns );
         } # End if use.infer
         
