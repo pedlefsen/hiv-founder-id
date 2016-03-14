@@ -263,7 +263,7 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.one.per.ppt, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.artificial.bounds = NA ) {
+        function ( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds = NA ) {
         ## Also include all of the date estimates, which is
         ## everything in "results.one.per.ppt" so
         ## far. (However we will exclude some bounded
@@ -636,9 +636,9 @@ evaluateTimings <- function (
             results.one.per.ppt <-
               cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
             
-              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.artificial.bounds ) ) );
+              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } else {
-              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols ) ) );
+              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time ) ) );
           }
         } else { # else !is.na( partition.size )
             ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
@@ -698,7 +698,7 @@ evaluateTimings <- function (
                         sapply( names( .thissample.the.partition.ids ), function( .ppt ) {
                             unname( results.per.ppt.by.id[[ est.name ]][[ .ppt ]][ .thissample.the.partition.ids[ .ppt ] ] )
                         } ) } );
-                return( list( results.one.per.ppt = .thissample.results.one.per.ppt, evaluated.results = bound.and.evaluate.results.per.ppt( .thissample.results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.artificial.bounds ) ) );
+                return( list( results.one.per.ppt = .thissample.results.one.per.ppt, evaluated.results = bound.and.evaluate.results.per.ppt( .thissample.results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } # do.one.sample (..)
             
           set.seed( partition.bootstrap.seed );
@@ -778,7 +778,7 @@ evaluateTimings <- function (
                setdiff( names( timings.results.by.time[[1]] ), "evaluated.results" );
            timings.results.1m.6m <-
                c( timings.results.1m.6m,
-                 list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.6m[[ "results.one.per.ppt" ]], timings.results.1m.6m[[ "days.since.infection" ]], timings.results.1m.6m[[ "results.covars.one.per.ppt.with.extra.cols" ]], timings.results.1m.6m[[ "bounds" ]] ) ) );
+                 list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.6m[[ "results.one.per.ppt" ]], timings.results.1m.6m[[ "days.since.infection" ]], timings.results.1m.6m[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = "1m.6m", timings.results.1m.6m[[ "bounds" ]] ) ) );
            return( c( list( "1m.6m" = timings.results.1m.6m ), timings.results.by.time ) );
        } ); # End foreach the.region
       names( timings.results.by.region.and.time ) <- regions;
