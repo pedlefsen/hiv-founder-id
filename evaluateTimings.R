@@ -194,6 +194,12 @@ evaluateTimings <- function (
     } # get.infer.results.columns (..)
 
     get.anchre.results.columns <- function ( the.region, the.time, sample.dates.in, partition.size = NA ) {
+        ## Add to results: "infer" results.
+        if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
+            the.region.dir <- "v3_edited_20160216";
+        } else {
+            the.region.dir <- "nflg_copy_20160222";
+        }
         stopifnot( is.na( partition.size ) ); # TODO: Implement support for anchre on partitions.
         stopifnot( the.time == "1m6m" ); # There's only anchre results for longitudinal data.
         ## Add to results: "anchre" results. (only at 1m6m)
@@ -245,7 +251,6 @@ evaluateTimings <- function (
         return( anchre.columns );
     } # get.anchre.results.columns (..)
 
-    
     compute.diffs.by.stat <- function ( results.one.per.ppt, days.since.infection ) {
         diffs.by.stat <- 
             lapply( colnames( results.one.per.ppt ), function( .stat ) {
