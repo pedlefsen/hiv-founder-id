@@ -5,6 +5,7 @@ library( "glmnet" ); # for cv.glmnet
 
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
+source( "getArtificialBounds_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
 #' Evaluate timings estimates and produce results tables.
@@ -31,13 +32,17 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 #'
 #' @param use.bounds compute results for the COB approach, and also return evaluations of bounded versions of the other results.
 #' @param use.infer compute results for the PREAST approach.
-#' @param use.anchre compute results for the anchre approach (presently disabled).
+#' @param use.anchre compute results for the anchre approach.
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation.
 #' @param include.bounds.in.glm include the corresponding prior bounds in the regression equations used for cross-validation.
-#' @param include.helpful.additional.cols.in.glm include "priv.sites" and "multifounder.Synonymous.PFitter.is.poisson" in the regression equations used for cross-validation.
+#' @param include.bounds.in.lasso include the corresponding prior bounds in the regression equations used for cross-validation.
+#' @param include.helpful.additional.cols.in.glm include helpful.additional.cols in the glm (but don't force them to stay in the lasso)? By default this is the opposite of include.bounds.in.glm).
+#' @param helpful.additional.cols extra cols to be included in the glm: "priv.sites" and "multifounder.Synonymous.PFitter.is.poisson"
 #' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
-#'
+#' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
+#' @param partition.bootstrap.samples the number of bootstrap replicates to conduct; the idea is to get an estimate of the variation in estimates and results (errors) across these samples.
+#' @param partition.bootstrap.num.cores the number of cores to run the boostrap replicates on (defaults to all of the cores returned by parallel::detectCores()).
 #' @return NULL
 #' @export
 
@@ -50,18 +55,18 @@ evaluateTimings <- function (
                              include.bounds.in.glm = TRUE,
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
+                             helpful.additional.cols = c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" ),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
                              partition.bootstrap.samples = 100,
-                             partition.bootstrap.num.cores = detectCores()
+                             partition.bootstrap.num.cores = detectCores(),
+                             regions = c( "nflg", "v3", "rv217_v3" ),
+                             times = c( "1m", "6m", "1m6m" )
                             )
 {
     timings.results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/timings.results.by.region.and.time.Rda", sep = "" );
-    
-    identify.founders.date.estimates <-
-        c( "PFitter.time.est", "Synonymous.PFitter.time.est", "multifounder.PFitter.time.est", "multifounder.Synonymous.PFitter.time.est" ); 
     
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
@@ -71,10 +76,6 @@ evaluateTimings <- function (
     caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
     names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
     
-    regions <- c( "nflg", "v3", "rv217_v3" );
-    times <- c( "1m", "6m", "1m6m" );
-    #times <- c( "1m6m" );
-    
     rmse <- function( x, na.rm = FALSE ) {
         if( na.rm ) {
             x <- x[ !is.na( x ) ];
@@ -82,7 +83,7 @@ evaluateTimings <- function (
         return( sqrt( mean( x ** 2 ) ) );
     }
     
-    compute.results.one.per.ppt <- function ( results, weights ) {
+    compute.results.per.person <- function ( results, weights ) {
         apply( results, 2, function ( .column ) {
             .rv <- 
             sapply( unique( rownames( results ) ), function( .ppt ) {
@@ -97,7 +98,7 @@ evaluateTimings <- function (
             names( .rv ) <- unique( rownames( results ) );
             return( .rv );
         } );
-    } # compute.results.one.per.ppt
+    } # compute.results.per.person
 
     get.infer.results.columns <- function ( the.region, the.time, the.ptids, partition.size = NA ) {
         ## Add to results: "infer" results.
@@ -251,30 +252,31 @@ evaluateTimings <- function (
         return( anchre.columns );
     } # get.anchre.results.columns (..)
 
-    compute.diffs.by.stat <- function ( results.one.per.ppt, days.since.infection ) {
+    compute.diffs.by.stat <- function ( results.per.person, days.since.infection ) {
         diffs.by.stat <- 
-            lapply( colnames( results.one.per.ppt ), function( .stat ) {
-                .rv <- ( as.numeric( results.one.per.ppt[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.one.per.ppt ) ] ) );
-                names( .rv ) <- rownames( results.one.per.ppt );
+            lapply( colnames( results.per.person ), function( .stat ) {
+                .rv <- ( as.numeric( results.per.person[ , .stat ] ) - as.numeric( days.since.infection[ rownames( results.per.person ) ] ) );
+                names( .rv ) <- rownames( results.per.person );
                 return( .rv );
             } );
-        names( diffs.by.stat ) <- colnames( results.one.per.ppt );
+        names( diffs.by.stat ) <- colnames( results.per.person );
         return( diffs.by.stat );
-    } # compute.diffs.by.stat ( results.one.per.ppt, days.since.infection )
+    } # compute.diffs.by.stat ( results.per.person, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\.([^\\.]+)?\\.[16]m(6m)?$" ) {
+        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\.([^\\.]+)?\\.[16]m(6m)?$" ) {
 
-       ## Special: the ppt names might have suffices in results.one.per.ppt; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
-       ppt.names <- rownames( results.one.per.ppt );
+       ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
+       ppt.names <- rownames( results.per.person );
        if( !is.na( ppt.suffix.pattern ) ) {
            .ppt.names <- ppt.names;
            ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
            names( ppt.names ) <- .ppt.names;
        }
+       ## TODO: Use this for something.
         
         ## Also include all of the date estimates, which is
-        ## everything in "results.one.per.ppt" so
+        ## everything in "results.per.person" so
         ## far. (However we will exclude some bounded
         ## results with deterministic bounds from the
         ## optimization, see below). It's also redundant to
@@ -287,16 +289,16 @@ evaluateTimings <- function (
         ## basically unless we added non-PFitter results
         ## (PREAST/infer, anchre, or center-of-bounds), there won't be
         ## anything to do here.
-        days.est.cols <- colnames( results.one.per.ppt );
+        days.est.cols <- colnames( results.per.person );
         days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
         days.est.cols <- grep( "PFitter|Star[Pp]hy", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
     
       if( use.glm.validate || use.lasso.validate ) {
-        results.covars.one.per.ppt.with.extra.cols <-
-            cbind( results.one.per.ppt[ , days.est.cols, drop = FALSE ], results.covars.one.per.ppt.with.extra.cols );
+        results.covars.per.person.with.extra.cols <-
+            cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );
         
         .keep.cols <-
-            grep( "num.*\\.seqs|totalbases", colnames( results.covars.one.per.ppt.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+            grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
         ### TODO: Something else.  Just trying to get down to a reasonable set; basically there are very highly clustered covariates here and it screws up the inference.
         ## Also remove all of the mut.rate.coef except for multifounder.Synonymous.PFitter.mut.rate.coef.
         
@@ -306,7 +308,6 @@ evaluateTimings <- function (
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
         mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
         all.additional.cols <- setdiff( .keep.cols, mut.rate.coef.cols );
-        helpful.additional.cols <- c( "priv.sites","multifounder.Synonymous.PFitter.is.poisson" );
           
         if( use.lasso.validate ) {
             keep.cols <- c( all.additional.cols, mut.rate.coef.cols, days.est.cols );
@@ -316,12 +317,12 @@ evaluateTimings <- function (
             estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
         }
           
-        results.covars.one.per.ppt <-
-            results.covars.one.per.ppt.with.extra.cols[ , keep.cols, drop = FALSE ];
-        results.covars.one.per.ppt.df <-
-            data.frame( results.covars.one.per.ppt );
+        results.covars.per.person <-
+            results.covars.per.person.with.extra.cols[ , keep.cols, drop = FALSE ];
+        results.covars.per.person.df <-
+            data.frame( results.covars.per.person );
 
-        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.one.per.ppt.df ), , drop = FALSE ] } ) );
+        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
         ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
         if( the.time == "6m" ) {
@@ -333,10 +334,10 @@ evaluateTimings <- function (
         }
         
         if( use.glm.validate ) {
-            glm.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
+            glm.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
         }
         if( use.lasso.validate ) {
-            lasso.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( estimate.cols ) );
+            lasso.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
         }
         for( .row.i in 1:nrow( regression.df ) ) {
             regression.df.without.row.i <-
@@ -351,8 +352,10 @@ evaluateTimings <- function (
                           c( .covariates.glm, helpful.additional.cols );
                   }
                   if( include.bounds.in.glm ) {
+                      ## This was causing a problem because of perfect collinearity, so I've taken the upper bound away.
                       .covariates.glm <-
-                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                          c( .covariates.glm, .lower.bound.colname );
+                      #     c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                   }
                   # glm:
                   .covars.to.exclude <- apply( regression.df.without.row.i, 2, function ( .col ) {
@@ -363,7 +366,7 @@ evaluateTimings <- function (
                     .df <- regression.df.without.row.i[ , .retained.covars, drop = FALSE ];
                     .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
                     .pred.value.glm <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                    glm.validation.results.one.per.ppt[ .row.i, .col.i ] <- 
+                    glm.validation.results.per.person[ .row.i, .col.i ] <- 
                         .pred.value.glm;
                   } # If the estimate can be used
     
@@ -373,8 +376,10 @@ evaluateTimings <- function (
                   # covariates for lasso
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
+                      ## This was causing a problem because of perfect collinearity, so I've taken the upper bound away.
                       .covariates.lasso <-
-                          c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                          c( .covariates.lasso, .lower.bound.colname );
+                      #     c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
                   }
                   # lasso:
                   .mat1 <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso, .estimate.colname ) ] );
@@ -392,14 +397,14 @@ evaluateTimings <- function (
                     cv.glmnet.fit <- cv.glmnet( .mat1, .out, intercept = FALSE,
                                                penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
                     .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
-                            lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <<- 
+                            lasso.validation.results.per.person[ .row.i, .col.i ] <<- 
                         .pred.value.lasso;
                      },
                      error = function( e ) {
                          warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                          .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                          .pred.value.lasso <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                            lasso.validation.results.one.per.ppt[ .row.i, .col.i ] <<- 
+                            lasso.validation.results.per.person[ .row.i, .col.i ] <<- 
                         .pred.value.lasso;
                      },
                         finally = {
@@ -411,22 +416,22 @@ evaluateTimings <- function (
             } # End foreach .col.i
         } # End foreach .row.i
         if( use.glm.validate ) {
-            colnames( glm.validation.results.one.per.ppt ) <-
+            colnames( glm.validation.results.per.person ) <-
                 paste( "glm.validation.results", estimate.cols, sep = "." );
-            rownames( glm.validation.results.one.per.ppt ) <-
+            rownames( glm.validation.results.per.person ) <-
                 rownames( regression.df );
-            results.one.per.ppt <-
-                cbind( results.one.per.ppt,
-                      glm.validation.results.one.per.ppt );
+            results.per.person <-
+                cbind( results.per.person,
+                      glm.validation.results.per.person );
         }
         if( use.lasso.validate ) {
-            colnames( lasso.validation.results.one.per.ppt ) <-
+            colnames( lasso.validation.results.per.person ) <-
                 paste( "lasso.validation.results", estimate.cols, sep = "." );
-            rownames( lasso.validation.results.one.per.ppt ) <-
+            rownames( lasso.validation.results.per.person ) <-
                 rownames( regression.df );
-            results.one.per.ppt <-
-                cbind( results.one.per.ppt,
-                      lasso.validation.results.one.per.ppt );
+            results.per.person <-
+                cbind( results.per.person,
+                      lasso.validation.results.per.person );
         }
       } # End if use.glm.validate || use.lasso.validate
       
@@ -437,7 +442,7 @@ evaluateTimings <- function (
       ## results, below, they will be changed from 0 to
       ## a boundary endpoint if 0 is outside of the
       ## bounds.
-      results.one.per.ppt.zeroNAs <- apply( results.one.per.ppt, 1:2, function( .value ) {
+      results.per.person.zeroNAs <- apply( results.per.person, 1:2, function( .value ) {
           if( is.na( .value ) ) {
               0
           } else {
@@ -446,8 +451,8 @@ evaluateTimings <- function (
       } );
       
       ## unbounded results:
-      diffs.by.stat.zeroNAs <- compute.diffs.by.stat( results.one.per.ppt.zeroNAs, days.since.infection );
-      diffs.by.stat <- compute.diffs.by.stat( results.one.per.ppt, days.since.infection );
+      diffs.by.stat.zeroNAs <- compute.diffs.by.stat( results.per.person.zeroNAs, days.since.infection );
+      diffs.by.stat <- compute.diffs.by.stat( results.per.person, days.since.infection );
     
       unbounded.results <- 
         list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), bias.zeroNAs = lapply( diffs.by.stat.zeroNAs, mean, na.rm = T ), se.zeroNAs = lapply( diffs.by.stat.zeroNAs, sd, na.rm = T ), rmse.zeroNAs = lapply( diffs.by.stat.zeroNAs, rmse, na.rm = T ), n.zeroNAs = lapply( diffs.by.stat.zeroNAs, function( .vec ) { sum( !is.na( .vec ) ) } ) );
@@ -474,10 +479,10 @@ evaluateTimings <- function (
         ## number is, but this seems reasonable.]
         .artificial.bounds.to.use <-
             grep( ifelse( the.time == "6m", "30weeks", "5weeks" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
-        results.one.per.ppt.bounded <-
+        results.per.person.bounded <-
           lapply( .artificial.bounds.to.use, function ( .artificial.bounds.name ) {
             .mat <-
-            apply( results.one.per.ppt, 2, function ( .results.column ) {
+            apply( results.per.person, 2, function ( .results.column ) {
             sapply( names( .results.column ), function ( .ppt ) {
               .value <- .results.column[ .ppt ];
               if( !( .ppt %in% rownames( the.artificial.bounds[[ .artificial.bounds.name ]] ) ) ) {
@@ -496,13 +501,13 @@ evaluateTimings <- function (
               return( .value );
             } );
           } );
-            rownames( .mat ) <- rownames( results.one.per.ppt );
+            rownames( .mat ) <- rownames( results.per.person );
             return( .mat );
         } );
-        names( results.one.per.ppt.bounded ) <- .artificial.bounds.to.use;
+        names( results.per.person.bounded ) <- .artificial.bounds.to.use;
     
-        bounded.results.by.bound.type <- lapply( results.one.per.ppt.bounded, function ( .results.one.per.ppt ) {
-          .diffs.by.stat <- compute.diffs.by.stat( .results.one.per.ppt, days.since.infection );
+        bounded.results.by.bound.type <- lapply( results.per.person.bounded, function ( .results.per.person ) {
+          .diffs.by.stat <- compute.diffs.by.stat( .results.per.person, days.since.infection );
     
           return( list( bias = lapply( .diffs.by.stat, mean, na.rm = T ), se = lapply( .diffs.by.stat, sd, na.rm = T ), rmse = lapply( .diffs.by.stat, rmse, na.rm = T ), n = lapply( .diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ) ) );
         } );
@@ -536,7 +541,7 @@ evaluateTimings <- function (
             results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
         }
         
-        results.covars.one.per.ppt.with.extra.cols <-
+        results.covars.per.person.with.extra.cols <-
           summarizeCovariatesOnePerParticipant( results.in );
         ## TODO: Add to that the loading of the viralloads.csv files (in the gold_standards dirs).
         
@@ -587,67 +592,24 @@ evaluateTimings <- function (
         if( is.na( partition.size ) ) {
           ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
           .weights <- days.est.nseq*days.est.nb;
-          results.one.per.ppt <-
-              compute.results.one.per.ppt( results, .weights );
+          results.per.person <-
+              compute.results.per.person( results, .weights );
         
           if( use.bounds ) {
-            ## The "center of bounds" approach is the way that
-            ## we do it at the VTN, and the way it was done in
-            ## RV144, etc: use the midpoint between the bounds
-            ## on the actual infection time computed from the
-            ## dates and results of the HIV positivity tests
-            ## (antibody or PCR).  The typical approach is to
-            ## perform antibody testing every X days
-            ## (historically this is 6 months in most HIV
-            ## vaccine trials, except during the vaccination
-            ## phase there are more frequent visits and on
-            ## every visit HIV testing is conducted).  The
-            ## (fake) bounds used here are calculated in the
-            ## createArtificialBoundsOnInfectionDate.R file.
-            ## The actual bounds would be too tight, since the
-            ## participants were detected HIV+ earlier in these
-            ## people than what we expect to see in a trial in
-            ## which testing is conducted every X days.  For
-            ## the center of bounds approach we load the bounds
-            ## files in subdirs of the "bounds" subdirectory eg
-            ## at
-            ## /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
-            ## These files have names beginning with
-            ## "artificialBounds_" and ending with ".tab".
-            bounds.subdirname <- "bounds";
-            .artificial.bounds.dirname <-
-                paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
-            artificial.bounds.filenames <-
-                dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
-            names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
-            
-            the.artificial.bounds <- lapply( names( artificial.bounds.filenames ), function ( .artificial.bounds.name ) {
-                .tbl <- read.table( artificial.bounds.filenames[[ .artificial.bounds.name ]], header = TRUE, sep = "\t" );
-                # Special: for v3, only use caprisa seqs (not rv217, for now).
-                if( the.region == "v3" ) {
-                    .tbl <-
-                        .tbl[ grep( "^100\\d\\d\\d", rownames( .tbl ) ), , drop = FALSE ];
-                } else if( the.region == "rv217_v3" ) {
-                    .tbl <-
-                        .tbl[ grep( "^100\\d\\d\\d", rownames( .tbl ), invert = TRUE ), , drop = FALSE ];
-                }
-                
-              return( .tbl );
-            } );
-            names( the.artificial.bounds ) <- names( artificial.bounds.filenames );
-            
-            center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
+              the.artificial.bounds <- getArtificialBounds( the.region, the.time, );
+              
+              center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
                 round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
             } );
             colnames( center.of.bounds.table ) <-
               paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
               
-            results.one.per.ppt <-
-              cbind( results.one.per.ppt, center.of.bounds.table[ rownames( results.one.per.ppt ), , drop = FALSE ] );
+            results.per.person <-
+              cbind( results.per.person, center.of.bounds.table[ rownames( results.per.person ), , drop = FALSE ] );
             
-              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds ) ) );
+              return( list( results.per.person = results.per.person, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } else {
-              return( list( results.one.per.ppt = results.one.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, evaluated.results = bound.and.evaluate.results.per.ppt( results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time ) ) );
+              return( list( results.per.person = results.per.person, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = bound.and.evaluate.results.per.ppt( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time ) ) );
           }
         } else { # else !is.na( partition.size )
             ## Here the multiple results per participant come from the partitions.  We want to evaluate each one, and summarize them afterwards.
@@ -702,12 +664,12 @@ evaluateTimings <- function (
         
                  .thissample.the.partition.ids <-
                      .the.partition.ids.by.sample[ , .sample.id ];
-                .thissample.results.one.per.ppt <-
+                .thissample.results.per.person <-
                     sapply( colnames( results ), function( est.name ) {
                         sapply( names( .thissample.the.partition.ids ), function( .ppt ) {
                             unname( results.per.ppt.by.id[[ est.name ]][[ .ppt ]][ .thissample.the.partition.ids[ .ppt ] ] )
                         } ) } );
-                return( list( results.one.per.ppt = .thissample.results.one.per.ppt, evaluated.results = bound.and.evaluate.results.per.ppt( .thissample.results.one.per.ppt, days.since.infection, results.covars.one.per.ppt.with.extra.cols, the.time, the.artificial.bounds ) ) );
+                return( list( results.per.person = .thissample.results.per.person, evaluated.results = bound.and.evaluate.results.per.ppt( .thissample.results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } # do.one.sample (..)
             
           set.seed( partition.bootstrap.seed );
@@ -722,7 +684,7 @@ evaluateTimings <- function (
             
             #hist( apply( matrix.of.unbounded.results.rmses, 1, diff ) )
             
-          return( list( summary = the.summary, mean.bias.per.ppt.by.est = mean.bias.per.ppt, sd.bias.per.ppt.by.est = sd.bias.per.ppt, num.partitions.per.ppt = num.partitions.per.ppt, days.since.infection = days.since.infection, results.covars.one.per.ppt.with.extra.cols = results.covars.one.per.ppt.with.extra.cols, bounds = the.artificial.bounds, bootstrap.results = bootstrap.results, bootstrap.unbounded.rmse = matrix.of.unbounded.results.rmses, bootstrap.bounded.rmse = matrix.of.bounded.results.rmses ) );
+          return( list( summary = the.summary, mean.bias.per.ppt.by.est = mean.bias.per.ppt, sd.bias.per.ppt.by.est = sd.bias.per.ppt, num.partitions.per.ppt = num.partitions.per.ppt, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, bootstrap.results = bootstrap.results, bootstrap.unbounded.rmse = matrix.of.unbounded.results.rmses, bootstrap.bounded.rmse = matrix.of.bounded.results.rmses ) );
         } # End if is.na( partition.size ) .. else ..
         
     } # get.timings.results.for.region.and.time (..)
@@ -802,7 +764,7 @@ evaluateTimings <- function (
                .vars;
            timings.results.1m.6m <-
                c( timings.results.1m.6m,
-                 list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.6m[[ "results.one.per.ppt" ]], timings.results.1m.6m[[ "days.since.infection" ]], timings.results.1m.6m[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = "1m.6m", timings.results.1m.6m[[ "bounds" ]] ) ) );
+                 list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.1m.6m[[ "results.per.person" ]], timings.results.1m.6m[[ "days.since.infection" ]], timings.results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", timings.results.1m.6m[[ "bounds" ]] ) ) );
            return( c( list( "1m.6m" = timings.results.1m.6m ), timings.results.by.time ) );
        } ); # End foreach the.region
       names( timings.results.by.region.and.time ) <- regions;
@@ -862,7 +824,7 @@ evaluateTimings <- function (
                                         # Add the evaluated.results:
               
               .evaluated.results <-
-                bound.and.evaluate.results.per.ppt( .rv.for.time[[ "results.one.per.ppt" ]], .rv.for.time[[ "days.since.infection" ]], .rv.for.time[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
+                bound.and.evaluate.results.per.ppt( .rv.for.time[[ "results.per.person" ]], .rv.for.time[[ "days.since.infection" ]], .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
               .rv.for.time <- c( .rv.for.time, 
                                 list( evaluated.results = .evaluated.results ) )
               return( .rv.for.time );
@@ -980,8 +942,11 @@ evaluateTimings <- function (
     ## TODO
     ##  *) evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).
     ##  *) fix the bounded time-pooled analyses, then do an alltogether (time and region) one.
-    ##    -=> just create a new bounds.type called "uniform_sampletime" or something.  Also while at it fix the center.of.bounds if possible to do the same, so the comparison is fair.
+    ##    -=> just create a new bounds.type called "uniform_sampletime" or something.
+    ##    -=> Also while at it fix the center.of.bounds if possible to do the same, so the comparison is fair.
+    ##    -=> Also separate out the evaluations by region and time (create additional columns specific to regions and times, or ie by suffix).
     ##  *) select a set of best predictions, using the cross-validation runs, for input into the evaluation of isMultiple.
+    ##    -=> For this 
     ##  *) check out results of the partitions of evaluateTimings.
     
     ## For partition size == 10
