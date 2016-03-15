@@ -1,10 +1,12 @@
 ## First do all the stuff in README.postprocessing.txt.
 ## [TODO: FUTURE: Also run evaluateTimings.R because its outputs are used as inputs here]
 library( "ROCR" ) # for "prediction" and "performance"
+library( "glmnet" ) # for cv.glmnet
 library( "parallel" ) # for mcapply
 
 source( "readIdentifyFounders_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
+source( "getResultsByRegionAndTime_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
@@ -12,8 +14,6 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 
 regions <- c( "nflg", "v3", "rv217_v3" );
 times <- c( "1m", "6m", "1m6m" );
-
-## MARK
 
 #' Evaluate isMultiple estimates and produce results tables.
 #'
@@ -49,7 +49,7 @@ evaluateIsMultiple <- function (
                              times = c( "1m", "6m", "1m6m" )
                             )
 {
-    isMultiple.results.by.region.and.time.Rda.filename <-
+    results.by.region.and.time.Rda.filename <-
         paste( RESULTS.DIR, results.dirname, "/isMultiple.results.by.region.and.time.Rda", sep = "" );
 
     ## Read in the gold standards.
@@ -68,12 +68,12 @@ evaluateIsMultiple <- function (
     ## something to be called single founder, all of the estimates
     ## (across regions, for a given test) must agree that it is one
     ## founder.
-    compute.results.per.person <- function ( results ) {
-        identify.founders.ptids <- rownames( results );
+    compute.estimates.is.one.founder.per.person <- function ( estimates.is.one.founder ) {
+        identify.founders.ptids <- rownames( estimates.is.one.founder );
             
-        results.per.person <- 
+        estimates.is.one.founder.per.person <- 
             t( sapply( unique( identify.founders.ptids ), function ( .ptid ) {
-            .ptid.subtable <- results[ identify.founders.ptids == .ptid, , drop = FALSE ];
+            .ptid.subtable <- estimates.is.one.founder[ identify.founders.ptids == .ptid, , drop = FALSE ];
             # Use the AND condition, meaning it's only called single-founder if all rows call it single-founder.
             if( nrow( .ptid.subtable ) == 1 ) {
               return( .ptid.subtable );
@@ -81,11 +81,11 @@ evaluateIsMultiple <- function (
             apply( .ptid.subtable, 2, function( .column ) { as.numeric( all( as.logical( .column ) ) ) } );
         } ) );
             
-        colnames( results.per.person ) <- colnames( results );
-        return( results.per.person );
-    } # compute.results.per.person (..)
+        colnames( estimates.is.one.founder.per.person ) <- colnames( estimates.is.one.founder );
+        return( estimates.is.one.founder.per.person );
+    } # compute.estimates.is.one.founder.per.person (..)
 
-    evaluate.results.per.ppt <-
+    evaluate.is.multiple.results.per.ppt <-
         function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\.([^\\.]+)?\\.[16]m(6m)?$" ) {
        ## Special: the ppt names might have suffices in estimates.is.one.founder.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );
@@ -96,6 +96,8 @@ evaluateIsMultiple <- function (
        }
        ## TODO: Use this for something.
 
+       mode( estimates.is.one.founder.per.person ) <- "numeric";
+       
        if( use.glm.validate || use.lasso.validate ) {
            results.covars.per.person.with.extra.cols <-
                cbind( estimates.is.one.founder.per.person, results.covars.per.person.with.extra.cols );
@@ -194,14 +196,14 @@ evaluateIsMultiple <- function (
                     cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
                                                penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
                     .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
-                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <<- 
+                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                         .pred.value.lasso;
                      },
                      error = function( e ) {
                          warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                          .formula <- as.formula( paste( "is.one.founder ~", .estimate.colname ) );
                          .pred.value.lasso <- predict( glm( .formula, family = "binomial", data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <<- 
+                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                         .pred.value.lasso;
                      },
                         finally = {
@@ -231,25 +233,28 @@ evaluateIsMultiple <- function (
                       lasso.validation.estimates.is.one.founder.per.person );
         }
       } # End if use.glm.validate || use.lasso.validate
-      
-       mode( estimates.is.one.founder.per.person ) <- "numeric";
-       
+
+      # If any column is all NAs, remove it.
+      estimates.is.one.founder.per.person <-
+          estimates.is.one.founder.per.person[ , apply( estimates.is.one.founder.per.person, 2, function ( .col ) { !all( is.na( .col ) ) } ), drop = FALSE ];
+            
       ## For fairness in evaluating when some methods
       ## completely fail to give a result, (so it's NA
       ## presently), we change all of these estimates
-      ## from NA to 0.  When we put bounds on the
-      ## results, below, they will be changed from 0 to
-      ## a boundary endpoint if 0 is outside of the
-      ## bounds.
-      estimates.is.one.founder.per.person.zeroNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
-          if( is.na( .value ) ) {
-              0
-          } else {
-              .value
-          }
-      } );
+      ## from NA to 1 (meaning yes, it's single-founder).
+                                        #stopifnot( sum( is.na( estimates.is.one.founder.per.person ) ) == 0 );
+            if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
+                warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
+            }
+      # estimates.is.one.founder.per.person.oneNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
+      #     if( is.na( .value ) ) {
+      #         1
+      #     } else {
+      #         .value
+      #     }
+      # } );
        
-        ## EVALUATION
+      ## EVALUATION
         
         # sum.correct.among.one.founder.people <-
         #   apply( estimates.is.one.founder.per.person[ as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
@@ -259,7 +264,7 @@ evaluateIsMultiple <- function (
         #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, function( .row ) { sum( 1-.row ) } );
         # sum.incorrect.among.multiple.founder.people <-
         #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
-        
+
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                 #print( .col.i );
@@ -268,9 +273,9 @@ evaluateIsMultiple <- function (
         names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
         return( isMultiple.aucs );
-    } # evaluate.results.per.ppt (..)
+    } # evaluate.is.multiple.results.per.ppt (..)
     
-    evaluate.is.multiple.for.region.and.time <- function ( the.region, the.time ) {
+    get.is.multiple.results.for.region.and.time <- function ( the.region, the.time, partition.size ) {
         identify.founders.tab.file <- paste( RESULTS.DIR, results.dirname, the.region, the.time, "identify_founders.tab", sep = "/" );
         stopifnot( file.exists( identify.founders.tab.file ) );
 
@@ -297,120 +302,52 @@ evaluateIsMultiple <- function (
         estimates.is.one.founder <-
             identify.founders.study[ , single.colnames, drop = FALSE ];
 
-        if( the.region == "v3" ) {
-            gold.is.one.founder.per.person <-
-                1-caprisa002.gold.is.multiple[ rownames( estimates.is.one.founder.per.person ) ];
-        } else {
-            stopifnot( ( the.region == "nflg" ) || ( length( grep( "rv217", the.region ) ) > 0 ) );
-            gold.is.one.founder.per.person <-
-                1-rv217.gold.is.multiple[ rownames( estimates.is.one.founder.per.person ) ];
-        }
-        
         if( is.na( partition.size ) ) {
             ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
             ## Sometimes there are multiple entries for one ptid/sample, eg for the NFLGs there are often right half and left half (RH and LH) and sometimes additionally NFLG results.  If so, for something to be called single founder, all of the estimates (across regions, for a given test) must agree that it is one founder.
             estimates.is.one.founder.per.person <-
                 compute.estimates.is.one.founder.per.person( estimates.is.one.founder );
             
-            ## ERE I AM.  I'm going to add some estimates made by prediction using leave-one-out cross-validation.
+            if( the.region == "v3" ) {
+                gold.is.one.founder.per.person <-
+                    1-caprisa002.gold.is.multiple[ rownames( estimates.is.one.founder.per.person ) ];
+            } else {
+                stopifnot( ( the.region == "nflg" ) || ( length( grep( "rv217", the.region ) ) > 0 ) );
+                gold.is.one.founder.per.person <-
+                    1-rv217.gold.is.multiple[ rownames( estimates.is.one.founder.per.person ) ];
+            }
+            
             results.covars.per.person.with.extra.cols <-
                 summarizeCovariatesOnePerParticipant( identify.founders.study );
             
           if( use.bounds ) {
               the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
               
-              return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = evaluate.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
+              return( list( results.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } else {
-              return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = evaluate.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time ) ) );
+              return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time ) ) );
           }
         } else { # else !is.na( partition.size )
             ## ERE I AM.
             stop( "NOT IMPLEMENTED: EVALUATING PARTITIONS FOR ISMULTIPLE" );
         }
-    } # evaluate.is.multiple.for.region.and.time ( the.region, the.time )
+    } # get.is.multiple.results.for.region.and.time ( the.region, the.time, partition.size )
 
-# Here "the.study" must be "rv217" or "caprisa002" or (special) "rv217_v3"
-evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NULL, output.file.append = FALSE ) {
-
-
-    if( !is.null( output.file ) ) {
-      if( length( grep( "^(.*?)\\/[^\\/]+$", output.file ) ) == 0 ) {
-          output.file.path <- NULL;
-          output.file.path.is.absolute <- NA;
-      } else {
-          output.file.path <-
-              gsub( "^(.*?)\\/[^\\/]+$", "\\1", output.file );
-          output.file.path.is.absolute <- ( substring( output.file.path, 1, 1 ) == "/" );
-      }
-      output.file.short <-
-          gsub( "^.*?\\/?([^\\/]+?)$", "\\1", output.file, perl = TRUE );
-
-      if( !is.null( output.file.path ) && output.file.path.is.absolute ) {
-          output.dir <- output.file.path;
-      } else if( is.null( output.dir ) ) {
-        if( is.null( output.file.path ) ) {
-            output.dir <- ".";
-        } else {
-            output.dir <- output.file.path;
-        }
-      } else {
-          output.dir <- paste( output.dir, output.file.path, sep = "/" );
-      }
-      output.file <- output.file.short;
-    } else { # is.null( output.file )
-      output.file <- paste( the.study, "_evaluateIsMultiple.tab", sep = "" );
-    }
-    if( is.null( output.dir ) || ( nchar( output.dir ) == 0 ) ) {
-      output.dir <- ".";
-    }
-    ## Remove "/" from end of output.dir
-    output.dir <-
-      gsub( "^(.*?)\\/+$", "\\1", output.dir );
-
-    if( the.study == "rv217" ) {
-        the.region <- "nflg";
-    } else if( the.study == "rv217_v3" ) {
-        the.region <- "rv217_v3";
-    } else if( the.study == "caprisa002" ) {
-        the.region <- "v3";
-    } else {
-        stop( paste( "again?!? unrecognized value of the.study:", the.study ) );
-    }
-        
-    results.by.time <- lapply( THE.TIMES, function( the.time ) {
-        cat( the.time, fill = TRUE );
-        return( evaluate.is.multiple.for.region.and.time( the.region, the.time ) );
-    } );
-    names( results.by.time ) <- THE.TIMES;
+    getIsMultipleResultsByRegionAndTime <- function ( partition.size = NA ) {
+        getResultsByRegionAndTime( gold.standard.varname = "gold.is.one.founder.per.person", get.results.for.region.and.time.fn = get.is.multiple.results.for.region.and.time, evaluate.results.per.person.fn = evaluate.is.multiple.results.per.ppt, partition.size = partition.size, regions = regions, times = times )
+    } # getIsMultipleResultsByRegionAndTime (..)
     
-    results.matrix <-
-        do.call( cbind, results.by.time );
-    # No need for so much precision.  2 digits should suffice.
-    results.matrix <- apply( results.matrix, 1:2, function ( .float ) { sprintf( "%0.2f", .float ) } ); 
-    output.table.path <-
-        paste( output.dir, "/", output.file, sep = "" );
+    if( force.recomputation || !file.exists( is.multiple.results.by.region.and.time.Rda.filename ) ) {
+        results.by.region.and.time <- getIsMultipleResultsByRegionAndTime();
+        save( is.multiple.results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
+    } else {
+        # loads is.multiple.results.by.region.and.time
+        load( file = results.by.region.and.time.Rda.filename );
+    }
 
-    write.table( results.matrix, file = output.table.path, append = ( file.exists( output.table.path ) && output.file.append ), row.names = TRUE, col.names = ( !output.file.append || !file.exists( output.table.path ) ), sep = "\t", quote = FALSE );
-
+    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, times = times );
+    
     # Return the file name.
     return( output.table.path );
-} # evaluateIsMultiple ( the.study, ... )
+} # evaluateIsMultiple (... )
 
-## Here is where the action is.
-the.study <- Sys.getenv( "evaluateIsMultiple_study" );
-output.table.file <- Sys.getenv( "evaluateIsMultiple_outputFilename" );
-if( nchar( output.table.file ) == 0 ) {
-    output.table.file <- NULL;
-}
-output.dir <- Sys.getenv( "evaluateIsMultiple_outputDir" );
-if( nchar( output.dir ) == 0 ) {
-    output.dir <- NULL;
-}
-append.to.output.file <- Sys.getenv( "evaluateIsMultiple_append" );
-if( ( nchar( append.to.output.file ) == 0 ) || ( append.to.output.file == "0" ) || ( toupper( append.to.output.file ) == "F" ) || ( toupper( append.to.output.file ) == "FALSE" ) ) {
-    append.to.output.file <- FALSE;
-} else {
-    append.to.output.file <- TRUE;
-}
-
-print( evaluateIsMultiple( the.study, output.dir = output.dir, output.file = output.table.file, output.file.append = append.to.output.file ) );
