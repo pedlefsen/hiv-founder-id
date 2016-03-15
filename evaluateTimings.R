@@ -925,6 +925,64 @@ evaluateTimings <- function (
         } );
         return( NULL );
     } );
+
+    ## ERE I AM.  Next: write out the regions tables.
+    # Make a table out of each result in timings.results.across.regions.by.time, too.
+    results.table.across.regions.by.time.and.bounds.type <- 
+        lapply( regions[ -length( regions ) ], function( from.region ) {
+            .rv <- 
+                lapply( names( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]] ), function( to.region ) {
+                    ..rv <- 
+                        lapply( names( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]][[ to.region ]] ), function( the.time ) {
+                  ...rv <- 
+                    lapply( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]][[ to.region ]][[ the.time ]][[ "evaluated.results" ]], function( results.by.bounds.type ) {
+                      sapply( results.by.bounds.type, function( results.list ) { results.list } );
+                    } );
+                  names( ...rv ) <- names( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]][[ to.region ]][[ the.time ]][[ "evaluated.results" ]] )
+                  return( ...rv );
+                } );
+                  names( ..rv ) <- names( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]][[ to.region ]] )
+                  return( ..rv );
+                } );
+            names( .rv ) <- names( timings.results.by.region.and.time[[ "timings.results.across.regions.by.time" ]][[ from.region ]] );
+            return( .rv );
+        } );
+    names( results.table.across.regions.by.time.and.bounds.type ) <- regions[ -length( regions ) ];
+    
+    ## Write these pooled-over-regions results out, too.
+    .result.ignored <- sapply( regions[ -length( regions ) ], function ( from.region ) {
+        ..result.ignored <- sapply( names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]] ), function ( to.region ) {
+            ...result.ignored <- 
+        sapply( times, function ( the.time ) {
+          .bounds.types <- names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]][[ the.time ]] );
+          ....result.ignored <- 
+            sapply( .bounds.types, function ( the.bounds.type ) {
+              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", from.region, "_and_", to.region, "_", the.time, "_", the.bounds.type, "_evaluateTimings.tab", sep = "" );
+              ## TODO: REMOVE
+              print( the.bounds.type );
+              .tbl <-
+                apply( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]][[ the.time ]][[ the.bounds.type ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+              #print( .tbl );
+              write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
+              return( NULL );
+            } );
+              return( NULL );
+            } );
+          return( NULL );
+        } );
+        return( NULL );
+    } );
+
+    ## ENDMARK
+
+    
+    
+    ## TODO
+    ##  *) evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).
+    ##  *) fix the bounded time-pooled analyses, then do an alltogether (time and region) one.
+    ##    -=> just create a new bounds.type called "uniform_sampletime" or something.  Also while at it fix the center.of.bounds if possible to do the same, so the comparison is fair.
+    ##  *) select a set of best predictions, using the cross-validation runs, for input into the evaluation of isMultiple.
+    ##  *) check out results of the partitions of evaluateTimings.
     
     ## For partition size == 10
     timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
