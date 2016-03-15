@@ -127,15 +127,9 @@ evaluateIsMultiple <- function ( the.study, output.dir = NULL, output.file = NUL
         regression.df <-
             cbind( data.frame( is.one.founder = gold.is.one.founder.per.person[ rownames( results.covars.one.per.ppt.df ) ] ), results.covars.one.per.ppt.df );
         
-        # library( "glmnet" )
-        # cv.glmnet.fit <- cv.glmnet( results.covars.one.per.ppt, days.since.infection, nfolds = nrow( results.covars.one.per.ppt ), type.measure = "mae", grouped = FALSE, intercept = FALSE ); # mean absolute error, corresponding to the "for.bias" version of the other exploration.
-        
-        #library( "boot" );
-                                        #logistic.fit.formula <- as.formula( paste( "is.one.founder ~ ", paste( colnames( results.covars.one.per.ppt ), collapse = "+" ) ) );
-        # logistic.fit.formula <- as.formula( paste( "is.one.founder ~ ", paste( .keep.cols[c(3,4,8)], collapse = "+" ) ) );
+        # logistic.fit.formula <- as.formula( paste( "is.one.founder ~ ", paste( c( helpful.additional.cols, mut.rate.cols[ 1 ] ), collapse = "+" ) ) );
         # summary( logistic.fit <- glm( logistic.fit.formula, family = "binomial", data = regression.df ) );
-        # summary( gaussian.fit );
-        #cv.glm( data = regression.df, glmfit = gaussian.fit, K = nrow( regression.df ) );
+
         ## new proof of concept:
         helpful.additional.parameters.validation.results.one.per.ppt <- matrix( NA, nrow = nrow( results.covars.one.per.ppt.df ), ncol = length( mut.rate.cols ) );
         for( .row.i in 1:nrow( regression.df ) ) {
