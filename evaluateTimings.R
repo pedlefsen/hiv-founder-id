@@ -807,69 +807,77 @@ evaluateTimings <- function (
        } ); # End foreach the.region
       names( timings.results.by.region.and.time ) <- regions;
 
+      # We actually want this for every pair of regions.
       timings.results.across.regions.by.time <-
+        lapply( 1:( length( regions ) - 1), function( from.region.i ) {
+          from.region <- regions[ from.region.i ];
+        .rv.from.region.i <- 
+        lapply( ( from.region.i + 1 ):length( regions ), function( to.region.j ) {
+          to.region <- regions[ to.region.j ];
+          .rv.from.region.i.to.region.j <- 
           lapply( times, function ( the.time ) {
+            ## TODO: REMOVE
+            print( paste( "Across regions", from.region, "and", to.region, "at time", the.time ) );
               .vars <-
-                  setdiff( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]] ), "evaluated.results" );
+                  setdiff( names( timings.results.by.region.and.time[[ from.region ]][[ the.time ]] ), "evaluated.results" );
               .rv.for.time <- 
               lapply( .vars, function ( .varname ) {
                #print( .varname );
                if( .varname == "bounds" ) {
                    .rv <- 
-                   lapply( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] ), function( .bounds.type ) {
+                   lapply( names( timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]] ), function( .bounds.type ) {
                        missing.column.safe.rbind(
-                           timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
-                           timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
-                           paste( "nflg", the.time, sep = "." ),
-                           paste( "v3", the.time, sep = "." )
+                           timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
+                           timings.results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
+                           paste( from.region, the.time, sep = "." ),
+                           paste( to.region, the.time, sep = "." )
                        )
                    } );
                    names( .rv ) <-
-                       names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] );
+                       names( timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]] );
                    return( .rv );
                } else if( .varname == "days.since.infection" ) {
                    # one dimensional
                    .rv <- c( 
-                             timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]],
-                             timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]]
+                             timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]],
+                             timings.results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]]
                        );
                      names( .rv ) <-
-                         c( paste( names( timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]] ), paste( "nflg", the.time, sep = "." ), sep = "." ),
-                           paste( names( timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]] ), paste( "v3", the.time, sep = "." ), sep = "." ) );
+                         c( paste( names( timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]] ), paste( from.region, the.time, sep = "." ), sep = "." ),
+                           paste( names( timings.results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]] ), paste( to.region, the.time, sep = "." ), sep = "." ) );
                    return( .rv );
                } else {
                      .rv <-
                          missing.column.safe.rbind(
-                             timings.results.by.region.and.time[[ "nflg" ]][[ the.time ]][[ .varname ]],
-                             timings.results.by.region.and.time[[ "v3" ]][[ the.time ]][[ .varname ]],
-                           paste( "nflg", the.time, sep = "." ),
-                           paste( "v3", the.time, sep = "." )
+                             timings.results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]],
+                             timings.results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]],
+                           paste( from.region, the.time, sep = "." ),
+                           paste( to.region, the.time, sep = "." )
                        );
                      return( .rv );
                  }
            } );
            names( .rv.for.time ) <-
                .vars;
-            return( .rv.for.time );
+                                        # Add the evaluated.results:
+              
+              .evaluated.results <-
+                bound.and.evaluate.results.per.ppt( .rv.for.time[[ "results.one.per.ppt" ]], .rv.for.time[[ "days.since.infection" ]], .rv.for.time[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
+              .rv.for.time <- c( .rv.for.time, 
+                                list( evaluated.results = .evaluated.results ) )
+              return( .rv.for.time );
           } );
-        names( timings.results.across.regions.by.time ) <- times;
+        names( .rv.from.region.i.to.region.j ) <- times;
+          return( .rv.from.region.i.to.region.j );
+        } );
+        names( .rv.from.region.i ) <- regions[ ( from.region.i + 1 ):length( regions ) ];
+          return( .rv.from.region.i );
+      } );
+        names( timings.results.across.regions.by.time ) <- regions[ 1:( length( regions ) - 1 ) ];
 
-        # Add the evaluated.results:
-        timings.results.across.regions.by.time.2 <-
-            lapply( times,
-                   function( the.time ) {
-                       print( the.time );
-                       timings.results.across.regions <-
-                           timings.results.across.regions.by.time[[ the.time ]];
-                       return( c( timings.results.across.regions,
-              list( evaluated.results = bound.and.evaluate.results.per.ppt( timings.results.across.regions[[ "results.one.per.ppt" ]], timings.results.across.regions[[ "days.since.infection" ]], timings.results.across.regions[[ "results.covars.one.per.ppt.with.extra.cols" ]], the.time = the.time, timings.results.across.regions[[ "bounds" ]] ) ) )
-                              );
-                     } );
-        names( timings.results.across.regions.by.time.2 ) <- times;
-        
-        return( c( timings.results.by.region.and.time, timings.results.across.regions.by.time.2 ) );
+        return( c( timings.results.by.region.and.time, list( timings.results.across.regions.by.time = timings.results.across.regions.by.time ) ) );
     } # getTimingsResultsByRegionAndTime ( partition.size )
-    
+
     if( force.recomputation || !file.exists( timings.results.by.region.and.time.Rda.filename ) ) {
         timings.results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( timings.results.by.region.and.time, file = timings.results.by.region.and.time.Rda.filename );
@@ -877,36 +885,38 @@ evaluateTimings <- function (
         # loads timings.results.by.region.and.time
         load( file = timings.results.by.region.and.time.Rda.filename );
     }
+
+    ## Note that there are now special entries in timings.results.by.region.and.time that are not regions (under "timings.results.across.regions.by.time") -- these are comparisons across the two (main) regions.
     
-    # Make a table out of it. (one per study).
+    # Make a table out of it. (one per study).  See below for making tables from timings.results.across.regions.by.time.
     results.table.by.region.and.time.and.bounds.type <-
-        lapply( names( timings.results.by.region.and.time ), function( the.region ) {
+        lapply( regions, function( the.region ) {
             .rv <- 
                 lapply( names( timings.results.by.region.and.time[[ the.region ]] ), function( the.time ) {
                   ..rv <- 
-                    lapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]], function( results.by.bounds.type ) {
+                    lapply( timings.results.by.region.and.time[[ the.region ]][[ the.time ]][[ "evaluated.results" ]], function( results.by.bounds.type ) {
                       sapply( results.by.bounds.type, function( results.list ) { results.list } );
                     } );
-                  names( ..rv ) <- names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]] )
+                  names( ..rv ) <- names( timings.results.by.region.and.time[[ the.region ]][[ the.time ]][[ "evaluated.results" ]] )
                   return( ..rv );
                 } );
-            names( .rv ) <- times;
+            names( .rv ) <- names( timings.results.by.region.and.time[[ the.region ]] );
             return( .rv );
         } );
     names( results.table.by.region.and.time.and.bounds.type ) <- regions;
     
     ## Write these out.
-    bounds.types <- names( results.table.by.region.and.time.and.bounds.type[[1]][[1]] );
     .result.ignored <- sapply( regions, function ( the.region ) {
         ..result.ignored <- 
         sapply( times, function ( the.time ) {
+          .bounds.types <- names( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]] );
           ...result.ignored <- 
-            sapply( bounds.types, function ( the.bounds.type ) {
+            sapply( .bounds.types, function ( the.bounds.type ) {
               out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, "_evaluateTimings.tab", sep = "" );
               ## TODO: REMOVE
               print( the.bounds.type );
               .tbl <-
-                apply( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]][[ "evaluated.results" ]][[ the.bounds.type ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+                apply( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]][[ the.bounds.type ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
               #print( .tbl );
               write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
               return( NULL );
