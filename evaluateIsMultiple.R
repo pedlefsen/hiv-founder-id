@@ -12,9 +12,6 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 
-regions <- c( "nflg", "v3", "rv217_v3" );
-times <- c( "1m", "6m", "1m6m" );
-
 #' Evaluate isMultiple estimates and produce results tables.
 #'
 #' This function runs the BakeOff results analysis for the isMultiple results.
@@ -104,7 +101,7 @@ evaluateIsMultiple <- function (
         
            .keep.cols <-
                grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
-           single.cols <- grep( "\\.is\\.|fits", colnames( identify.founders.study ), perl = TRUE, value = TRUE );
+           single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
            all.additional.cols <- setdiff( .keep.cols, c( single.cols, mut.rate.coef.cols ) );
           
