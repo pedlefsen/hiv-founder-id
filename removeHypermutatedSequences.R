@@ -264,7 +264,10 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
 
     # detroying Paul's beautiful apply-based design with some nested for loops
     for (.retained.sequence in duplicate.sequences.tbl[,1]){
-      for (.duplicate.sequence in strsplit(duplicate.sequences.tbl[,2][duplicate.sequences.tbl[,1] == .retained.sequence], ',')){
+#      for (.duplicate.sequence in strsplit(duplicate.sequences.tbl[,2][duplicate.sequences.tbl[,1] == .retained.sequence], ',')){
+# Phillip's fix 20160316
+#
+      for (.duplicate.sequence in strsplit(duplicate.sequences.tbl[,2][duplicate.sequences.tbl[,1] == .retained.sequence], ',')[[1]]){
         all.potential.pos <- rbind(all.potential.pos,
                                    data.frame(seq.name = .duplicate.sequence,
                                               pos = all.potential.pos.no.duplicates$pos[all.potential.pos.no.duplicates$seq.name == .retained.sequence],
