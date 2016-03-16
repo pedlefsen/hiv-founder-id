@@ -7,6 +7,7 @@ source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
 source( "getResultsByRegionAndTime_safetosource.R" );
+source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
 #' Evaluate timings estimates and produce results tables.
