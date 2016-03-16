@@ -839,7 +839,7 @@ evaluateTimings <- function (
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, times = times );
+    writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions );
     
     ## TODO
     ##  *) evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).

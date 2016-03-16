@@ -1,4 +1,4 @@
-writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, times, results.are.bounded = TRUE ) {
+writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE ) {
     ## Note that there are now special entries in results.by.region.and.time that are not regions (under "results.across.regions.by.time") -- these are comparisons across the two (main) regions.
 
   if( results.are.bounded ) {
@@ -49,11 +49,13 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
     ## Write these out.
     .result.ignored <- sapply( regions, function ( the.region ) {
         ..result.ignored <- 
-        sapply( times, function ( the.time ) {
+        sapply( names( results.by.region.and.time[[ the.region ]] ), function ( the.time ) {
           .bounds.types <- names( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]] );
           ...result.ignored <- 
-            sapply( .bounds.types, function ( the.bounds.type ) {
-              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, out.tab.file.suffix, sep = "" );
+              sapply( .bounds.types, function ( the.bounds.type ) {
+                  out.dir <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", sep = "" );
+                  dir.create( out.dir, recursive = TRUE, showWarnings = FALSE );
+              out.file <- paste( out.dir, the.bounds.type, out.tab.file.suffix, sep = "" );
               ## TODO: REMOVE
               print( paste( the.bounds.type, out.file ) );
               .tbl <-
@@ -108,7 +110,7 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
     .result.ignored <- sapply( regions[ -length( regions ) ], function ( from.region ) {
         ..result.ignored <- sapply( names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]] ), function ( to.region ) {
             ...result.ignored <- 
-        sapply( times, function ( the.time ) {
+        sapply( names( results.by.region.and.time[[ the.region ]] ), function ( the.time ) {
           .bounds.types <- names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]][[ the.time ]] );
           ....result.ignored <- 
             sapply( .bounds.types, function ( the.bounds.type ) {

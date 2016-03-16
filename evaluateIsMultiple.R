@@ -343,7 +343,7 @@ evaluateIsMultiple <- function (
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, times = times, results.are.bounded = FALSE );
+    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = FALSE );
     
     # Return the file name.
     return( output.table.path );
