@@ -7,6 +7,7 @@ library( "parallel" ) # for mcapply
 source( "readIdentifyFounders_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
 source( "getResultsByRegionAndTime_safetosource.R" );
+source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
@@ -336,13 +337,13 @@ evaluateIsMultiple <- function (
     
     if( force.recomputation || !file.exists( is.multiple.results.by.region.and.time.Rda.filename ) ) {
         results.by.region.and.time <- getIsMultipleResultsByRegionAndTime();
-        save( is.multiple.results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
+        save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
     } else {
-        # loads is.multiple.results.by.region.and.time
+        # loads results.by.region.and.time
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, times = times );
+    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, times = times, results.are.bounded = FALSE );
     
     # Return the file name.
     return( output.table.path );
