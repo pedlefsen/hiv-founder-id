@@ -77,10 +77,9 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                 lapply( names( results.by.region.and.time[[ "results.across.regions.by.time" ]][[ from.region ]] ), function( to.region ) {
                     ..rv <- 
                         lapply( names( results.by.region.and.time[[ "results.across.regions.by.time" ]][[ from.region ]][[ to.region ]] ), function( the.time ) {
-## MARK
-# Results are bounded for the timings but not the is.single results.
+                          # Results are bounded for the timings but not the is.single results.
                           if( results.are.bounded ) {
-                    # the "bounds" here actually also may include "glm.fit.statistics", which is not really a bound.
+                            # the "bounds" here actually also may include "glm.fit.statistics", which is not really a bound.
                             ..relevant.bounds <- setdiff( names( results.by.region.and.time[[ "results.across.regions.by.time" ]][[ from.region ]][[ to.region ]][[ the.time ]][[ "evaluated.results" ]] ), "glm.fit.statistics" );
                   
                             ..rv <- 
@@ -110,7 +109,7 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
     .result.ignored <- sapply( regions[ -length( regions ) ], function ( from.region ) {
         ..result.ignored <- sapply( names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]] ), function ( to.region ) {
             ...result.ignored <- 
-        sapply( names( results.by.region.and.time[[ the.region ]] ), function ( the.time ) {
+        sapply( names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]] ), function ( the.time ) {
           .bounds.types <- names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]][[ the.time ]] );
           ....result.ignored <- 
             sapply( .bounds.types, function ( the.bounds.type ) {

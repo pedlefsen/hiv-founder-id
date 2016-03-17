@@ -37,7 +37,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.glm = TRUE,
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
-                             helpful.additional.cols = c(), # c( "pred.days" )
+                             helpful.additional.cols = c(), # TODO IMPLEMENT: c( "pred.days" )
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,

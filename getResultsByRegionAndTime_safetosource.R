@@ -168,7 +168,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                              list( evaluated.results = .evaluated.results ) )
            return( .rv.for.time );
           } );
-        names( .rv.from.region.i.to.region.j ) <- times;
+        names( .rv.from.region.i.to.region.j ) <- .times;
           return( .rv.from.region.i.to.region.j );
         } );
         names( .rv.from.region.i ) <- regions[ ( from.region.i + 1 ):length( regions ) ];
