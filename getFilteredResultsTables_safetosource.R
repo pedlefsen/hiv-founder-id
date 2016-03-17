@@ -22,11 +22,13 @@ getFilteredResultsTables <- function (
 
     # Filter out anything that's impossible -- so that's all the deterministic bounds as well as any non-matching time.  Also we use 30weeks never 20weeks for the 6 month time point.
     if( the.time == "1m" ) {
-        the.times.it.aint <- c( "20weeks", "30weeks" );
+        the.times.it.aint <- c( "20weeks", "30weeks", "1m5weeks_6m30weeks" );
     } else if( the.time == "1m6m" ) {
-        the.times.it.aint <- c( "20weeks" );
+        the.times.it.aint <- c( "20weeks", "1m5weeks_6m30weeks" );
     } else if( the.time == "6m" ) {
-        the.times.it.aint <- c( "5weeks", "20weeks" );
+        the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks" );
+    } else if( the.time == "1m.6m" ) {
+        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks", "1m5weeks_6m30weeks" );
     }
     results.filtered <- results[ grep( paste( c( "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
     
