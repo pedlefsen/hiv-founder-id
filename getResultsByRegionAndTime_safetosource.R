@@ -32,7 +32,6 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                } );
            names( results.by.time ) <- times;
 
-            ## TODO: a present limitation is that you really want to bound each time's values by its correct bounds, so instead of using eg 5weeks or 30weeks, we should use 5weeks for the 1m results and 30weeks for the 6m results.  Should make a new bounds called "matching" or something, with this..
            .vars <- setdiff( names( results.by.time[[1]] ), "evaluated.results" );
            results.1m.6m <- lapply( .vars, function ( .varname ) {
                #print( .varname );
@@ -49,6 +48,15 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                    } );
                    names( .rv ) <-
                        names( results.by.time[[ "1m" ]][[ .varname ]] );
+                   ## Add a new bounds.type called "uniform_1m5weeks_6m30weeks"
+                   new.bounds.table <-
+                       missing.column.safe.rbind(
+                           results.by.time[[ "1m" ]][[ .varname ]][[ "uniform_5weeks" ]],
+                           results.by.time[[ "6m" ]][[ .varname ]][[ "uniform_30weeks" ]],
+                           "1m",
+                           "6m"
+                       );
+                   .rv <- c( list( "uniform_1m5weeks_6m30weeks" = new.bounds.table ), .rv );
                    return( .rv );
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
@@ -80,7 +88,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
        } ); # End foreach the.region
         names( results.by.region.and.time ) <- regions;
 
-      # We actually want this for every pair of regions.
+      # We now evaluate pooled results for every pair of regions.
       results.across.regions.by.time <-
         lapply( 1:( length( regions ) - 1), function( from.region.i ) {
           from.region <- regions[ from.region.i ];
