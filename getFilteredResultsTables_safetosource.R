@@ -30,7 +30,9 @@ getFilteredResultsTables <- function (
     }
     results.filtered <- results[ grep( paste( c( "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
     
-    if( !is.null( sort.column ) && !is.na( sort.column ) ) {
+    if( !is.null( sort.column ) && ( length( sort.column ) > 0 ) && !is.na( sort.column ) ) {
+        stopifnot( length( sort.column ) == 1 );
+        stopifnot( sort.column %in% names( results.filtered ) );
         results.filtered.sorted <-
             results.filtered[ order( results.filtered[[ sort.column ]] ), , drop = FALSE ];
         return( results.filtered.sorted );
