@@ -326,9 +326,9 @@ evaluateTimings <- function (
         if( the.time == "6m" ) {
             .lower.bound.colname <- "uniform_30weeks.lower";
             .upper.bound.colname <- "uniform_30weeks.upper";
-        } else {
-            .lower.bound.colname <- "uniform_5weeks.lower";
-            .upper.bound.colname <- "uniform_5weeks.upper";
+        } else if( the.time == "1m.6m" ) {
+            .lower.bound.colname <- "uniform_1m5weeks_6m30weeks.lower";
+            .upper.bound.colname <- "uniform_1m5weeks_6m30weeks.lower";
         }
         
         if( use.glm.validate ) {
@@ -667,7 +667,7 @@ evaluateTimings <- function (
         ## this time I have no idea what the right
         ## number is, but this seems reasonable.]
         .artificial.bounds.to.use <-
-            grep( ifelse( the.time == "6m", "30weeks", "5weeks" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
+            grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1m5weeks_6m30weeks", "30weeks" ), "5weeks" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
         results.per.person.bounded <-
           lapply( .artificial.bounds.to.use, function ( .artificial.bounds.name ) {
             .mat <-
