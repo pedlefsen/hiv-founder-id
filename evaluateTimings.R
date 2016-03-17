@@ -639,8 +639,8 @@ evaluateTimings <- function (
        } # End if there are suffices, also include results by suffix.
 
         return( results.list );
-      } # get.results.list.for.bounds.type ( diffs.by.stat );
-      results.list <- get.results.list.for.bounds.type( diffs.by.stat );
+      } # get.results.list.for.bounds.type ( diffs.by.stat, diffs.by.stat.zeroNAs );
+      results.list <- get.results.list.for.bounds.type( diffs.by.stat, diffs.by.stat.zeroNAs, "unbounded" );
        
        if( use.glm.validate ) {
          results.list <- c( results.list, list( glm.fit.statistics = glm.fit.statistics ) );
