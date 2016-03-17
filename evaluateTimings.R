@@ -842,9 +842,9 @@ evaluateTimings <- function (
     writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions );
     
     ## TODO
-    ##  *) evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).
-    ##  *) fix the bounded time-pooled analyses, then do an alltogether (time and region) one.
-    ##    -=> just create a new bounds.type called "uniform_sampletime" or something.
+    ##  [done] evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).
+    ##  [done] fix the bounded time-pooled analyses, then do an alltogether (time and region) one.
+    ##  [done] just create a new bounds.type called "uniform_sampletime" or something.
     ##    -=> Also while at it fix the center.of.bounds if possible to do the same, so the comparison is fair.
     ##    -=> Also separate out the evaluations by region and time (create additional columns specific to regions and times, or ie by suffix).
     ##  *) select a set of best predictions, using the cross-validation runs, for input into the evaluation of isMultiple.

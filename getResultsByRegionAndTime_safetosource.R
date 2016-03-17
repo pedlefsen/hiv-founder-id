@@ -80,7 +80,27 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                  }
            } );
            names( results.1m.6m ) <-
-               .vars;
+             .vars;
+
+           time.dependent.estimate.colname.roots <- c( "COB", "Infer" );
+           for( .colname.root in time.dependent.estimate.colname.roots ) {
+             if( length( grep( .colname.root, colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) ) > 0 ) {
+               ## Add a new center-of-bounds result called "COB.uniform.1m5weeks.6m30weeks.time.est"
+               new.estimates.table <-
+                 rbind(
+                   results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "uniform.5weeks.time.est", sep = "." ), drop = FALSE ],
+                   results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "uniform.30weeks.time.est", sep = "." ), drop = FALSE ]
+                 );
+               rownames( new.estimates.table ) <-
+                 c(
+                   paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
+                   paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
+                 );
+               colnames( new.estimates.table ) <- paste( .colname.root, "uniform.1m5weeks.6m30weeks.time.est", sep = "." );
+               results.1m.6m[[ "results.per.person" ]] <-
+                 cbind( new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+             }
+           } # End foreach .colname.root
            results.1m.6m <-
                c( results.1m.6m,
                  list( evaluated.results = evaluate.results.per.person.fn( results.1m.6m[[ "results.per.person" ]], results.1m.6m[[ gold.standard.varname ]], results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", results.1m.6m[[ "bounds" ]] ) ) );
@@ -95,10 +115,11 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
         .rv.from.region.i <- 
         lapply( ( from.region.i + 1 ):length( regions ), function( to.region.j ) {
           to.region <- regions[ to.region.j ];
+          .times <- names( results.by.region.and.time[[ from.region ]] );
           .rv.from.region.i.to.region.j <- 
-          lapply( times, function ( the.time ) {
+          lapply( .times, function ( the.time ) {
             ## TODO: REMOVE
-            print( paste( "Across regions", from.region, "and", to.region, "at time", the.time ) );
+            print( paste( "Pooling regions", from.region, "and", to.region, "at time", the.time ) );
               .vars <-
                   setdiff( names( results.by.region.and.time[[ from.region ]][[ the.time ]] ), "evaluated.results" );
               .rv.for.time <- 
