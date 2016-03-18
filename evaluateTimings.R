@@ -328,7 +328,10 @@ evaluateTimings <- function (
             .upper.bound.colname <- "uniform_30weeks.upper";
         } else if( the.time == "1m.6m" ) {
             .lower.bound.colname <- "uniform_1m5weeks_6m30weeks.lower";
-            .upper.bound.colname <- "uniform_1m5weeks_6m30weeks.lower";
+            .upper.bound.colname <- "uniform_1m5weeks_6m30weeks.upper";
+        } else {
+            .lower.bound.colname <- "uniform_5weeks.lower";
+            .upper.bound.colname <- "uniform_5weeks.upper";
         }
         
         if( use.glm.validate ) {
