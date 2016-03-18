@@ -86,7 +86,7 @@ evaluateIsMultiple <- function (
     bound.and.evaluate.is.multiple.results.per.ppt <-
         function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+" ) {
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
-       ppt.names <- rownames( results.per.person );
+       ppt.names <- rownames( estimates.is.one.founder.per.person );
        ppt.suffices <- NULL;
        if( !is.na( ppt.suffix.pattern ) ) {
            .ppt.names <- ppt.names;
