@@ -261,7 +261,7 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.per.person, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "(?:\\.\\D[^\\.]+?)?(?:\\.[16]m(6m)?)?$" ) {
+        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+" ) {
 
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( results.per.person );
@@ -270,7 +270,7 @@ evaluateTimings <- function (
            .ppt.names <- ppt.names;
            ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
            names( ppt.names ) <- .ppt.names;
-           ppt.suffices <- gsub( paste( "^.+?(", ppt.suffix.pattern, ")", sep = "" ), "\\1", .ppt.names, perl = TRUE );
+           ppt.suffices <- gsub( paste( "^.+?(", ppt.suffix.pattern, ")$", sep = "" ), "\\1", .ppt.names, perl = TRUE );
            names( ppt.suffices ) <- .ppt.names;
        }
         
@@ -631,6 +631,8 @@ evaluateTimings <- function (
        if( !is.null( ppt.suffices ) ) {
            unique.ppt.suffices <- unique( ppt.suffices );
            .results.by.suffix <- lapply( unique.ppt.suffices, function ( .ppt.suffix ) {
+               ## TODO: REMOVE
+               print( paste( "suffix:", .ppt.suffix ) );
                .diffs.by.stat <-
                    lapply( diffs.by.stat, function( .diffs.for.stat ) { .diffs.for.stat[ ppt.suffices == .ppt.suffix ]; } );
                .diffs.by.stat.zeroNAs <-
@@ -904,7 +906,7 @@ evaluateTimings <- function (
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions );
+    writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
     
     ## TODO
     ##  [done] evaluate isMultiple, assuming this has already been run (can't do it concurrently if we're using the outputs of this).

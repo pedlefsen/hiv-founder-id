@@ -83,16 +83,18 @@ evaluateIsMultiple <- function (
         return( estimates.is.one.founder.per.person );
     } # compute.estimates.is.one.founder.per.person (..)
 
-    evaluate.is.multiple.results.per.ppt <-
-        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\.([^\\.]+)?\\.[16]m(6m)?$" ) {
-       ## Special: the ppt names might have suffices in estimates.is.one.founder.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
-       ppt.names <- rownames( estimates.is.one.founder.per.person );
+    bound.and.evaluate.is.multiple.results.per.ppt <-
+        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+" ) {
+       ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
+       ppt.names <- rownames( results.per.person );
+       ppt.suffices <- NULL;
        if( !is.na( ppt.suffix.pattern ) ) {
            .ppt.names <- ppt.names;
            ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
            names( ppt.names ) <- .ppt.names;
+           ppt.suffices <- gsub( paste( "^.+?(", ppt.suffix.pattern, ")", sep = "" ), "\\1", .ppt.names, perl = TRUE );
+           names( ppt.suffices ) <- .ppt.names;
        }
-       ## TODO: Use this for something.
 
        mode( estimates.is.one.founder.per.person ) <- "numeric";
        
@@ -268,10 +270,39 @@ evaluateIsMultiple <- function (
                 #print( .col.i );
                 performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
             } );
-        names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
+       names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
-        return( isMultiple.aucs );
-    } # evaluate.is.multiple.results.per.ppt (..)
+       isMultiple.aucs.matrix <- matrix( isMultiple.aucs, ncol = 1 );
+       colnames( isMultiple.aucs.matrix ) <- "AUC";
+       rownames( isMultiple.aucs.matrix ) <- names( isMultiple.aucs );
+       
+       results.list <- list( unbounded = isMultiple.aucs.matrix );
+
+       ## If there are multi-timepoint and multi-region predictors, also include per-region, per-timepoint diffs.by.stat results.
+       if( !is.null( ppt.suffices ) ) {
+           unique.ppt.suffices <- unique( ppt.suffices );
+           .results.by.suffix <- lapply( unique.ppt.suffices, function ( .ppt.suffix ) {
+               ## TODO: REMOVE
+               print( paste( "suffix:", .ppt.suffix ) );
+               .isMultiple.aucs <- 
+                   sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
+                                        #print( .col.i );
+                       performance( prediction( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), gold.is.one.founder.per.person[ ppt.suffices == .ppt.suffix ] ), measure = "auc" )@y.values[[ 1 ]];
+                   } );
+               names( .isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
+
+               .isMultiple.aucs.matrix <- matrix( .isMultiple.aucs, ncol = 1 );
+               colnames( .isMultiple.aucs.matrix ) <- "AUC";
+               rownames( .isMultiple.aucs.matrix ) <- names( .isMultiple.aucs );
+       
+               return( .isMultiple.aucs.matrix );
+           } );
+           names( .results.by.suffix ) <- paste( "unbounded", unique.ppt.suffices, sep = "" );
+           results.list <- c( results.list, .results.by.suffix );
+       } # End if there are suffices, also include results by suffix.
+
+        return( results.list );
+    } # bound.and.evaluate.is.multiple.results.per.ppt (..)
     
     get.is.multiple.results.for.region.and.time <- function ( the.region, the.time, partition.size ) {
         identify.founders.tab.file <- paste( RESULTS.DIR, results.dirname, the.region, the.time, "identify_founders.tab", sep = "/" );
@@ -321,9 +352,9 @@ evaluateIsMultiple <- function (
           if( use.bounds ) {
               the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
               
-              return( list( results.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
+              return( list( results.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } else {
-              return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time ) ) );
+              return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = bound.and.evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time ) ) );
           }
         } else { # else !is.na( partition.size )
             ## ERE I AM.
@@ -332,7 +363,7 @@ evaluateIsMultiple <- function (
     } # get.is.multiple.results.for.region.and.time ( the.region, the.time, partition.size )
 
     getIsMultipleResultsByRegionAndTime <- function ( partition.size = NA ) {
-        getResultsByRegionAndTime( gold.standard.varname = "gold.is.one.founder.per.person", get.results.for.region.and.time.fn = get.is.multiple.results.for.region.and.time, evaluate.results.per.person.fn = evaluate.is.multiple.results.per.ppt, partition.size = partition.size, regions = regions, times = times )
+        getResultsByRegionAndTime( gold.standard.varname = "gold.is.one.founder.per.person", get.results.for.region.and.time.fn = get.is.multiple.results.for.region.and.time, evaluate.results.per.person.fn = bound.and.evaluate.is.multiple.results.per.ppt, partition.size = partition.size, regions = regions, times = times )
     } # getIsMultipleResultsByRegionAndTime (..)
     
     if( force.recomputation || !file.exists( is.multiple.results.by.region.and.time.Rda.filename ) ) {

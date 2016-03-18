@@ -15,7 +15,6 @@
     } # missing.column.safe.rbind (..)
 
 
-
 getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.region.and.time.fn, evaluate.results.per.person.fn, partition.size = NA, regions = c( "nflg", "v3", "rv217_v3" ), times = c( "1m", "6m", "1m6m" ) ) {
         if( !is.na( partition.size ) ) {
             regions <- "v3"; # Only v3 has partition results at this time.
@@ -108,13 +107,16 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
        } ); # End foreach the.region
         names( results.by.region.and.time ) <- regions;
 
-      # We now evaluate pooled results for every pair of regions.
+      # We now evaluate pooled results for every pair of regions, except nflg&rv217_v3.
       results.across.regions.by.time <-
         lapply( 1:( length( regions ) - 1), function( from.region.i ) {
           from.region <- regions[ from.region.i ];
         .rv.from.region.i <- 
         lapply( ( from.region.i + 1 ):length( regions ), function( to.region.j ) {
-          to.region <- regions[ to.region.j ];
+            to.region <- regions[ to.region.j ];
+            if( ( from.region == "nflg" ) && ( to.region == "rv217_v3" ) ) {
+                return( NA );
+            }
           .times <- names( results.by.region.and.time[[ from.region ]] );
           .rv.from.region.i.to.region.j <- 
           lapply( .times, function ( the.time ) {
@@ -131,8 +133,8 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                        missing.column.safe.rbind(
                            results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
                            results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]][[ .bounds.type ]],
-                           paste( from.region, the.time, sep = "." ),
-                           paste( to.region, the.time, sep = "." )
+                           from.region,
+                           to.region
                        )
                    } );
                    names( .rv ) <-
@@ -145,21 +147,26 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                              results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]]
                        );
                      names( .rv ) <-
-                         c( paste( names( results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]] ), paste( from.region, the.time, sep = "." ), sep = "." ),
-                           paste( names( results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]] ), paste( to.region, the.time, sep = "." ), sep = "." ) );
+                         c( paste( names( results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]] ), from.region, sep = "." ),
+                           paste( names( results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]] ), to.region, sep = "." ) );
                    return( .rv );
                } else {
                      .rv <-
                          missing.column.safe.rbind(
                              results.by.region.and.time[[ from.region ]][[ the.time ]][[ .varname ]],
                              results.by.region.and.time[[ to.region ]][[ the.time ]][[ .varname ]],
-                           paste( from.region, the.time, sep = "." ),
-                           paste( to.region, the.time, sep = "." )
+                           from.region,
+                           to.region
                        );
                      return( .rv );
                  }
            } );
            names( .rv.for.time ) <- .vars;
+
+
+
+
+
               
            # Add the evaluated.results:
            .evaluated.results <-
