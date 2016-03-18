@@ -90,7 +90,7 @@ evaluateIsMultiple <- function (
        ppt.suffices <- NULL;
        if( !is.na( ppt.suffix.pattern ) && ( length( grep( ppt.suffix.pattern, ppt.names ) ) > 0 ) ) {
          # if one has it, they should all have it.
-         stopifnot( length( grep( ppt.suffix.pattern, ppt.names ) ) == length( ppt.suffix.pattern ) );
+         stopifnot( length( grep( ppt.suffix.pattern, ppt.names ) ) == length( ppt.names ) );
            .ppt.names <- ppt.names;
            ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
            names( ppt.names ) <- .ppt.names;
