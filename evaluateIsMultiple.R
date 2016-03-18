@@ -88,7 +88,9 @@ evaluateIsMultiple <- function (
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );
        ppt.suffices <- NULL;
-       if( !is.na( ppt.suffix.pattern ) ) {
+       if( !is.na( ppt.suffix.pattern ) && ( length( grep( ppt.suffix.pattern, ppt.names ) ) > 0 ) ) {
+         # if one has it, they should all have it.
+         stopifnot( length( grep( ppt.suffix.pattern, ppt.names ) ) == length( ppt.suffix.pattern ) );
            .ppt.names <- ppt.names;
            ppt.names <- gsub( ppt.suffix.pattern, "", .ppt.names );
            names( ppt.names ) <- .ppt.names;
