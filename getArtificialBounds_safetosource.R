@@ -45,6 +45,11 @@ getArtificialBounds <- function (
         return( .tbl );
     } );
     names( the.artificial.bounds ) <- names( artificial.bounds.filenames );
+
+    ## Special: exclude the deterministic bounds, for now.
+    the.artificial.bounds <-
+        the.artificial.bounds[ grep( "deterministic", names( the.artificial.bounds ), invert = TRUE ) ];
+    
     return( the.artificial.bounds );
 } # get.artificial.bounds (..)
 
