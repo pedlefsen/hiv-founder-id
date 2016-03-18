@@ -17,7 +17,7 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 #'
 #' Instead of removing hypermutated sequences, this function can also either
 #' 'correct' them by replaceing the hypermutated As with Rs. (R IUPAC
-#' ambiguiety character for A or G).
+#' ambiguity character for A or G).
 #'
 #' Unlike the LANL implementation, the first sequence is not assumed to be the
 #' reference. The consensus is computed and that is taken as the reference.
@@ -314,7 +314,7 @@ removeHypermutatedSequences <- function ( fasta.file, output.dir = NULL, p.value
 
   # Write the subalignment as a fasta file
   if( fix.instead.of.remove ) {
-      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequencesWith", fix.with, fasta.file.short.suffix, sep = "" );
+      out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_fixHypermutatedSequencesWith", toupper(fix.with), fasta.file.short.suffix, sep = "" );
   } else {
       out.fasta.file = paste( output.dir, "/", fasta.file.short.nosuffix, "_removeHypermutatedSequences", fasta.file.short.suffix, sep = "" );
   }
