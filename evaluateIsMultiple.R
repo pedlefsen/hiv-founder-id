@@ -295,11 +295,9 @@ evaluateIsMultiple <- function (
             } );
        names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
-       isMultiple.aucs.matrix <- matrix( isMultiple.aucs, ncol = 1 );
-       colnames( isMultiple.aucs.matrix ) <- "AUC";
-       rownames( isMultiple.aucs.matrix ) <- names( isMultiple.aucs );
+       .isMultiple.aucs.list <- list( AUC = .isMultiple.aucs );
        
-       results.list <- list( unbounded = isMultiple.aucs.matrix );
+       results.list <- list( unbounded = .isMultiple.aucs.list );
 
        ## If there are multi-timepoint and multi-region predictors, also include per-region, per-timepoint diffs.by.stat results.
        if( !is.null( ppt.suffices ) ) {
@@ -314,11 +312,9 @@ evaluateIsMultiple <- function (
                    } );
                names( .isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
-               .isMultiple.aucs.matrix <- matrix( .isMultiple.aucs, ncol = 1 );
-               colnames( .isMultiple.aucs.matrix ) <- "AUC";
-               rownames( .isMultiple.aucs.matrix ) <- names( .isMultiple.aucs );
+               .isMultiple.aucs.list <- list( AUC = .isMultiple.aucs );
        
-               return( .isMultiple.aucs.matrix );
+               return( .isMultiple.aucs.list );
            } );
            names( .results.by.suffix ) <- paste( "unbounded", unique.ppt.suffices, sep = "" );
            results.list <- c( results.list, .results.by.suffix );
@@ -397,7 +393,7 @@ evaluateIsMultiple <- function (
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = FALSE );
+    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE );
     
     # Return the file name.
     return( output.table.path );
