@@ -149,16 +149,16 @@ evaluateIsMultiple <- function (
             lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
             ## This is really a 3D array, but I'm just lazily representing it directly this way.
             lasso.validation.estimates.is.one.founder.per.person.coefs <-
-                list( rep( NA, nrow( regression.df ) ) );
+                as.list( rep( NA, nrow( regression.df ) ) );
             names( lasso.validation.estimates.is.one.founder.per.person.coefs ) <-
                 rownames( regression.df );
         }
         for( .row.i in 1:nrow( regression.df ) ) {
             ## TODO: REMOVE
-            print( paste( "Row", .row.i ) );
+            print( paste( "Row", .row.i, "removed:", rownames( regression.df )[ .row.i ] ) );
             if( use.lasso.validate ) {
                 .lasso.validation.estimates.is.one.founder.per.person.coefs.row <-
-                    list( rep( NA, length( estimate.cols ) ) );
+                    as.list( rep( NA, length( estimate.cols ) ) );
                 names( .lasso.validation.estimates.is.one.founder.per.person.coefs.row ) <-
                     estimate.cols;
             }
@@ -325,9 +325,9 @@ evaluateIsMultiple <- function (
             } );
        names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
-       .isMultiple.aucs.list <- list( AUC = .isMultiple.aucs );
+       isMultiple.aucs.list <- list( AUC = isMultiple.aucs );
        
-       results.list <- list( unbounded = .isMultiple.aucs.list );
+       results.list <- list( unbounded = isMultiple.aucs.list );
 
        ## If there are multi-timepoint and multi-region predictors, also include per-region, per-timepoint diffs.by.stat results.
        if( !is.null( ppt.suffices ) ) {
