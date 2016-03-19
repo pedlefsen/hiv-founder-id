@@ -306,11 +306,11 @@ evaluateTimings <- function (
         anchre.cols <- grep( "anchre", .keep.cols, value = TRUE );
         mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
         COB.cols <- grep( "^COB", .keep.cols, value = TRUE );
-        estimate.cols <- c( mut.rate.coef.cols, Infer.cols, anchre.cols );
-        all.additional.cols <- setdiff( .keep.cols, c( COB.cols, estimate.cols ) );
+        estimate.cols <- c( COB.cols, mut.rate.coef.cols, Infer.cols, anchre.cols );
+        all.additional.cols <- setdiff( .keep.cols, estimate.cols );
           
         if( use.lasso.validate ) {
-            keep.cols <- c( all.additional.cols, estimate.cols ); # don't use COB cols in lasso.
+            keep.cols <- c( all.additional.cols, estimate.cols );
         } else {
             keep.cols <- c( helpful.additional.cols, estimate.cols );
         }
