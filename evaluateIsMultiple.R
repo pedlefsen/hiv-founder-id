@@ -37,14 +37,16 @@ evaluateIsMultiple <- function (
                              include.bounds.in.glm = TRUE,
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
-                             helpful.additional.cols = c(), # TODO IMPLEMENT: c( "pred.days" )
+                             helpful.additional.cols = c(),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
                              partition.bootstrap.samples = 100,
                              partition.bootstrap.num.cores = detectCores(),
-                             regions = c( "nflg", "v3", "rv217_v3" ),
-                             times = c( "1m", "6m", "1m6m" )
+                             regions = c( "nflg", "v3" ),
+                             times = c( "1m", "6m" )
+                             # regions = c( "nflg", "v3", "rv217_v3" ),
+                             # times = c( "1m", "6m", "1m6m" )
                             )
 {
     results.by.region.and.time.Rda.filename <-
@@ -102,7 +104,7 @@ evaluateIsMultiple <- function (
        
        if( use.glm.validate || use.lasso.validate ) {
            results.covars.per.person.with.extra.cols <-
-               cbind( estimates.is.one.founder.per.person, results.covars.per.person.with.extra.cols );
+               cbind( estimates.is.one.founder.per.person, results.covars.per.person.with.extra.cols[ , setdiff( colnames( results.covars.per.person.with.extra.cols ), colnames( estimates.is.one.founder.per.person ) ) , drop = FALSE ] );
         
            .keep.cols <-
                grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
@@ -132,6 +134,9 @@ evaluateIsMultiple <- function (
         if( the.time == "6m" ) {
             .lower.bound.colname <- "uniform_30weeks.lower";
             .upper.bound.colname <- "uniform_30weeks.upper";
+        } else if( the.time == "1m.6m" ) {
+            .lower.bound.colname <- "uniform_1m5weeks_6m30weeks.lower";
+            .upper.bound.colname <- "uniform_1m5weeks_6m30weeks.upper";
         } else {
             .lower.bound.colname <- "uniform_5weeks.lower";
             .upper.bound.colname <- "uniform_5weeks.upper";
@@ -142,8 +147,17 @@ evaluateIsMultiple <- function (
         }
         if( use.lasso.validate ) {
             lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            ## This is really a 3D array, but I'm just lazily representing it directly this way.
+            lasso.validation.estimates.is.one.founder.per.person.coefs <-
+                list( rep( NA, nrow( regression.df ) ) );
         }
         for( .row.i in 1:nrow( regression.df ) ) {
+            ## TODO: REMOVE
+            print( paste( "Row", .row.i ) );
+            if( use.lasso.validate ) {
+                .lasso.validation.estimates.is.one.founder.per.person.coefs.row <-
+                    list( rep( NA, length( estimate.cols ) ) );
+            }
             regression.df.without.row.i <-
                 regression.df[ -.row.i, , drop = FALSE ];
             for( .col.i in 1:length( estimate.cols ) ) {
@@ -213,9 +227,13 @@ evaluateIsMultiple <- function (
                     tryCatch( {
                     cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
                                                penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                    .lasso.validation.estimates.is.one.founder.per.person.coefs.cell <-
+                        coef( cv.glmnet.fit, s = "lambda.min" );
                     .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
                             lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                         .pred.value.lasso;
+                    .lasso.validation.estimates.is.one.founder.per.person.coefs.row[[ .col.i ]] <-
+                        .lasso.validation.estimates.is.one.founder.per.person.coefs.cell;
                      },
                      error = function( e ) {
                         if( .estimate.colname == "none" ) {
@@ -236,6 +254,10 @@ evaluateIsMultiple <- function (
                 } # End if use.lasso.validate
     
             } # End foreach .col.i
+            if( use.lasso.validate ) {
+                lasso.validation.estimates.is.one.founder.per.person.coefs[[ .row.i ]] <- 
+                    .lasso.validation.estimates.is.one.founder.per.person.coefs.row;
+            } # End if use.lasso.validate
         } # End foreach .row.i
         if( use.glm.validate ) {
             colnames( glm.validation.estimates.is.one.founder.per.person ) <-
