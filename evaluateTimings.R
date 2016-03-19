@@ -63,7 +63,7 @@ evaluateTimings <- function (
                             )
 {
     results.by.region.and.time.Rda.filename <-
-        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/isMultiple.results.by.region.and.time.Rda", sep = "" );
+        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
     
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
