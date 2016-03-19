@@ -31,7 +31,7 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                         ## TODO: REMOVE
                         ## Special workaround for bug fixed 19 March 2016
                                                 if( class( results.for.bounds.type ) == "matrix" ) {
-                                                  stopifnot( ncol( results.by.bounds.type ) == 1 );
+                                                  stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
                                                 }
                         sapply( results.for.bounds.type, function( results.list ) { results.list } );
@@ -89,6 +89,12 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                   
                             ..rv <- 
                               lapply( getEvaluatedResultsAcrossRegions( results.by.region.and.time, from.region, to.region, the.time, ..relevant.bounds ), function( results.for.bounds.type ) {
+                        ## TODO: REMOVE
+                        ## Special workaround for bug fixed 19 March 2016
+                                                if( class( results.for.bounds.type ) == "matrix" ) {
+                                                  stopifnot( ncol( results.for.bounds.type ) == 1 );
+                                                  results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
+                                                }
                                 sapply( results.for.bounds.type, function( results.list ) { results.list } );
                               } );
                             names( ..rv ) <- ..relevant.bounds;

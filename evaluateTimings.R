@@ -302,16 +302,17 @@ evaluateTimings <- function (
             grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
         
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson.
+        Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
+        anchre.cols <- grep( "anchre", .keep.cols, value = TRUE );
         mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
         COB.cols <- grep( "^COB", .keep.cols, value = TRUE );
-        all.additional.cols <- setdiff( .keep.cols, c( COB.cols, mut.rate.coef.cols ) ); # don't use COB cols in lasso.
-          
+        estimate.cols <- c( COB.cols, mut.rate.coef.cols, Infer.cols, anchre.cols );
+        all.additional.cols <- setdiff( .keep.cols, estimate.cols );
+        
         if( use.lasso.validate ) {
-            keep.cols <- c( all.additional.cols, mut.rate.coef.cols, days.est.cols );
-            estimate.cols <- setdiff( keep.cols, all.additional.cols );
+          keep.cols <- c( all.additional.cols, estimate.cols );
         } else {
-            keep.cols <- c( helpful.additional.cols, mut.rate.coef.cols, days.est.cols );
-            estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
+          keep.cols <- c( helpful.additional.cols, estimate.cols );
         }
         
         # Also always evaluate no-estimate: "none".
@@ -325,7 +326,7 @@ evaluateTimings <- function (
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
         ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
-        if( the.time == "6m" ) {
+        if( ( the.time == "6m" ) || ( the.time == "1m6m" ) ) {
             .lower.bound.colname <- "uniform_30weeks.lower";
             .upper.bound.colname <- "uniform_30weeks.upper";
         } else if( the.time == "1m.6m" ) {
