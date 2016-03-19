@@ -26,10 +26,15 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                   if( results.are.bounded ) {
                     # the "bounds" here actually also may include "glm.fit.statistics", which is not really a bound.
                     ..relevant.bounds <- setdiff( names( results.by.region.and.time[[ the.region ]][[ the.time ]][[ "evaluated.results" ]] ), "glm.fit.statistics" );
-                  
                     ..rv <- 
-                      lapply( getEvaluatedResults( results.by.region.and.time, the.region, the.time, ..relevant.bounds ), function( results.by.bounds.type ) {
-                        sapply( results.by.bounds.type, function( results.list ) { results.list } );
+                      lapply( getEvaluatedResults( results.by.region.and.time, the.region, the.time, ..relevant.bounds ), function( results.for.bounds.type ) {
+                        ## TODO: REMOVE
+                        ## Special workaround for bug fixed 19 March 2016
+                                                if( class( results.for.bounds.type ) == "matrix" ) {
+                                                  stopifnot( ncol( results.by.bounds.type ) == 1 );
+                                                  results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
+                                                }
+                        sapply( results.for.bounds.type, function( results.list ) { results.list } );
                       } );
                     names( ..rv ) <- ..relevant.bounds;
                     return( ..rv );
@@ -83,8 +88,8 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                             ..relevant.bounds <- setdiff( names( results.by.region.and.time[[ "results.across.regions.by.time" ]][[ from.region ]][[ to.region ]][[ the.time ]][[ "evaluated.results" ]] ), "glm.fit.statistics" );
                   
                             ..rv <- 
-                              lapply( getEvaluatedResultsAcrossRegions( results.by.region.and.time, from.region, to.region, the.time, ..relevant.bounds ), function( results.by.bounds.type ) {
-                                sapply( results.by.bounds.type, function( results.list ) { results.list } );
+                              lapply( getEvaluatedResultsAcrossRegions( results.by.region.and.time, from.region, to.region, the.time, ..relevant.bounds ), function( results.for.bounds.type ) {
+                                sapply( results.for.bounds.type, function( results.list ) { results.list } );
                               } );
                             names( ..rv ) <- ..relevant.bounds;
                             return( ..rv );
