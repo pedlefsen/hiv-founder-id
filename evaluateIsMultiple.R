@@ -86,7 +86,7 @@ evaluateIsMultiple <- function (
     } # compute.estimates.is.one.founder.per.person (..)
 
     bound.and.evaluate.is.multiple.results.per.ppt <-
-        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+" ) {
+        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = FALSE ) {
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );
        ppt.suffices <- NULL;
@@ -150,6 +150,8 @@ evaluateIsMultiple <- function (
             ## This is really a 3D array, but I'm just lazily representing it directly this way.
             lasso.validation.estimates.is.one.founder.per.person.coefs <-
                 list( rep( NA, nrow( regression.df ) ) );
+            names( lasso.validation.estimates.is.one.founder.per.person.coefs ) <-
+                rownames( regression.df );
         }
         for( .row.i in 1:nrow( regression.df ) ) {
             ## TODO: REMOVE
@@ -157,6 +159,8 @@ evaluateIsMultiple <- function (
             if( use.lasso.validate ) {
                 .lasso.validation.estimates.is.one.founder.per.person.coefs.row <-
                     list( rep( NA, length( estimate.cols ) ) );
+                names( .lasso.validation.estimates.is.one.founder.per.person.coefs.row ) <-
+                    estimate.cols;
             }
             regression.df.without.row.i <-
                 regression.df[ -.row.i, , drop = FALSE ];
@@ -310,6 +314,10 @@ evaluateIsMultiple <- function (
         # sum.incorrect.among.multiple.founder.people <-
         #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
 
+       if( use.lasso.validate && return.lasso.coefs ) {
+           return( lasso.validation.estimates.is.one.founder.per.person.coefs );
+       }
+       
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                 #print( .col.i );
