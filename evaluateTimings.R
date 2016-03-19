@@ -382,10 +382,19 @@ evaluateTimings <- function (
                   # Also exclude covars that are too highly correlated.
                   .retained.covars <- setdiff( colnames( regression.df.without.row.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                    if( .estimate.colname == "none" ) {
-                      .formula <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm ), collapse = "+" ) ) );
+                      if( .estimate.colname == "none" ) {
+                        .cv.glm <- intersect( .retained.covars, .covariates.glm );
+                        if( length( .cv.glm ) == 0 ) {
+                            .cv.glm <- "1";
+                        }
+                      .formula <- as.formula( paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) ) );
                       .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) ) );
-                      .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.nointercept ), collapse = "+" ) ) );
+                        .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm.nointercept );
+                        if( length( .cv.glm.nointercept ) == 0 ) {
+                            .formula.nointercept <- as.formula( paste( "days.since.infection ~ 1" ) );  # _only_ intercept!
+                        } else {
+                            .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.nointercept ), collapse = "+" ) ) );
+                        }
                       .formula.withbounds.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) ) );
                     } else {
                       .formula <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
@@ -452,7 +461,7 @@ evaluateTimings <- function (
                   } );
                   # TODO: Also exclude covars that are too highly correlated.
                   .retained.covars <- setdiff( colnames( .lasso.nointercept.mat ), names( which( .covars.to.exclude ) ) );
-                  if( .estimate.colname %in% .retained.covars ) {
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.nointercept.mat <- .lasso.nointercept.mat[ , setdiff( colnames( .lasso.nointercept.mat ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     

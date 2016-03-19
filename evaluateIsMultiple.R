@@ -117,6 +117,9 @@ evaluateIsMultiple <- function (
             keep.cols <- c( helpful.additional.cols, single.cols, mut.rate.coef.cols );
             estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
         }
+
+        # Also always evaluate no-estimate: "none".
+        estimate.cols <- c( "none", estimate.cols );
           
         results.covars.per.person <-
             results.covars.per.person.with.extra.cols[ , keep.cols, drop = FALSE ];
@@ -163,9 +166,18 @@ evaluateIsMultiple <- function (
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
                   .retained.covars <- setdiff( colnames( regression.df.without.row.i ), names( which( .covars.to.exclude ) ) );
-                  if( .estimate.colname %in% .retained.covars ) {
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
+                      if( .estimate.colname == "none" ) {
+                          .cv.glm <- intersect( .retained.covars, .covariates.glm );
+                          if( length( .cv.glm ) == 0 ) {
+                              .cv.glm <- "1";
+                          }
+                          .formula <- as.formula( paste( "is.one.founder ~ ", paste( .cv.glm, collapse = "+" ) ) );
+                    } else {
+                        .formula <- as.formula( paste( "is.one.founder ~ ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
+                    }
+                    
                     .df <- regression.df.without.row.i[ , .retained.covars, drop = FALSE ];
-                    .formula <- as.formula( paste( "is.one.founder ~ ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
                     .pred.value.glm <- predict( glm( .formula, family = "binomial", data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
                     glm.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                         .pred.value.glm;
@@ -183,14 +195,18 @@ evaluateIsMultiple <- function (
                       #     c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
                   }
                   # lasso:
-                  .mat1 <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso, .estimate.colname ) ] );
+                  if( .estimate.colname == "none" ) {
+                      .mat1 <- as.matrix( regression.df.without.row.i[ , .covariates.lasso, drop = FALSE ] );
+                  } else {
+                      .mat1 <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso, .estimate.colname ) ] );
+                  }
                   .out <- regression.df.without.row.i[[ "is.one.founder" ]];
     
                   .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
                   .retained.covars <- setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) );
-                  if( .estimate.colname %in% .retained.covars ) {
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
@@ -202,7 +218,12 @@ evaluateIsMultiple <- function (
                         .pred.value.lasso;
                      },
                      error = function( e ) {
-                         warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                        if( .estimate.colname == "none" ) {
+                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
+                            .formula <- as.formula( paste( "is.one.founder ~ 1" ) );
+                        } else {
+                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                        }
                          .formula <- as.formula( paste( "is.one.founder ~", .estimate.colname ) );
                          .pred.value.lasso <- predict( glm( .formula, family = "binomial", data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
                             lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
