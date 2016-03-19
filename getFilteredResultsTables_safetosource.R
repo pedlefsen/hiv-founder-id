@@ -29,7 +29,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*\\.val
 ### Read results tables.
 ## setting the.time to "1m.6m" will return pooled results over those times (but note current limitation that the bounds will be for either 1m (5weeks) or 6m (30weeks) but presently not use-the-right-bounds-matching-the-data-timepoints).
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "(days|time)\\.est" = "mut.rate.coef" )
 ) {
     if( is.null( to.region ) || is.na( to.region ) ) {
         ## if to.region is not defined then it means we should use the single-region results.
@@ -57,7 +57,7 @@ getFilteredResultsTables <- function (
     } else if( the.time == "6m" ) {
         the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks" );
     } else if( the.time == "1m.6m" ) {
-        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks", "5weeks", "30weeks" );
+        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks" );
     }
     ## Also exclude deterministic bounds
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
@@ -67,6 +67,18 @@ getFilteredResultsTables <- function (
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
         results.filtered <- results.filtered[ , grep( column.pattern, colnames( results.filtered ) ), drop = FALSE ];
+    }
+    
+    ## Maybe also rename some rows.
+    if( !is.null( rowname.pattern.map ) && !is.na( rowname.pattern.map ) && ( rowname.pattern.map != "" ) ) {
+        for( .pattern in names( rowname.pattern.map ) ) {
+            .rowname.matches <- grep( .pattern, rownames( results.filtered ), value = TRUE );
+            if( length( .rowname.matches ) == 0 ) {
+                next;
+            }
+            # Now fix 'em.
+            rownames( results.filtered ) <- gsub( .pattern, unlist( rowname.pattern.map[ .pattern ] ), rownames( results.filtered ) );
+        } # End foreach .pattern
     }
     
     if( !is.null( sort.column ) && ( length( sort.column ) > 0 ) && !is.na( sort.column ) ) {
