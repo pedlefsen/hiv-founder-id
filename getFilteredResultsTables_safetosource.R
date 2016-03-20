@@ -29,7 +29,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*.valid
 ### Read results tables.
 ## setting the.time to "1m.6m" will return pooled results over those times (but note current limitation that the bounds will be for either 1m (5weeks) or 6m (30weeks) but presently not use-the-right-bounds-matching-the-data-timepoints).
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "FITS", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
     if( is.null( to.region ) || is.na( to.region ) ) {
         ## if to.region is not defined then it means we should use the single-region results.
