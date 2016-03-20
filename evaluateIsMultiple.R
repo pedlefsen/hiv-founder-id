@@ -147,16 +147,18 @@ evaluateIsMultiple <- function (
         }
         if( use.lasso.validate ) {
             lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
-            ## This is really a 3D array, but I'm just lazily representing it directly this way.
-            lasso.validation.estimates.is.one.founder.per.person.coefs <-
-                as.list( rep( NA, nrow( regression.df ) ) );
-            names( lasso.validation.estimates.is.one.founder.per.person.coefs ) <-
-                rownames( regression.df );
+            if( return.lasso.coefs ) {
+                ## This is really a 3D array, but I'm just lazily representing it directly this way.
+                lasso.validation.estimates.is.one.founder.per.person.coefs <-
+                    as.list( rep( NA, nrow( regression.df ) ) );
+                names( lasso.validation.estimates.is.one.founder.per.person.coefs ) <-
+                    rownames( regression.df );
+            }
         }
         for( .row.i in 1:nrow( regression.df ) ) {
             ## TODO: REMOVE
             print( paste( "Row", .row.i, "removed:", rownames( regression.df )[ .row.i ] ) );
-            if( use.lasso.validate ) {
+            if( use.lasso.validate && return.lasso.coefs ) {
                 .lasso.validation.estimates.is.one.founder.per.person.coefs.row <-
                     as.list( rep( NA, length( estimate.cols ) ) );
                 names( .lasso.validation.estimates.is.one.founder.per.person.coefs.row ) <-
@@ -231,13 +233,16 @@ evaluateIsMultiple <- function (
                     tryCatch( {
                     cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
                                                penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
-                    .lasso.validation.estimates.is.one.founder.per.person.coefs.cell <-
-                        coef( cv.glmnet.fit, s = "lambda.min" );
+                    if( return.lasso.coefs ) {
+                      .lasso.validation.estimates.is.one.founder.per.person.coefs.cell <-
+                          coef( cv.glmnet.fit, s = "lambda.min" );
+                    
+                      .lasso.validation.estimates.is.one.founder.per.person.coefs.row[[ .col.i ]] <-
+                          .lasso.validation.estimates.is.one.founder.per.person.coefs.cell;
+                    }
                     .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
                             lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
-                        .pred.value.lasso;
-                    .lasso.validation.estimates.is.one.founder.per.person.coefs.row[[ .col.i ]] <-
-                        .lasso.validation.estimates.is.one.founder.per.person.coefs.cell;
+                                .pred.value.lasso;
                      },
                      error = function( e ) {
                         if( .estimate.colname == "none" ) {
@@ -258,7 +263,7 @@ evaluateIsMultiple <- function (
                 } # End if use.lasso.validate
     
             } # End foreach .col.i
-            if( use.lasso.validate ) {
+            if( use.lasso.validate && return.lasso.coefs ) {
                 lasso.validation.estimates.is.one.founder.per.person.coefs[[ .row.i ]] <- 
                     .lasso.validation.estimates.is.one.founder.per.person.coefs.row;
             } # End if use.lasso.validate

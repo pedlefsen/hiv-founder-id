@@ -1,4 +1,4 @@
-repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*\\.validation\\.results\\." ) {
+repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*.validation.results." ) {
     rownames.sans.patterns <- gsub( paste( "^(.*?)", pattern, "(.*)$", sep = "" ), "\\1\\2", rownames( the.matrix ) )
     pattern.matches.by.row <- gsub( paste( "^.*?(", pattern, ").*$", sep = "" ), "\\1", rownames( the.matrix ) );
     pattern.matches.by.row[ rownames.sans.patterns == pattern.matches.by.row ] <- "";
@@ -29,7 +29,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*\\.val
 ### Read results tables.
 ## setting the.time to "1m.6m" will return pooled results over those times (but note current limitation that the bounds will be for either 1m (5weeks) or 6m (30weeks) but presently not use-the-right-bounds-matching-the-data-timepoints).
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "(days|time)\\.est" = "mut.rate.coef" )
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "FITS", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
     if( is.null( to.region ) || is.na( to.region ) ) {
         ## if to.region is not defined then it means we should use the single-region results.
@@ -62,7 +62,8 @@ getFilteredResultsTables <- function (
     ## Also exclude deterministic bounds
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
     ## Also exclude "DS.Starphy" versions of results, which are redundant w PFitter (here, because it's just the est / mut rate coef)
-    results.filtered <- results[ grep( paste( c( "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
+    ## Also exclude all "Starphy" versions of results, which are close enough to redundant w PFitter that it's not worth cluttering the output.
+    results.filtered <- results[ grep( paste( c( "Star[Pp]hy", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
 
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
@@ -70,8 +71,9 @@ getFilteredResultsTables <- function (
     }
     
     ## Maybe also rename some rows.
-    if( !is.null( rowname.pattern.map ) && !is.na( rowname.pattern.map ) && ( rowname.pattern.map != "" ) ) {
+    if( !is.null( rowname.pattern.map ) && !is.na( rowname.pattern.map ) ) {
         for( .pattern in names( rowname.pattern.map ) ) {
+            print( paste( "renaming rows according to pattern '", .pattern, "' => '", unlist( rowname.pattern.map[ .pattern ] ), "'", sep = "" ) );
             .rowname.matches <- grep( .pattern, rownames( results.filtered ), value = TRUE );
             if( length( .rowname.matches ) == 0 ) {
                 next;
