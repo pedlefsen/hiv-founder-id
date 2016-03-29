@@ -49,7 +49,7 @@ evaluateIsMultiple <- function (
                              # times = c( "1m", "6m", "1m6m" )
                             )
 {
-    results.by.region.and.time.Rda.filename <-
+    is.multiple.results.by.region.and.time.Rda.filename <-
         paste( RESULTS.DIR, results.dirname, "/isMultiple.results.by.region.and.time.Rda", sep = "" );
 
     ## Read in the gold standards.
@@ -99,6 +99,7 @@ evaluateIsMultiple <- function (
            ppt.suffices <- gsub( paste( "^.+?(", ppt.suffix.pattern, ")", sep = "" ), "\\1", .ppt.names, perl = TRUE );
            names( ppt.suffices ) <- .ppt.names;
        }
+       all.ptids <- unique( ppt.names );
 
        mode( estimates.is.one.founder.per.person ) <- "numeric";
        
@@ -143,31 +144,37 @@ evaluateIsMultiple <- function (
         }
         
         if( use.glm.validate ) {
-            glm.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            ## Note that there might be multiple rows per ppt in the regression.df and in this prediction output matrix; the values will be filled in using leave-one-ptid-out xv, ie in each iteration there might be multiple rows filled in, since multiple rows correspond to one held-out ptid.
+            glm.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( regression.df ), ncol = length( estimate.cols ) );
         }
-        if( use.lasso.validate ) {
-            lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+           if( use.lasso.validate ) {
+            ## See note above (for use.glm.validate)
+            lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( regression.df ), ncol = length( estimate.cols ) );
             if( return.lasso.coefs ) {
-                ## This is really a 3D array, but I'm just lazily representing it directly this way.
+                ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the predictio noutput matrices).
                 lasso.validation.estimates.is.one.founder.per.person.coefs <-
-                    as.list( rep( NA, nrow( regression.df ) ) );
+                    as.list( rep( NA, length( all.ptids ) ) );
                 names( lasso.validation.estimates.is.one.founder.per.person.coefs ) <-
-                    rownames( regression.df );
+                    all.ptids;
             }
         }
-        for( .row.i in 1:nrow( regression.df ) ) {
+        for( .ptid.i in 1:length( all.ptids ) ) {
+            the.ptid <- all.ptids[ .ptid.i ];
+            the.rows.for.ptid <- which( ppt.names == the.ptid );
+            the.rows.excluding.ptid <- which( ppt.names != the.ptid );
             ## TODO: REMOVE
-            print( paste( "Row", .row.i, "removed:", rownames( regression.df )[ .row.i ] ) );
+            print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( the.rows.for.ptid, collapse = ", " ), ")" ) );
             if( use.lasso.validate && return.lasso.coefs ) {
                 .lasso.validation.estimates.is.one.founder.per.person.coefs.row <-
                     as.list( rep( NA, length( estimate.cols ) ) );
                 names( .lasso.validation.estimates.is.one.founder.per.person.coefs.row ) <-
                     estimate.cols;
             }
-            regression.df.without.row.i <-
-                regression.df[ -.row.i, , drop = FALSE ];
+            regression.df.without.ptid.i <-
+                regression.df[ the.rows.excluding.ptid, , drop = FALSE ];
             for( .col.i in 1:length( estimate.cols ) ) {
                 .estimate.colname <- estimate.cols[ .col.i ];
+                ##print( .estimate.colname );
                 if( use.glm.validate ) {
                   # covariates for glm
                   .covariates.glm <- c();
@@ -182,10 +189,10 @@ evaluateIsMultiple <- function (
                       #     c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                   }
                   # glm:
-                  .covars.to.exclude <- apply( regression.df.without.row.i, 2, function ( .col ) {
+                  .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
-                  .retained.covars <- setdiff( colnames( regression.df.without.row.i ), names( which( .covars.to.exclude ) ) );
+                  .retained.covars <- setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                       if( .estimate.colname == "none" ) {
                           .cv.glm <- intersect( .retained.covars, .covariates.glm );
@@ -197,10 +204,17 @@ evaluateIsMultiple <- function (
                         .formula <- as.formula( paste( "is.one.founder ~ ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
                     }
                     
-                    .df <- regression.df.without.row.i[ , .retained.covars, drop = FALSE ];
-                    .pred.value.glm <- predict( glm( .formula, family = "binomial", data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                    glm.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
-                        .pred.value.glm;
+                    .df <- regression.df.without.ptid.i[ , .retained.covars, drop = FALSE ];
+                    .lm <-
+                        glm( .formula, family = "binomial", data = regression.df.without.ptid.i );
+                    ## TODO: REMOVE
+                    ##print( summary( .lm ) );
+                    # Ok so now put the predicted values at their appropriate places in the matrix.
+                    for( .row.i in the.rows.for.ptid ) {
+                        .pred.value.glm <- predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
+                        glm.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
+                            .pred.value.glm;
+                    }
                   } # If the estimate can be used
     
                 } # End if use.glm.validate
@@ -216,11 +230,11 @@ evaluateIsMultiple <- function (
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {
-                      .mat1 <- as.matrix( regression.df.without.row.i[ , .covariates.lasso, drop = FALSE ] );
+                      .mat1 <- as.matrix( regression.df.without.ptid.i[ , .covariates.lasso, drop = FALSE ] );
                   } else {
-                      .mat1 <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso, .estimate.colname ) ] );
+                      .mat1 <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso, .estimate.colname ) ] );
                   }
-                  .out <- regression.df.without.row.i[[ "is.one.founder" ]];
+                  .out <- regression.df.without.ptid.i[[ "is.one.founder" ]];
     
                   .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
@@ -231,18 +245,23 @@ evaluateIsMultiple <- function (
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch( {
-                    cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
-                                               penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
-                    if( return.lasso.coefs ) {
-                      .lasso.validation.estimates.is.one.founder.per.person.coefs.cell <-
-                          coef( cv.glmnet.fit, s = "lambda.min" );
-                    
-                      .lasso.validation.estimates.is.one.founder.per.person.coefs.row[[ .col.i ]] <-
-                          .lasso.validation.estimates.is.one.founder.per.person.coefs.cell;
-                    }
-                    .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
-                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
-                                .pred.value.lasso;
+                      cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
+                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                    ## TODO: REMOVE
+                    ##print( coef( cv.glmnet.fit, s = "lambda.min" ) );
+                      if( return.lasso.coefs ) {
+                        .lasso.validation.estimates.is.one.founder.per.person.coefs.cell <-
+                            coef( cv.glmnet.fit, s = "lambda.min" );
+                      
+                        .lasso.validation.estimates.is.one.founder.per.person.coefs.row[[ .col.i ]] <-
+                            .lasso.validation.estimates.is.one.founder.per.person.coefs.cell;
+                      }
+                      # Ok so now put the predicted values at their appropriate places in the matrix.
+                      for( .row.i in the.rows.for.ptid ) {
+                        .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
+                                lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
+                                    .pred.value.lasso;
+                      }
                      },
                      error = function( e ) {
                         if( .estimate.colname == "none" ) {
@@ -251,20 +270,27 @@ evaluateIsMultiple <- function (
                         } else {
                             warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                         }
-                         .formula <- as.formula( paste( "is.one.founder ~", .estimate.colname ) );
-                         .pred.value.lasso <- predict( glm( .formula, family = "binomial", data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
-                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
-                        .pred.value.lasso;
-                     },
-                        finally = {
+                        .formula <- as.formula( paste( "is.one.founder ~", .estimate.colname ) );
+                                        # Ok so now put the predicted values at their appropriate places in the matrix.
+                        .lm <- glm( .formula, family = "binomial", data = regression.df.without.ptid.i );
+                        ## TODO: REMOVE
+                        ##print( "fallback from lasso to glm\n", summary( .lm ) ); 
+                        for( .row.i in the.rows.for.ptid ) {
+                            .pred.value.lasso <-
+                                predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
+                            lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <-
+                                .pred.value.lasso;
                         }
-                        );
+                      },
+                      finally = {
+                      }
+                    );
                   } # End if the estimate variable is usable
                 } # End if use.lasso.validate
     
             } # End foreach .col.i
             if( use.lasso.validate && return.lasso.coefs ) {
-                lasso.validation.estimates.is.one.founder.per.person.coefs[[ .row.i ]] <- 
+                lasso.validation.estimates.is.one.founder.per.person.coefs[[ .ptid.i ]] <- 
                     .lasso.validation.estimates.is.one.founder.per.person.coefs.row;
             } # End if use.lasso.validate
         } # End foreach .row.i
@@ -422,10 +448,10 @@ evaluateIsMultiple <- function (
     
     if( force.recomputation || !file.exists( is.multiple.results.by.region.and.time.Rda.filename ) ) {
         results.by.region.and.time <- getIsMultipleResultsByRegionAndTime();
-        save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
+        save( results.by.region.and.time, file = is.multiple.results.by.region.and.time.Rda.filename );
     } else {
         # loads results.by.region.and.time
-        load( file = results.by.region.and.time.Rda.filename );
+        load( file = is.multiple.results.by.region.and.time.Rda.filename );
     }
 
     writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE );
