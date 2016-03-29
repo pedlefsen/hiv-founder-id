@@ -453,11 +453,11 @@ evaluateTimings <- function (
                     }
                     
                     # glm.withbounds.nointercept:
+                    .glm.withbounds.nointercept <- lm( .formula.withbounds.nointercept, data = regression.df.without.ptid.i );
                     glm.withbounds.nointercept.validation.results.per.person.adjR2[ .ptid.i, .col.i ] <- 
                         ( summary( .glm.withbounds.nointercept ) )$adj.r.squared;
                     glm.withbounds.nointercept.validation.results.per.person.pcoef[ .ptid.i, .col.i ] <- 
                         coef( summary( .glm.withbounds.nointercept ) )[ 1, "Pr(>|t|)" ];
-                    .glm.withbounds.nointercept <- lm( .formula.withbounds.nointercept, data = regression.df.without.ptid.i );
                     for( .row.i in the.rows.for.ptid ) {
                       .pred.value.glm.withbounds.nointercept <- predict( .glm.withbounds.nointercept, regression.df[ .row.i, , drop = FALSE ] );
                       glm.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
@@ -526,9 +526,9 @@ evaluateTimings <- function (
                   
                   # lasso.withbounds.nointercept:
                   if( .estimate.colname == "none" ) {
-                      .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.row.i[ , .covariates.lasso.withbounds.nointercept ] );
+                      .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds.nointercept ] );
                   } else {
-                      .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.row.i[ , c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ] );
+                      .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ] );
                   }
                   .covars.to.exclude <- apply( .lasso.withbounds.nointercept.mat, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
@@ -543,17 +543,19 @@ evaluateTimings <- function (
                       .cv.glmnet.fit.withbounds.nointercept <-
                         cv.glmnet( .lasso.withbounds.nointercept.mat, .out, intercept = FALSE,
                                   penalty.factor = as.numeric( colnames( .lasso.withbounds.nointercept.mat ) != .estimate.colname ) );
-                      .pred.value.lasso.withbounds.nointercept <-
-                        predict( .cv.glmnet.fit.withbounds.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
-                      lasso.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                        .pred.value.lasso.withbounds.nointercept;
+                      for( .row.i in the.rows.for.ptid ) {
+                        .pred.value.lasso.withbounds.nointercept <-
+                          predict( .cv.glmnet.fit.withbounds.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
+                        lasso.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
+                          .pred.value.lasso.withbounds.nointercept;
+                      }
                     },
                     error = function( e )
                     {
                       warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                       .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                       for( .row.i in the.rows.for.ptid ) {
-                        .pred.value.lasso.withbounds.nointercept <- predict( lm( .formula, data = regression.df.without.row.i ), regression.df[ .row.i, , drop = FALSE ] );
+                        .pred.value.lasso.withbounds.nointercept <- predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
                         lasso.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
                           .pred.value.lasso.withbounds.nointercept;
                     }
