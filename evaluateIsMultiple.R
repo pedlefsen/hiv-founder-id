@@ -86,7 +86,7 @@ evaluateIsMultiple <- function (
     } # compute.estimates.is.one.founder.per.person (..)
 
     bound.and.evaluate.is.multiple.results.per.ppt <-
-        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = FALSE ) {
+        function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE ) {
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );
        ppt.suffices <- NULL;
@@ -345,9 +345,9 @@ evaluateIsMultiple <- function (
         # sum.incorrect.among.multiple.founder.people <-
         #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
 
-       if( use.lasso.validate && return.lasso.coefs ) {
-           return( lasso.validation.estimates.is.one.founder.per.person.coefs );
-       }
+       #if( use.lasso.validate && return.lasso.coefs ) {
+       #    return( lasso.validation.estimates.is.one.founder.per.person.coefs );
+       #}
        
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
@@ -357,6 +357,9 @@ evaluateIsMultiple <- function (
        names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
        isMultiple.aucs.list <- list( AUC = isMultiple.aucs );
+       if( use.lasso.validate && return.lasso.coefs ) {
+           isMultiple.aucs.list <- c( isMultiple.aucs.list, list( lasso.coefs = lasso.validation.estimates.is.one.founder.per.person.coefs ) );
+       }
        
        results.list <- list( unbounded = isMultiple.aucs.list );
 
