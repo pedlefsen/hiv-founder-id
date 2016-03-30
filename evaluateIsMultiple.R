@@ -351,8 +351,12 @@ evaluateIsMultiple <- function (
        
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
-                #print( .col.i );
-                performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
+              #print( .col.i );
+                if( sum( !is.null( estimates.is.one.founder.per.person[ , .col.i ] ) ) > 1 ) {
+                  performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
+                } else {
+                  0;
+                }
             } );
        names( isMultiple.aucs ) <- colnames( estimates.is.one.founder.per.person );
 
