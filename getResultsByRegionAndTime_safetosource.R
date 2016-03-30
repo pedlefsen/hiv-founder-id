@@ -109,8 +109,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                    cbind( new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
                
                ## Add a new center-of-bounds result called "COB.exponentialwidth.uniform.1m5weeks.6m30weeks.time.est"
-               if( paste( .colname.root, "exponentialwidth.uniform.5weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) {
-                 stopifnot( paste( .colname.root, "exponentialwidth.uniform.30weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) );
+               if( ( paste( .colname.root, "exponentialwidth.uniform.5weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "exponentialwidth.uniform.30weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
                  another.new.estimates.table <-
                    rbind(
                      results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "exponentialwidth.uniform.5weeks.time.est", sep = "." ), drop = FALSE ],

@@ -352,9 +352,10 @@ evaluateIsMultiple <- function (
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
               #print( .col.i );
-                if( sum( !is.null( estimates.is.one.founder.per.person[ , .col.i ] ) ) > 1 ) {
+                if( sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) > 1 ) {
                   performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
                 } else {
+                  print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) ) );
                   0;
                 }
             } );
@@ -376,9 +377,10 @@ evaluateIsMultiple <- function (
                .isMultiple.aucs <- 
                    sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                                         #print( .col.i );
-                     if( sum( !is.null( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ) ) > 1 ) {
+                     if( sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) > 1 ) {
                        performance( prediction( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), gold.is.one.founder.per.person[ ppt.suffices == .ppt.suffix ] ), measure = "auc" )@y.values[[ 1 ]];
                      } else {
+                       print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) ) );
                        0;
                      }
                    } );
