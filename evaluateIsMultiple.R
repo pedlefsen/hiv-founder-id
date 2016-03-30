@@ -87,6 +87,9 @@ evaluateIsMultiple <- function (
 
     bound.and.evaluate.is.multiple.results.per.ppt <-
         function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE ) {
+          ## TODO: REMOVE.  DEBUGGING.
+          estimates.is.one.founder.per.person.in <- estimates.is.one.founder.per.person;
+          
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );
        ppt.suffices <- NULL;
@@ -211,7 +214,7 @@ evaluateIsMultiple <- function (
                     ##print( summary( .lm ) );
                     # Ok so now put the predicted values at their appropriate places in the matrix.
                     for( .row.i in the.rows.for.ptid ) {
-                        .pred.value.glm <- predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
+                        .pred.value.glm <- predict( .lm, regression.df[ .row.i, , drop = FALSE ], type = "response" );
                         glm.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                             .pred.value.glm;
                     }
@@ -258,7 +261,7 @@ evaluateIsMultiple <- function (
                       }
                       # Ok so now put the predicted values at their appropriate places in the matrix.
                       for( .row.i in the.rows.for.ptid ) {
-                        .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min" );
+                        .pred.value.lasso <- predict( cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .mat1 ), drop = FALSE ] ), s = "lambda.min", type = "response");
                                 lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <- 
                                     .pred.value.lasso;
                       }
@@ -277,7 +280,7 @@ evaluateIsMultiple <- function (
                         ##print( "fallback from lasso to glm\n", summary( .lm ) ); 
                         for( .row.i in the.rows.for.ptid ) {
                             .pred.value.lasso <-
-                                predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
+                                predict( .lm, regression.df[ .row.i, , drop = FALSE ], type = "response" );
                             lasso.validation.estimates.is.one.founder.per.person[ .row.i, .col.i ] <-
                                 .pred.value.lasso;
                         }
@@ -348,11 +351,13 @@ evaluateIsMultiple <- function (
        #if( use.lasso.validate && return.lasso.coefs ) {
        #    return( lasso.validation.estimates.is.one.founder.per.person.coefs );
        #}
-       
+       #print( colnames( estimates.is.one.founder.per.person )[ 25 ] );
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
               #print( .col.i );
-                if( sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) > 1 ) {
+              #print( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ) );
+                if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) } ) ) > 1 ) {
+                  
                   performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
                 } else {
                   print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) ) );
@@ -377,7 +382,7 @@ evaluateIsMultiple <- function (
                .isMultiple.aucs <- 
                    sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                                         #print( .col.i );
-                     if( sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) > 1 ) {
+                     if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), function( .x ) { !is.null( .x ) } ) ) > 1 ) {
                        performance( prediction( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), gold.is.one.founder.per.person[ ppt.suffices == .ppt.suffix ] ), measure = "auc" )@y.values[[ 1 ]];
                      } else {
                        print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) ) );
