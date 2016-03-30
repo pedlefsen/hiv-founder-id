@@ -1009,6 +1009,7 @@ evaluateTimings <- function (
     ##  *) check out results of the partitions of evaluateTimings.
     
     ## For partition size == 10
+    ## NOTE that this part is presently broken. TODO: FIX IT.
     timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
     
     # Make a table out of it. (one per study).
