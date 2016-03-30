@@ -1,4 +1,4 @@
-writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE ) {
+writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffixo, regions, results.are.bounded = TRUE ) {
     ## Note that there are now special entries in results.by.region.and.time that are not regions (under "results.across.regions.by.time") -- these are comparisons across the two (main) regions.
 
   if( results.are.bounded ) {
@@ -34,7 +34,10 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                   stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
                                                 }
-                        sapply( results.for.bounds.type, function( results.list ) { results.list } );
+                                                if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
+                                                }
+                                                sapply( results.for.bounds.type, function( results.list ) { results.list } );
                       } );
                     names( ..rv ) <- ..relevant.bounds;
                     return( ..rv );
@@ -63,8 +66,10 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
               out.file <- paste( out.dir, the.bounds.type, out.tab.file.suffix, sep = "" );
               ## TODO: REMOVE
               print( paste( the.bounds.type, out.file ) );
+              ..tbl <- results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]][[ the.bounds.type ]];
+              #print( ..tbl );
               .tbl <-
-                apply( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]][[ the.bounds.type ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+                apply( ..tbl, 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
               #print( .tbl );
               write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
               return( NULL );
@@ -94,6 +99,9 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                 if( class( results.for.bounds.type ) == "matrix" ) {
                                                   stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
+                                                }
+                                                if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
                                                 }
                                 sapply( results.for.bounds.type, function( results.list ) { results.list } );
                               } );

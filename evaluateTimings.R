@@ -58,8 +58,10 @@ evaluateTimings <- function (
                              partition.bootstrap.seed = 98103,
                              partition.bootstrap.samples = 100,
                              partition.bootstrap.num.cores = detectCores(),
-                             regions = c( "nflg", "v3", "rv217_v3" ),
-                             times = c( "1m", "6m", "1m6m" )
+                             regions = c( "nflg", "v3" ),
+                             times = c( "1m", "6m" )
+                             #regions = c( "nflg", "v3", "rv217_v3" ),
+                             #times = c( "1m", "6m", "1m6m" )
                             )
 {
     results.by.region.and.time.Rda.filename <-
