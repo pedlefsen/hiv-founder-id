@@ -293,7 +293,7 @@ evaluateIsMultiple <- function (
                 lasso.validation.estimates.is.one.founder.per.person.coefs[[ .ptid.i ]] <- 
                     .lasso.validation.estimates.is.one.founder.per.person.coefs.row;
             } # End if use.lasso.validate
-        } # End foreach .row.i
+        } # End foreach .ptid.i
         if( use.glm.validate ) {
             colnames( glm.validation.estimates.is.one.founder.per.person ) <-
                 paste( "glm.validation.results", estimate.cols, sep = "." );

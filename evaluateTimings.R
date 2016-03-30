@@ -365,9 +365,13 @@ evaluateTimings <- function (
             if( return.lasso.coefs ) {
                 ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the predictio noutput matrices).
                 # and these are per-ptid!
-                lasso.validation.results.per.person.coefs <-
+                lasso.nointercept.validation.results.per.person.coefs <-
                     as.list( rep( NA, length( all.ptids ) ) );
-                names( lasso.validation.results.per.person.coefs ) <-
+                names( lasso.nointercept.validation.results.per.person.coefs ) <-
+                    all.ptids;
+                lasso.nointercept.withbounds.validation.results.per.person.coefs <-
+                    as.list( rep( NA, length( all.ptids ) ) );
+                names( lasso.nointercept.withbounds.validation.results.per.person.coefs ) <-
                     all.ptids;
             }
         }
@@ -499,6 +503,13 @@ evaluateTimings <- function (
                     {
                       .cv.glmnet.fit.nointercept <- cv.glmnet( .lasso.nointercept.mat, .out, intercept = FALSE,
                                                  penalty.factor = as.numeric( colnames( .lasso.nointercept.mat ) != .estimate.colname ) );
+                      if( return.lasso.coefs ) {
+                        .lasso.nointercept.validation.results.per.person.coefs.cell <-
+                            coef( .cv.glmnet.fit.nointercept, s = "lambda.min" );
+                      
+                        .lasso.nointercept.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                            .lasso.nointercept.validation.results.per.person.coefs.cell;
+                      }
                       for( .row.i in the.rows.for.ptid ) {
                         .pred.value.lasso.nointercept <- predict( .cv.glmnet.fit.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
                         lasso.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
@@ -545,6 +556,14 @@ evaluateTimings <- function (
                       .cv.glmnet.fit.withbounds.nointercept <-
                         cv.glmnet( .lasso.withbounds.nointercept.mat, .out, intercept = FALSE,
                                   penalty.factor = as.numeric( colnames( .lasso.withbounds.nointercept.mat ) != .estimate.colname ) );
+                      if( return.lasso.coefs ) {
+                        .lasso.nointercept.withbounds.validation.results.per.person.coefs.cell <-
+                            coef( .cv.glmnet.fit.withbounds.nointercept, s = "lambda.min" );
+                      
+                        .lasso.nointercept.withbounds.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                            .lasso.nointercept.withbounds.validation.results.per.person.coefs.cell;
+                      }
+
                       for( .row.i in the.rows.for.ptid ) {
                         .pred.value.lasso.withbounds.nointercept <-
                           predict( .cv.glmnet.fit.withbounds.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
@@ -569,6 +588,12 @@ evaluateTimings <- function (
                 } # End if use.lasso.validate
     
             } # End foreach .col.i
+            if( use.lasso.validate && return.lasso.coefs ) {
+                lasso.nointercept.validation.results.per.person.coefs[[ .ptid.i ]] <- 
+                    .lasso.nointercept.validation.results.per.person.coefs.row;
+                lasso.nointercept.withbounds.validation.results.per.person.coefs[[ .ptid.i ]] <- 
+                    .lasso.nointercept.withbounds.validation.results.per.person.coefs.row;
+            } # End if use.lasso.validate
         } # End foreach .ptid.i
         if( use.glm.validate ) {
           ## glm:
@@ -676,7 +701,7 @@ evaluateTimings <- function (
           .results <- 
               list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), bias.zeroNAs = lapply( diffs.by.stat.zeroNAs, mean, na.rm = T ), se.zeroNAs = lapply( diffs.by.stat.zeroNAs, sd, na.rm = T ), rmse.zeroNAs = lapply( diffs.by.stat.zeroNAs, rmse, na.rm = T ), n.zeroNAs = lapply( diffs.by.stat.zeroNAs, function( .vec ) { sum( !is.na( .vec ) ) } ) );
        if( use.lasso.validate && return.lasso.coefs ) {
-           .results <- c( .results, list( lasso.coefs = lasso.validation.results.per.person.coefs ) );
+           .results <- c( .results, list( lasso.coefs = list( nointercept = lasso.nointercept.validation.results.per.person.coefs, nointercept.withbounds = lasso.nointercept.withbounds.validation.results.per.person.coefs ) ) );
        }
        
           results.list <- list();
