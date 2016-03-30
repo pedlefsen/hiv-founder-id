@@ -381,6 +381,16 @@ evaluateTimings <- function (
             the.rows.excluding.ptid <- which( ppt.names != the.ptid );
             ## TODO: REMOVE
             print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( the.rows.for.ptid, collapse = ", " ), ")" ) );
+            if( use.lasso.validate && return.lasso.coefs ) {
+                .lasso.nointercept.validation.results.per.person.coefs.row <-
+                    as.list( rep( NA, length( estimate.cols ) ) );
+                names( .lasso.nointercept.validation.results.per.person.coefs.row ) <-
+                    estimate.cols;
+                .lasso.nointercept.withbounds.validation.results.per.person.coefs.row <-
+                    as.list( rep( NA, length( estimate.cols ) ) );
+                names( .lasso.nointercept.withbounds.validation.results.per.person.coefs.row ) <-
+                    estimate.cols;
+            }
             regression.df.without.ptid.i <-
                 regression.df[ the.rows.excluding.ptid, , drop = FALSE ];
             .out <- regression.df.without.ptid.i[[ "days.since.infection" ]];
