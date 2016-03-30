@@ -56,6 +56,15 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "6m"
                        );
                    .rv <- c( list( "uniform_1m5weeks_6m30weeks" = new.bounds.table ), .rv );
+                   ## Add a new bounds.type called "exponentialwidth_uniform_1m5weeks_6m30weeks"
+                   another.new.bounds.table <-
+                       missing.column.safe.rbind(
+                           results.by.time[[ "1m" ]][[ .varname ]][[ "exponentialwidth_uniform_5weeks" ]],
+                           results.by.time[[ "6m" ]][[ .varname ]][[ "exponentialwidth_uniform_30weeks" ]],
+                           "1m",
+                           "6m"
+                       );
+                   .rv <- c( list( "exponentialwidth_uniform_1m5weeks_6m30weeks" = another.new.bounds.table ), .rv );
                    return( .rv );
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
@@ -97,7 +106,23 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                  );
                colnames( new.estimates.table ) <- paste( .colname.root, "uniform.1m5weeks.6m30weeks.time.est", sep = "." );
                results.1m.6m[[ "results.per.person" ]] <-
-                 cbind( new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+                   cbind( new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+               
+               ## Add a new center-of-bounds result called "COB.exponentialwidth.uniform.1m5weeks.6m30weeks.time.est"
+               another.new.estimates.table <-
+                 rbind(
+                   results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "exponentialwidth.uniform.5weeks.time.est", sep = "." ), drop = FALSE ],
+                   results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "exponentialwidth.uniform.30weeks.time.est", sep = "." ), drop = FALSE ]
+                 );
+               rownames( another.new.estimates.table ) <-
+                 c(
+                   paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
+                   paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
+                 );
+               colnames( another.new.estimates.table ) <- paste( .colname.root, "exponentialwidth.uniform.1m5weeks.6m30weeks.time.est", sep = "." );
+               results.1m.6m[[ "results.per.person" ]] <-
+                 cbind( another.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+               
              }
            } # End foreach .colname.root
            results.1m.6m <-
