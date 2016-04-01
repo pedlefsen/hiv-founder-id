@@ -197,19 +197,35 @@ evaluateIsMultiple <- function (
                   } );
                   .retained.covars <- setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                      if( .estimate.colname == "none" ) {
+                    if( .estimate.colname == "none" ) {
                           .cv.glm <- intersect( .retained.covars, .covariates.glm );
                           if( length( .cv.glm ) == 0 ) {
                               .cv.glm <- "1";
                           }
                           .formula <- as.formula( paste( "is.one.founder ~ ", paste( .cv.glm, collapse = "+" ) ) );
+                          .ptids.to.exclude <- c();
                     } else {
                         .formula <- as.formula( paste( "is.one.founder ~ ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
+
+                      .rows.to.exclude.helper <-
+                        is.na( regression.df.without.ptid.i[ , .estimate.colname ] );
+                      .rows.to.exclude <- which( .rows.to.exclude.helper );
+                      if( length( .rows.to.exclude ) == 0 ) {
+                        .ptids.to.exclude <- c();
+                      } else {
+                        .ptids.to.exclude <-
+                          rownames( regression.df.without.ptid.i )[ .rows.to.exclude ];
+                      }                
+                        
                     }
                     
                     .df <- regression.df.without.ptid.i[ , .retained.covars, drop = FALSE ];
+
+                    if( length( .ptids.to.exclude ) > 0 ) {
+                      .df <- .df[ -.rows.to.exclude, , drop = FALSE ];
+                    }
                     .lm <-
-                        glm( .formula, family = "binomial", data = regression.df.without.ptid.i );
+                        glm( .formula, family = "binomial", data = .df );
                     ## TODO: REMOVE
                     ##print( summary( .lm ) );
                     # Ok so now put the predicted values at their appropriate places in the matrix.
@@ -257,7 +273,7 @@ evaluateIsMultiple <- function (
                     .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
                     if( length( .ptids.to.exclude ) > 0 ) {
                       ## TODO: REMOVE
-                      print( paste( "excluding samples (", paste( .ptids.to.exclude, collapse = ", " ), ") due to NAs in", .estimate.colname ) );
+                      #print( paste( "excluding samples (", paste( .ptids.to.exclude, collapse = ", " ), ") due to NAs in", .estimate.colname ) );
                       .mat1 <- .mat1[ -.rows.to.exclude, , drop = FALSE ];
                       .out <- .out[ -.rows.to.exclude ];
                     }
