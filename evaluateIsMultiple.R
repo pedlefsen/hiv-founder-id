@@ -234,19 +234,35 @@ evaluateIsMultiple <- function (
                   # lasso:
                   if( .estimate.colname == "none" ) {
                       .mat1 <- as.matrix( regression.df.without.ptid.i[ , .covariates.lasso, drop = FALSE ] );
+                        .ptids.to.exclude <- c();
                   } else {
                       .mat1 <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso, .estimate.colname ) ] );
+                      .rows.to.exclude.helper <-
+                        is.na( regression.df.without.ptid.i[ , .estimate.colname ] );
+                      .rows.to.exclude <- which( .rows.to.exclude.helper );
+                      if( length( .rows.to.exclude ) == 0 ) {
+                        .ptids.to.exclude <- c();
+                      } else {
+                        .ptids.to.exclude <-
+                          rownames( regression.df.without.ptid.i )[ .rows.to.exclude ];
+                      }                
                   }
                   .out <- regression.df.without.ptid.i[[ "is.one.founder" ]];
-    
+                  
                   .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
                   .retained.covars <- setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                    if( length( .ptids.to.exclude ) > 0 ) {
+                      ## TODO: REMOVE
+                      print( paste( "excluding samples (", paste( .ptids.to.exclude, collapse = ", " ), ") due to NAs in", .estimate.colname ) );
+                      .mat1 <- .mat1[ -.rows.to.exclude, , drop = FALSE ];
+                      .out <- .out[ -.rows.to.exclude ];
+                    }
                     # penalty.factor = 0 to force the .estimate.colname variable.
-    
+                    
                     tryCatch( {
                       cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
                                                  penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
@@ -326,9 +342,9 @@ evaluateIsMultiple <- function (
       ## presently), we change all of these estimates
       ## from NA to 1 (meaning yes, it's single-founder).
                                         #stopifnot( sum( is.na( estimates.is.one.founder.per.person ) ) == 0 );
-            if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
-                warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
-            }
+#            if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
+#                warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
+#            }
       # estimates.is.one.founder.per.person.oneNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
       #     if( is.na( .value ) ) {
       #         1
@@ -354,13 +370,13 @@ evaluateIsMultiple <- function (
        #print( colnames( estimates.is.one.founder.per.person )[ 25 ] );
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
-              #print( .col.i );
+              print( .col.i );
               #print( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ) );
-                if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) } ) ) > 1 ) {
+                if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) > 1 ) {
                   
                   performance( prediction( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), gold.is.one.founder.per.person ), measure = "auc" )@y.values[[ 1 ]];
                 } else {
-                  print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ , .col.i ], function ( .x ) { !is.null( .x ) } ) ) ) );
+                  print( paste( "COL", .col.i, "--> WARNING: sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) is", sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) ) );
                   0;
                 }
             } );
@@ -382,10 +398,10 @@ evaluateIsMultiple <- function (
                .isMultiple.aucs <- 
                    sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                                         #print( .col.i );
-                     if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), function( .x ) { !is.null( .x ) } ) ) > 1 ) {
+                     if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), function( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) > 1 ) {
                        performance( prediction( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), gold.is.one.founder.per.person[ ppt.suffices == .ppt.suffix ] ), measure = "auc" )@y.values[[ 1 ]];
                      } else {
-                       print( paste( "COL", .col.i, "--> WARNING: sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) is", sum( sapply( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ], function( .x ) { !is.null( .x ) } ) ) ) );
+                       print( paste( "COL", .col.i, "--> WARNING: sum( sapply( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), function( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) is", sum( sapply( as.numeric( estimates.is.one.founder.per.person[ ppt.suffices == .ppt.suffix, .col.i ] ), function( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) ) );
                        0;
                      }
                    } );
