@@ -117,6 +117,8 @@ createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), inter
 ## Deterministic, 5 weeks, 90th percentile.
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_5weeks_percentile90.tab" );
 
+## TODO: ERE I AM.  TODO next: gamma-width to control variance (since variance of exponential is tmean squared!).
+
 ## Exponential-width Uniform-center, 5 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "exponentialwidth_uniform_5weeks.tab" );

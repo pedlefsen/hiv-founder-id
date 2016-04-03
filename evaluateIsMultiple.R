@@ -112,6 +112,9 @@ evaluateIsMultiple <- function (
         
            .keep.cols <-
                grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+           ## Try removing some variables that are rarely selected
+           .donotkeep.cols <- c( "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
+           .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
            all.additional.cols <- setdiff( .keep.cols, c( single.cols, mut.rate.coef.cols ) );
@@ -186,10 +189,8 @@ evaluateIsMultiple <- function (
                           c( .covariates.glm, helpful.additional.cols );
                   }
                   if( include.bounds.in.glm ) {
-                      ## This was causing a problem because of perfect collinearity, so I've taken the upper bound away.
                       .covariates.glm <-
-                          c( .covariates.glm, .lower.bound.colname );
-                      #     c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                   }
                   # glm:
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
@@ -242,10 +243,8 @@ evaluateIsMultiple <- function (
                   # covariates for lasso
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
-                      ## This was causing a problem because of perfect collinearity, so I've taken the upper bound away.
                       .covariates.lasso <-
-                          c( .covariates.lasso, .lower.bound.colname );
-                      #     c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                          c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {
