@@ -302,8 +302,13 @@ evaluateTimings <- function (
             cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );
         
         .keep.cols <-
-            grep( "num.*\\.seqs|totalbases", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
-        
+            grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+        # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
+        .keep.cols <-
+          grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
+        ## Try removing some variables that are rarely selected
+       .donotkeep.cols <- c( "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
+       .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
         anchre.cols <- grep( "anchre", .keep.cols, value = TRUE );
