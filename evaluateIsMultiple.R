@@ -139,14 +139,14 @@ evaluateIsMultiple <- function (
         
         ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
         if( the.time == "6m" ) {
-            .lower.bound.colname <- "exponentialwidth_uniform_30weeks.lower";
-            .upper.bound.colname <- "exponentialwidth_uniform_30weeks.upper";
+            .lower.bound.colname <- "gammawidth_uniform_30weeks.lower";
+            .upper.bound.colname <- "gammawidth_uniform_30weeks.upper";
         } else if( the.time == "1m.6m" ) {
-            .lower.bound.colname <- "exponentialwidth_uniform_1m5weeks_6m30weeks.lower";
-            .upper.bound.colname <- "exponentialwidth_uniform_1m5weeks_6m30weeks.upper";
+            .lower.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.lower";
+            .upper.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.upper";
         } else {
-            .lower.bound.colname <- "exponentialwidth_uniform_5weeks.lower";
-            .upper.bound.colname <- "exponentialwidth_uniform_5weeks.upper";
+            .lower.bound.colname <- "gammawidth_uniform_5weeks.lower";
+            .upper.bound.colname <- "gammawidth_uniform_5weeks.upper";
         }
         
         if( use.glm.validate ) {
@@ -280,7 +280,7 @@ evaluateIsMultiple <- function (
                     
                     tryCatch( {
                       cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
-                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                                                 penalty.factor = as.numeric( colnames( .mat1 ) !=p .estimate.colname ) );
                     ## TODO: REMOVE
                     ##print( coef( cv.glmnet.fit, s = "lambda.min" ) );
                       if( return.lasso.coefs ) {

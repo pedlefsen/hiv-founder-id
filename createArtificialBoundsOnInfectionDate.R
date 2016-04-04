@@ -45,6 +45,15 @@ exponential.uniform.interval.generation.fn <- function ( interval.center, mean.i
     return( create.deterministic.interval.generation.fn( runif( 1 ) )( interval.center, rexp( 1, 1 / mean.interval.width ) ) );
 } # exponential.uniform.interval.generation.fn ( .. )
 
+# This generates an interval of random (gamma-distributed) width and then randomly places it; simply calls create.deterministic.interval.generation.fn with a uniformly-chosen percentile and a gamma-distributed width.
+gamma.uniform.interval.generation.fn <- function ( interval.center, mean.interval.width, sd.interval.width = (1/5)*mean.interval.width ) {
+    # mean of a gamma is .shape * .scale.
+    .shape <- 1 / ( sd.interval.width / mean.interval.width )^2;
+    .scale <- mean.interval.width/.shape;
+    
+    return( create.deterministic.interval.generation.fn( runif( 1 ) )( interval.center, rgamma( 1, shape = .shape, rate = 1/.scale ) ) );
+} # gamma.uniform.interval.generation.fn ( .. )
+
 test.uniform.interval.generation.fn <- function () {
     stopifnot( all.equal( mean( replicate( 10000, uniform.interval.generation.fn( 0, 100 )[ 1 ] ) ), -50, tol = 1E-2 ) );
     stopifnot( all.equal( mean( replicate( 100000, uniform.interval.generation.fn( 100, 1000 )[ 2 ] ) ), 600, tol = 1 ) );
@@ -53,6 +62,11 @@ test.uniform.interval.generation.fn <- function () {
 test.exponential.uniform.interval.generation.fn <- function () {
     stopifnot( all.equal( mean( apply( replicate( 10000, exponential.uniform.interval.generation.fn( 100, 5*7 ) ), 2, diff ) ), ( 5 * 7 ), tol = 1 ) )
 } # test.exponential.uniform.interval.generation.fn ()
+
+test.gamma.uniform.interval.generation.fn <- function () {
+    stopifnot( all.equal( mean( apply( replicate( 10000, gamma.uniform.interval.generation.fn( 100, 5*7, 2*7 ) ), 2, diff ) ), ( 5 * 7 ), tol = 1 ) )
+    stopifnot( all.equal( sd( apply( replicate( 10000, gamma.uniform.interval.generation.fn( 100, 5*7, 2*7 ) ), 2, diff ) ), ( 2 * 7 ), tol = 1 ) )
+} # test.gamma.uniform.interval.generation.fn ()
 
 ## For now "interval.center.percentile" should be a fraction, so eg 0.5 means that the interval will be centered on the true infection date, 0.1 means that the 10th percentile of the interval will be placed at the true value, and 1.0 means that the interval will end at the true infection date.
 ## By default it'll be deterministic, but if you change interval.generation.fn to a function, it should accept the following parameters: [TODO]
@@ -110,48 +124,39 @@ createArtificialBoundsOnInfectionDate <-
 
 ## DO it.
 
-## Deterministic, 5 weeks, centered.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.5 ), output.file.suffix = "deterministic_5weeks_centered.tab" );
-## Deterministic, 5 weeks, 10th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_5weeks_percentile10.tab" );
-## Deterministic, 5 weeks, 90th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_5weeks_percentile90.tab" );
-
-## TODO: ERE I AM.  TODO next: gamma-width to control variance (since variance of exponential is tmean squared!).
+# ## Deterministic, 5 weeks, centered.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.5 ), output.file.suffix = "deterministic_5weeks_centered.tab" );
+# ## Deterministic, 5 weeks, 10th percentile.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_5weeks_percentile10.tab" );
+# ## Deterministic, 5 weeks, 90th percentile.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_5weeks_percentile90.tab" );
 
 ## Exponential-width Uniform-center, 5 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "exponentialwidth_uniform_5weeks.tab" );
 
+## Gamma-width Uniform-center, mean 5 weeks, SD 1 week.
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_5weeks.tab" );
+
 ## Uniform-center, 5 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "uniform_5weeks.tab" );
 
-## Deterministic, 20 weeks, centered.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.50 ), output.file.suffix = "deterministic_20weeks_centered.tab" );
-## Deterministic, 20 weeks, 10th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_20weeks_percentile10.tab" );
-## Deterministic, 20 weeks, 90th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_20weeks_percentile90.tab" );
-
-## Exponential-width Uniform-center, 20 weeks.
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "exponentialwidth_uniform_20weeks.tab" );
-
-## Uniform-center, 20 weeks.
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 20 * 7 ), interval.generation.fn = uniform.interval.generation.fn, output.file.suffix = "uniform_20weeks.tab" );
-
-## Deterministic, 30 weeks, centered.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.50 ), output.file.suffix = "deterministic_30weeks_centered.tab" );
-## Deterministic, 30 weeks, 10th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_30weeks_percentile10.tab" );
-## Deterministic, 30 weeks, 90th percentile.
-createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_30weeks_percentile90.tab" );
+# ## Deterministic, 30 weeks, centered.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.50 ), output.file.suffix = "deterministic_30weeks_centered.tab" );
+# ## Deterministic, 30 weeks, 10th percentile.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.1 ), output.file.suffix = "deterministic_30weeks_percentile10.tab" );
+# ## Deterministic, 30 weeks, 90th percentile.
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.9 ), output.file.suffix = "deterministic_30weeks_percentile90.tab" );
 
 ## Exponential-width Uniform-center, 30 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "exponentialwidth_uniform_30weeks.tab" );
+
+## Gamma-width Uniform-center, mean 30 weeks, SD 6 weeks.
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_30weeks.tab" );
 
 ## Uniform-center, 30 weeks.
 set.seed( 98103 );

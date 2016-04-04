@@ -56,6 +56,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "6m"
                        );
                    .rv <- c( list( "uniform_1m5weeks_6m30weeks" = new.bounds.table ), .rv );
+                   
                    ## Add a new bounds.type called "exponentialwidth_uniform_1m5weeks_6m30weeks"
                    another.new.bounds.table <-
                        missing.column.safe.rbind(
@@ -65,6 +66,16 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "6m"
                        );
                    .rv <- c( list( "exponentialwidth_uniform_1m5weeks_6m30weeks" = another.new.bounds.table ), .rv );
+                   
+                   ## Add a new bounds.type called "gammawidth_uniform_1m5weeks_6m30weeks"
+                   yetanother.new.bounds.table <-
+                       missing.column.safe.rbind(
+                           results.by.time[[ "1m" ]][[ .varname ]][[ "gammawidth_uniform_5weeks" ]],
+                           results.by.time[[ "6m" ]][[ .varname ]][[ "gammawidth_uniform_30weeks" ]],
+                           "1m",
+                           "6m"
+                       );
+                   .rv <- c( list( "gammawidth_uniform_1m5weeks_6m30weeks" = yetanother.new.bounds.table ), .rv );
                    return( .rv );
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
@@ -123,6 +134,23 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                  colnames( another.new.estimates.table ) <- paste( .colname.root, "exponentialwidth.uniform.1m5weeks.6m30weeks.time.est", sep = "." );
                  results.1m.6m[[ "results.per.person" ]] <-
                    cbind( another.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+               }
+  
+               ## Add a new center-of-bounds result called "COB.gammawidth.uniform.1m5weeks.6m30weeks.time.est"
+               if( ( paste( .colname.root, "gammawidth.uniform.5weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "gammawidth.uniform.30weeks.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
+                 yetanother.new.estimates.table <-
+                   rbind(
+                     results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "gammawidth.uniform.5weeks.time.est", sep = "." ), drop = FALSE ],
+                     results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "gammawidth.uniform.30weeks.time.est", sep = "." ), drop = FALSE ]
+                   );
+                 rownames( yetanother.new.estimates.table ) <-
+                   c(
+                     paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
+                     paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
+                   );
+                 colnames( yetanother.new.estimates.table ) <- paste( .colname.root, "gammawidth.uniform.1m5weeks.6m30weeks.time.est", sep = "." );
+                 results.1m.6m[[ "results.per.person" ]] <-
+                   cbind( yetanother.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
                }
              }
            } # End foreach .colname.root
@@ -189,11 +217,6 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
            } );
            names( .rv.for.time ) <- .vars;
 
-
-
-
-
-              
            # Add the evaluated.results:
            .evaluated.results <-
                evaluate.results.per.person.fn( .rv.for.time[[ "results.per.person" ]], .rv.for.time[[ gold.standard.varname ]], .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
