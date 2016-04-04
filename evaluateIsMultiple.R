@@ -284,7 +284,7 @@ evaluateIsMultiple <- function (
                     
                     tryCatch( {
                       cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
-                                                 penalty.factor = as.numeric( colnames( .mat1 ) !=p .estimate.colname ) );
+                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
                     ## TODO: REMOVE
                     ##print( coef( cv.glmnet.fit, s = "lambda.min" ) );
                       if( return.lasso.coefs ) {
