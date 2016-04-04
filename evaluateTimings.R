@@ -419,14 +419,15 @@ evaluateTimings <- function (
                   .covariates.glm <-
                     helpful.additional.cols;
                   # covariates for glm.withbounds
-                  .covariates.glm.withbounds <- # with intercept, can't use both bounds
+                  .covariates.glm.withbounds <-
                     c( .upper.bound.colname );
                   # covariates for glm.nointercept
                   .covariates.glm.nointercept <- 
                     helpful.additional.cols;
                   # covariates for glm.withbounds.nointercept
                   .covariates.glm.withbounds.nointercept <-
-                    c( .lower.bound.colname, .upper.bound.colname );
+                    #c( .lower.bound.colname, .upper.bound.colname );
+                    c( .upper.bound.colname );
                   
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
@@ -508,7 +509,8 @@ evaluateTimings <- function (
                   
                   # covariates for lasso.withbounds
                   .covariates.lasso.withbounds <-
-                    c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
+                    #c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
+                    c( .upper.bound.colname, all.additional.cols );
 
                   # covariates for lasso.nointercept
                   .covariates.lasso.nointercept <- 
@@ -516,7 +518,8 @@ evaluateTimings <- function (
                   
                   # covariates for lasso.withbounds.nointercept
                   .covariates.lasso.withbounds.nointercept <-
-                    c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
+                    #c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
+                    c( .upper.bound.colname, all.additional.cols );
 
                   # lasso:
                   if( .estimate.colname == "none" ) {

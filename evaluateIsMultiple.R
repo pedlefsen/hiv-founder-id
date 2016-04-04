@@ -194,7 +194,8 @@ evaluateIsMultiple <- function (
                   }
                   if( include.bounds.in.glm ) {
                       .covariates.glm <-
-                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                        #c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                        c( .covariates.glm, .upper.bound.colname );
                   }
                   # glm:
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
@@ -248,7 +249,8 @@ evaluateIsMultiple <- function (
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
                       .covariates.lasso <-
-                          c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                        #c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                        c( .covariates.lasso, .upper.bound.colname );
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {
