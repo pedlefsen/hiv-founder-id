@@ -113,6 +113,12 @@ getFilteredLassoUsageTables <- function (
         .lasso.coefs <- results.by.region.and.time[[ "results.across.regions.by.time" ]][[ the.region ]][[ to.region ]][[ the.time ]][[ "evaluated.results" ]][[ the.bounds.type ]][[ "lasso.coefs" ]];
     } # End if is.null( to.region ) .. else ..
 
+    ## Special case if .lasso.coefs has options for eg "withbounds" then use that.
+    if( "lasso.withbounds" %in% names( .lasso.coefs ) ) {
+        .lasso.coefs <- .lasso.coefs[[ "lasso.withbounds" ]];
+    }
+
+    
 ## first index is ppt, second index is special estimator.
 .mat.per.ppt <- 
     lapply( .lasso.coefs, function ( .lasso.coefs.for.ppt ) {
@@ -154,7 +160,6 @@ get.uses.by.ppt.for.evaluator <- function ( the.evaluator ) {
     return( .logical.mat );
 } # get.uses.by.ppt.for.evaluator (..)
 
-## ERE I AM!  Still working on this, almost there.  Pretty cool.
 all.evaluators <- colnames( .mat.per.ppt[[1]] );
 uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
      .uses.for.evaluator <- get.uses.by.ppt.for.evaluator( the.evaluator );

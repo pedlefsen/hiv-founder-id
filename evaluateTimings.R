@@ -307,7 +307,7 @@ evaluateTimings <- function (
         .keep.cols <-
           grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
         ## Try removing some variables that are rarely selected
-       .donotkeep.cols <- c( "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
+        .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike" );
        .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );

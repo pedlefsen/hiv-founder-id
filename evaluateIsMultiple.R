@@ -116,7 +116,7 @@ evaluateIsMultiple <- function (
            .keep.cols <-
                grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
             ## Try removing some variables that are rarely selected
-           .donotkeep.cols <- c( "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
+           .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
            .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
@@ -194,8 +194,7 @@ evaluateIsMultiple <- function (
                   }
                   if( include.bounds.in.glm ) {
                       .covariates.glm <-
-                        #c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
-                        c( .covariates.glm, .upper.bound.colname );
+                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                   }
                   # glm:
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
@@ -249,8 +248,7 @@ evaluateIsMultiple <- function (
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
                       .covariates.lasso <-
-                        #c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
-                        c( .covariates.lasso, .upper.bound.colname );
+                          c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {
