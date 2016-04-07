@@ -29,8 +29,13 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*.valid
 ### Read results tables.
 ## setting the.time to "1m.6m" will return pooled results over those times
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = FALSE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
+    ## HACK: the isMultiple results don't have a zeroNAs option.
+    if( length( grep( "sMultiple", out.tab.file.suffix ) ) > 0 ) {
+        zeroNAs <- FALSE;
+    }
+    
     if( is.null( to.region ) || is.na( to.region ) ) {
         ## if to.region is not defined then it means we should use the single-region results.
         infile.results <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, out.tab.file.suffix, sep = "" );
@@ -43,8 +48,9 @@ getFilteredResultsTables <- function (
     results.in <- read.table( infile.results, sep = "\t" );
     if( zeroNAs ) {
         results <- results.in[ , grep( "zeroNAs$", colnames( results.in ) ), drop = FALSE ];
-        colnames( results.zeroNAs ) <-
-            gsub( "\\.zeroNAs$", "", colnames( results.zeroNAs ) );
+        stopifnot( ncol( results ) > 1 );
+        colnames( results ) <-
+            gsub( "\\.zeroNAs$", "", colnames( results ) );
     } else {
         results <- results.in[ , grep( "zeroNAs$", colnames( results.in ), invert = TRUE ), drop = FALSE ];
     }
