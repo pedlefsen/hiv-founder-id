@@ -333,16 +333,16 @@ evaluateTimings <- function (
 
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
+        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "onemonth").
         if( ( the.time == "6m" ) || ( the.time == "1m6m" ) ) {
-            .lower.bound.colname <- "gammawidth_uniform_30weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_30weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_sixmonths.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_sixmonths.upper";
         } else if( the.time == "1m.6m" ) {
-            .lower.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.upper";
         } else {
-            .lower.bound.colname <- "gammawidth_uniform_5weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_5weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_onemonth.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_onemonth.upper";
         }
         
         if( use.glm.validate ) {
@@ -908,7 +908,7 @@ evaluateTimings <- function (
         ## the boundary.  Note we don't do this with
         ## the deterministic bounds, and we only do it
         ## for the time corresponding to the sample (
-        ## 5weeks for "1m" and 30weeks for "6m" ) [each
+        ## onemonth for "1m" and sixmonths for "6m" ) [each
         ## gets an additional week for the difference
         ## between the 2 weeks added at the beginning
         ## and 1 week subtracted at the end, for
@@ -919,7 +919,7 @@ evaluateTimings <- function (
         ## this time I have no idea what the right
         ## number is, but this seems reasonable.]
         .artificial.bounds.to.use <-
-            grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1m5weeks_6m30weeks", "30weeks" ), "5weeks" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
+            grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1monemonth_6msixmonths", "sixmonths" ), "onemonth" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
         results.per.person.bounded <-
           lapply( .artificial.bounds.to.use, function ( .artificial.bounds.name ) {
             .mat <-
@@ -1130,7 +1130,7 @@ evaluateTimings <- function (
         
             matrix.of.unbounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ "unbounded" ]]$rmse } );
             mode( matrix.of.unbounded.results.rmses ) <- "numeric";
-            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "5weeks" unless the.time is "1m" in which case it is "30weeks".
+            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "onemonth" unless the.time is "1m" in which case it is "sixmonths".
             matrix.of.bounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ 2 ]]$rmse } );
             mode( matrix.of.bounded.results.rmses ) <- "numeric";
             

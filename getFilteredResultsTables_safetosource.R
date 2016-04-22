@@ -55,15 +55,15 @@ getFilteredResultsTables <- function (
         results <- results.in[ , grep( "zeroNAs$", colnames( results.in ), invert = TRUE ), drop = FALSE ];
     }
 
-    # Filter out anything that's impossible -- so that's all the deterministic bounds as well as any non-matching time.  Also we use 30weeks never 20weeks for the 6 month time point.
+    # Filter out anything that's impossible -- so that's all the deterministic bounds as well as any non-matching time.  Also we use 30week snever 20weeks for the 6 month time point.
     if( the.time == "1m" ) {
-        the.times.it.aint <- c( "20weeks", "30weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "20weeks", "30weeks", "1m5weeks_6m30weeks", "sixmonths", "1monemonth_6msixmonths" );
     } else if( the.time == "1m6m" ) {
-        the.times.it.aint <- c( "20weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "20weeks", "1m5weeks_6m30weeks", "1monemonth_6msixmonths" );
     } else if( the.time == "6m" ) {
-        the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks", "onemonth", "1monemonth_6msixmonths" );
     } else if( the.time == "1m.6m" ) {
-        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks" );
+        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks", "\\.onemonth", "\\.sixmonths" );
     }
     ## Also exclude deterministic bounds
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
@@ -177,13 +177,13 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     
     # Filter out anything that's impossible -- so that's all the deterministic bounds as well as any non-matching time.  Also we use 30weeks never 20weeks for the 6 month time point.
     if( the.time == "1m" ) {
-        the.times.it.aint <- c( "20weeks", "30weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "20weeks", "30weeks", "1m5weeks_6m30weeks", "sixmonths", "1monemonth_6msixmonths" );
     } else if( the.time == "1m6m" ) {
-        the.times.it.aint <- c( "20weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "20weeks", "1m5weeks_6m30weeks", "1monemonth_6msixmonths" );
     } else if( the.time == "6m" ) {
-        the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks" );
+        the.times.it.aint <- c( "5weeks", "20weeks", "1m5weeks_6m30weeks", "onemonth", "1monemonth_6msixmonths" );
     } else if( the.time == "1m.6m" ) {
-        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks" );
+        the.times.it.aint <- c( "\\.5weeks", "\\.30weeks", "20weeks", "\\.onemonth", "\\.sixmonths" );
     }
     ## Also exclude deterministic bounds
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.

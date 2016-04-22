@@ -1,5 +1,7 @@
 
     missing.column.safe.rbind <- function ( matA, matB, matA.name, matB.name ) {
+      stopifnot( !is.na( nrow( matA ) ) );
+      stopifnot( !is.na( nrow( matB ) ) );
         all.colnames <- union( colnames( matA ), colnames( matB ) );
         .rv <- matrix( NA, nrow = nrow( matA ) + nrow( matB ), ncol = length( all.colnames ) );
         colnames( .rv ) <- all.colnames;
@@ -37,7 +39,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                if( .varname == "bounds" ) {
                    .rv <- 
                    lapply( names( results.by.time[[ "1m" ]][[ .varname ]] ), function( .bounds.type ) {
-                       #print( .bounds.type );
+                       print( .bounds.type );
                        missing.column.safe.rbind(
                            results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
                            results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
@@ -76,6 +78,16 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "6m"
                        );
                    .rv <- c( list( "gammawidth_uniform_1m5weeks_6m30weeks" = yetanother.new.bounds.table ), .rv );
+
+                   ## Add a new bounds.type called "sampledwidth_uniform_1monemonth_6msixmonths"
+                   stillanother.new.bounds.table <-
+                       missing.column.safe.rbind(
+                           results.by.time[[ "1m" ]][[ .varname ]][[ "sampledwidth_uniform_onemonth" ]],
+                           results.by.time[[ "6m" ]][[ .varname ]][[ "sampledwidth_uniform_sixmonths" ]],
+                           "1m",
+                           "6m"
+                       );
+                   .rv <- c( list( "sampledwidth_uniform_1monemonth_6msixmonths" = stillanother.new.bounds.table ), .rv );
                    return( .rv );
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
@@ -153,6 +165,24 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                    cbind( yetanother.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
                }
              }
+             
+               ## Add a new center-of-bounds result called "COB.sampledwidth.uniform.1monemonth.6msixmonths.time.est"
+               if( ( paste( .colname.root, "sampledwidth.uniform.onemonth.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "sampledwidth.uniform.sixmonths.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
+                 stillanother.new.estimates.table <-
+                   rbind(
+                     results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.onemonth.time.est", sep = "." ), drop = FALSE ],
+                     results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.sixmonths.time.est", sep = "." ), drop = FALSE ]
+                   );
+                 rownames( stillanother.new.estimates.table ) <-
+                   c(
+                     paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
+                     paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
+                   );
+                 colnames( stillanother.new.estimates.table ) <- paste( .colname.root, "sampledwidth.uniform.1monemonth.6msixmonths.time.est", sep = "." );
+                 results.1m.6m[[ "results.per.person" ]] <-
+                   cbind( stillanother.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
+               }
+             
            } # End foreach .colname.root
            results.1m.6m <-
                c( results.1m.6m,

@@ -141,16 +141,16 @@ evaluateIsMultiple <- function (
 
         regression.df <- cbind( data.frame( is.one.founder = gold.is.one.founder.per.person[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "5weeks").
+        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "onemonth").
         if( the.time == "6m" ) {
-            .lower.bound.colname <- "gammawidth_uniform_30weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_30weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_sixmonths.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_sixmonths.upper";
         } else if( the.time == "1m.6m" ) {
-            .lower.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_1m5weeks_6m30weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.upper";
         } else {
-            .lower.bound.colname <- "gammawidth_uniform_5weeks.lower";
-            .upper.bound.colname <- "gammawidth_uniform_5weeks.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_onemonth.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_onemonth.upper";
         }
         
         if( use.glm.validate ) {
