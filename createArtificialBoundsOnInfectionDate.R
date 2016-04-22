@@ -16,10 +16,69 @@ caprisa002.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/ba
 caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
 names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
+# These are from HVTN 502 / HVTN 504 (STEP), which had a scheduled visit every 6 months (I believe) during the period after the vaccination phase, but these values I believe include everyone (those infected during vaccination, during the main trial, and even during unblinded followup (HVTN 504). I excluded one very high outlier value (1496).  The range of the remaining are from 18 to 495.
+hvtn502.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v502.csv", sep = "" ), header = TRUE )[[1]];
+
+# These are from HVTN 503 (Phambili), which had the same visit schedule as HVTN 502, but was halted early. I've excluded the two zero-valued days_negminpos and the two high outliers: 742 and 1008.  The rest are in the reasonable 1-month to 1-year range.
+hvtn503.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v503.csv", sep = "" ), header = TRUE )[[1]];
+
+
 # These are from HVTN 505, which during this period (blinded-phase of study, not unblinded followup) had a scheduled visit every 3 months, though it may have included more frequent visits during the vaccination phase (I do not know).
 hvtn505.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v505.csv", sep = "" ), header = TRUE )[[1]];
 
 ### ERE I AM!
+## Some exploration suggests that the 503 data are quite different from the 502 data.
+## Also, the distribution of the 502 and 505 data is pretty similar if you scale by the ratio of means (which is nearly 2 = 6 months / 3 months, the ratio of the window widths).
+# qqplot( hvtn502.timing.windows.of.infecteds, ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds )
+# boxplot( hvtn502.timing.windows.of.infecteds, ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds )
+## There is a heavy upper tail. The data follow something like a mixture of a normal with range 0 to 1.5*windowsize and a beta over that range with mode at the target time (90 days or 180 days) and a third component describing the heavy right tail. -- but the beta part is not necessary see below qqnorm plot (pooling the data after scaling).
+# qqplot( hvtn502.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 270 ], ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 130 ] )
+# qqnorm( c( hvtn502.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 270 ], ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 130 ] ) )
+.scaled.pooled.widths.excludingrighttail <- c( hvtn502.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 270 ], ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds[ hvtn502.timing.windows.of.infecteds < 130 ] );
+.scaled.pooled.widths <- c( hvtn502.timing.windows.of.infecteds, ( mean(hvtn502.timing.windows.of.infecteds)/mean(hvtn505.timing.windows.of.infecteds) ) *hvtn505.timing.windows.of.infecteds );
+
+# What would the mean be if these were 30-day windows instead of 90 or 180?  What is the relationship bn target and mean?
+mean(hvtn505.timing.windows.of.infecteds) / 90
+# [1] 0.9445988
+mean(hvtn502.timing.windows.of.infecteds) / 180
+# [1] 0.859767
+180 - mean(hvtn502.timing.windows.of.infecteds)
+# [1] 25.24194
+90 - mean(hvtn505.timing.windows.of.infecteds)
+# [1] 4.986111
+
+# Basically if you double the window length you make the difference between the mean and the target greater by 5-fold.
+x = c( 90, 180 ); y = c( 90-mean(hvtn505.timing.windows.of.infecteds), 180-mean(hvtn502.timing.windows.of.infecteds) )
+y[2]/y[1]
+# [1] 5.062449
+x[2]/x[1]
+# [1] 2
+the.slope.logpace <- ( log( y[2]/y[1] ) ) / ( log( x[2]/x[1] ) );
+new.y.from.new.x <- function ( new.x ) {
+    new.run <- log(new.x/x[1]);
+    new.rise <- new.run * the.slope.logpace;
+    exp( new.rise ) * y[1];
+}
+stopifnot( abs( new.y.from.new.x( x[1] ) - y[1] ) == 0 );
+stopifnot( abs( new.y.from.new.x( x[2] ) - y[2] ) == 0 );
+
+## So for the 1-month data:
+x.onemonth <- 30;
+y.onemonth <- new.y.from.new.x( x.onemonth );
+# y.onemonth is the diff between the mean of the distribution and the target, so here it is.
+mean.onemonth <- x.onemonth - y.onemonth;
+sd.onemonth <- ( mean.onemonth / mean( .scaled.pooled.widths.excludingrighttail ) ) * sd( .scaled.pooled.widths.excludingrighttail );
+# Create the fake 1-month data by sampling from the actual pooled widths, rescaled.
+onemonth.rescaled.pooled.widths <- .scaled.pooled.widths * ( mean.onemonth / mean( .scaled.pooled.widths ) );
+## Now we sample from these for the 1-month fake boundaries.
+## For the 6-month fake boundaries we use this, which basically just pools in the scaled 505 (3-month) windows into the 502 6-month windows.
+x.sixmonths <- 180;
+y.sixmonths <- new.y.from.new.x( x.sixmonths );
+# y.sixmonths is the diff between the mean of the distribution and the target, so here it is.
+mean.sixmonths <- x.sixmonths - y.sixmonths;
+sd.sixmonths <- ( mean.sixmonths / mean( .scaled.pooled.widths.excludingrighttail ) ) * sd( .scaled.pooled.widths.excludingrighttail );
+# Create the fake 1-month data by sampling from the actual pooled widths, rescaled.
+sixmonths.rescaled.pooled.widths <- .scaled.pooled.widths * ( mean.sixmonths / mean( .scaled.pooled.widths ) );
 
 regions <- c( "nflg", "v3", "rv217_v3" );
 times <- c( "1m", "6m", "1m6m" );
@@ -44,6 +103,11 @@ create.deterministic.interval.generation.fn <- function( interval.center.percent
 uniform.interval.generation.fn <- function ( interval.center, interval.width ) {
     return( create.deterministic.interval.generation.fn( runif( 1 ) )( interval.center, interval.width ) );
 } # uniform.interval.generation.fn ( .. )
+
+# This generates an interval of a width sampled from the given set, and then randomly places it; simply calls uniform.interval.generation.fn with a randomly-chosen width.
+sampledwidth.uniform.interval.generation.fn <- function ( interval.center, interval.widths.to.sample.from ) {
+    return( create.deterministic.interval.generation.fn( runif( 1 ) )( interval.center, sample( interval.widths.to.sample.from, 1 ) ) );
+} # sampledwidth.uniform.interval.generation.fn ( .. )
 
 # This generates an interval of random (exponentially-distributed) width and then randomly places it; simply calls create.deterministic.interval.generation.fn with a uniformly-chosen percentile and an exponentially-distributed width.
 exponential.uniform.interval.generation.fn <- function ( interval.center, mean.interval.width ) {
@@ -144,6 +208,10 @@ createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), inter
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_5weeks.tab" );
 
+## Uniform-center, sampled from onemonth.rescaled.pooled.widths.
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = onemonth.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_onemonth.tab" );
+
 ## Uniform-center, 5 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = exponential.uniform.interval.generation.fn, output.file.suffix = "uniform_5weeks.tab" );
@@ -162,6 +230,10 @@ createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), inte
 ## Gamma-width Uniform-center, mean 30 weeks, SD 6 weeks.
 set.seed( 98103 );
 createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_30weeks.tab" );
+
+## Uniform-center, sampled from sixmonth.rescaled.pooled.widths.
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = sixmonths.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_sixmonths.tab" );
 
 ## Uniform-center, 30 weeks.
 set.seed( 98103 );
