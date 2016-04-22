@@ -248,7 +248,8 @@ evaluateIsMultiple <- function (
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
                       .covariates.lasso <-
-                          c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                          #c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                        c( .covariates.lasso, .upper.bound.colname );
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {

@@ -16,6 +16,11 @@ caprisa002.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/ba
 caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
 names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
+# These are from HVTN 505, which during this period (blinded-phase of study, not unblinded followup) had a scheduled visit every 3 months, though it may have included more frequent visits during the vaccination phase (I do not know).
+hvtn505.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v505.csv", sep = "" ), header = TRUE )[[1]];
+
+### ERE I AM!
+
 regions <- c( "nflg", "v3", "rv217_v3" );
 times <- c( "1m", "6m", "1m6m" );
 
