@@ -485,7 +485,10 @@ evaluateIsMultiple <- function (
             
           if( use.bounds ) {
               the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
-              
+              # Only keep the "sampledwidth" bounds.
+              the.artificial.bounds <-
+                the.artificial.bounds[ grep( "sampledwidth", names( the.artificial.bounds ), value = TRUE ) ];
+
               return( list( results.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
           } else {
               return( list( estimates.is.one.founder.per.person = estimates.is.one.founder.per.person, gold.is.one.founder.per.person = gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = bound.and.evaluate.is.multiple.results.per.ppt( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time ) ) );
