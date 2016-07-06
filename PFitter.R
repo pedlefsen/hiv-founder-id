@@ -44,7 +44,7 @@ iseven <- function(c) {
 	return(ev)
 }
 		
-phi <- sqrt(1+4/3)
+phi <- sqrt(1+4/3) # \sqrt{ 1 + \frac{8}{R_0} }
 #gens <- function(l,nb,epsilon) (l/(nb*epsilon)-(1-phi)/(phi^2))*((phi)/(1+phi))
 days <- function(l,nb,epsilon) 1.5*((phi)/(1+phi))*(l/(epsilon*nb) - (1-phi)/(phi^2))
 ### end FUNCTIONS ###
@@ -70,7 +70,7 @@ for(i in 1:(1+max(d0[,3]))){ yvec0[i] <- sum(mult0[which(d0[,3]==(i-1))]) }
 # print( "yvec0" );
 # print( yvec0 );
 
-nl0 <- length(yvec0);
+nl0 <- length(yvec0)
 clambda <- sum((1:(nl0-1))*yvec0[-1])/sum(yvec0) #### THIS IS THE LAMBDA THAT FITS THE CONSENSUS ONLY DISTRIBUTION
 ## TODO: REMOVE
 #print( clambda );
@@ -122,6 +122,7 @@ nuni <- dim(d0)[1]
 TX <- matrix(rep(NA,nuni^2), ncol=nuni)
 rownames( TX ) <- seqnames;
 colnames( TX ) <- seqnames;
+## NOTE Paul's version of TX here is a symmetric matrix; the original version had zeros above the diagonal.
 for( .i in 1:nrow( d1 ) ) {
     TX[ d1[ .i, 1 ], d1[ .i, 2 ] ] <- d1[ .i, 3 ];
     TX[ d1[ .i, 2 ], d1[ .i, 1 ] ] <- d1[ .i, 3 ];
@@ -142,6 +143,7 @@ muhat <- 0
 den1 <- 12*(nseq*(nseq-1)*(nseq-2)*(nseq-3))^(-1)  
 den2 <- den1/4
 
+## NOTE In PFitter this is accomplished more simply using nseq choose 2. This modification supports sparse matrices, with missing entries not counted in the denominator or numerator.
 .denmuinv <- 0;
 .denmuinv <- .denmuinv + choose(mult0[nuni], 2); # transitions among duplicates, all of distance 0
 for(n in 1:(nuni-1)){
@@ -337,8 +339,8 @@ if (lambda!=0) {
 		
 
 ### CONSTRUCT SIGMA_ij MATRIX THEN INVERT IT
-#pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x)
-pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda)*x)-lfactorial(x) ) ) # PAUL CHANGED log( clambda^x ) to log(clambda)*x
+#pk <- function(x) ((nseq^2)*(2^x)*exp(-2*clambda)*(clambda^x))/factorial(x) # PFitter original
+pk <- function(x) (exp( ( (log(nseq)*2)+(log(2)*x)+(-2*clambda)+log(clambda)*x)-lfactorial(x) ) ) # PAUL CHANGED for numerical stability
 # pk.unsafe <- function(x) ( nseq**2 * (2*clambda)**x * exp( -2*clambda ) / factorial( x ) )
 # pk.unsafe2 <- function(x) ( nseq**2 * dpois( x, (2*clambda) ) );
 mui <- function(x) nseq*dpois(x, lambda=clambda)
@@ -357,7 +359,8 @@ if (lambda!=0) {
   
 		for(l in 0:(sigma.dim-1)){   
 			
-			if(k>=l){
+                       ## NOTE: Paul changed these all to use the numerically more stable logspace computation, followed by exponentiation.
+                       if(k>=l){
                             c1 <- exp( ((log( clambda )* k) - lfactorial(k)) + log( sum( exp( lchoose(k,l:0)+((log(clambda)*(0:l)) - lfactorial(0:l)) ) ) ) );
                             stopifnot( is.finite( c1 ) );
                             c2 <- exp( ((log( clambda )* l) - lfactorial(l)) + log( sum(exp( lchoose(l,l:0)+((log( clambda )*((k-l):k))-lfactorial((k-l):k))) ) ) );
@@ -377,10 +380,9 @@ if (lambda!=0) {
                     }
                     sigmaij[k+1,l+1] <- 0.5*coeff*(c1+c2);
 			if(k==l){
+                          sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k);
                           if( iseven(k) ) {
                             sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] - (0.25)*mui(k/2);
-                          } else {
-                            sigmaij[k+1,l+1] <- sigmaij[k+1,l+1] + (0.5)*pk(k) ;
                           }
                         }
                         stopifnot( is.finite( sigmaij[k+1,l+1] ) );

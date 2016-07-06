@@ -9,7 +9,8 @@ source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" )
 source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
-runPoissonFitter <- function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
+runPoissonFitter <-
+    function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
 
     if( maskOutNonsynonymousCodons ) {
         fasta.file <-
