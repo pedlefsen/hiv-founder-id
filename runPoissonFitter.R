@@ -10,7 +10,7 @@ source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
 runPoissonFitter <-
-    function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSPFitter = FALSE, maskOutNonsynonymousCodons = FALSE ) {
+    function ( fasta.file, output.dir = NULL, include.gaps.in.Hamming = FALSE, run.DSStarPhyTest = FALSE, maskOutNonsynonymousCodons = FALSE ) {
 
     if( maskOutNonsynonymousCodons ) {
         fasta.file <-
@@ -131,9 +131,9 @@ runPoissonFitter <-
       .rv <- system( R.cmd );
     }
 
-    if( run.DSPFitter ) {
-        DSPFitter.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSPFitter.out", sep = "" );
-        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' DSPFitter.R", DSPFitter.outfile );
+    if( run.DSStarPhyTest ) {
+        DSStarPhyTest.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSStarPhyTest.out", sep = "" );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' DSStarPhyTest.R", DSStarPhyTest.outfile );
         .rv <- system( R.cmd );
     }
     return( .rv );
@@ -142,11 +142,11 @@ runPoissonFitter <-
 ## Here is where the action is.
 fasta.file <- Sys.getenv( "runPoissonFitter_inputFilename" ); # alignment
 output.dir <- Sys.getenv( "runPoissonFitter_outputDir" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
-run.DSPFitter <- Sys.getenv( "runPoissonFitter_runDSPFitter" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
-if( ( run.DSPFitter == "" ) || ( toupper( run.DSPFitter ) == "F" ) || ( toupper( run.DSPFitter ) == "FALSE" ) || ( run.DSPFitter == "0" ) ) {
-    run.DSPFitter = FALSE;
+run.DSStarPhyTest <- Sys.getenv( "runPoissonFitter_runDSStarPhyTest" ); # NOTE: will create a subdir for the output, named after the fasta file, with "PoissonFitterDir".
+if( ( run.DSStarPhyTest == "" ) || ( toupper( run.DSStarPhyTest ) == "F" ) || ( toupper( run.DSStarPhyTest ) == "FALSE" ) || ( run.DSStarPhyTest == "0" ) ) {
+    run.DSStarPhyTest = FALSE;
 } else {
-    run.DSPFitter = TRUE;
+    run.DSStarPhyTest = TRUE;
 }
 maskOutNonsynonymousCodons <- Sys.getenv( "runPoissonFitter_maskOutNonsynonymousCodons" );
 if( ( maskOutNonsynonymousCodons == "" ) || ( toupper( maskOutNonsynonymousCodons ) == "F" ) || ( toupper( maskOutNonsynonymousCodons ) == "FALSE" ) || ( maskOutNonsynonymousCodons == "0" ) ) {
@@ -157,10 +157,10 @@ if( ( maskOutNonsynonymousCodons == "" ) || ( toupper( maskOutNonsynonymousCodon
 ## TODO: REMOVE
 # warning( paste( "alignment input file:", fasta.file ) );
 # warning( paste( "output dir:", output.dir ) );
-# warning( paste( "run DSPFitter:", run.DSPFitter ) );
+# warning( paste( "run DSStarPhyTest:", run.DSStarPhyTest ) );
 
 if( file.exists( fasta.file ) ) {
-    print( runPoissonFitter( fasta.file, output.dir, run.DSPFitter = run.DSPFitter, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );
+    print( runPoissonFitter( fasta.file, output.dir, run.DSStarPhyTest = run.DSStarPhyTest, maskOutNonsynonymousCodons = maskOutNonsynonymousCodons ) );
 } else {
     stop( paste( "File does not exist:", fasta.file ) );
 }

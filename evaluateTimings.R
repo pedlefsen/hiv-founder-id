@@ -28,7 +28,17 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 #' a trial in which testing is conducted every X days.  For the center
 #' of bounds approach we load the bounds files in subdirs of the
 #' "bounds" subdirectory eg at
-#' /fh/fast/edlefsen_p/bakeoff/analysis_sequences/bounds/nflg/1m/.
+#' /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw_edited_20160216/bounds/nflg/1m/.
+#' This will also look for plasma viral load measurements in files
+#' called
+#' /fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv
+#' and
+#' /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv. These
+#' files have three important columns: ptid,viralload,timepoint.  For
+#' each ptid the viral loads at timepoints 1,2,3 correspond to the
+#' gold-standard, 1m, and 6m time points.  Viral loads are not logged
+#' in the input file.
+#' 
 #' These files have names beginning with "artificialBounds_" and
 #' ending with ".tab".
 #'
@@ -74,6 +84,9 @@ evaluateTimings <- function (
     caprisa002.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_gold_standard_timings.csv" );
     caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
     names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
+
+    rv217.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv" );
+    caprisa002.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv" );
     
     rmse <- function( x, na.rm = FALSE ) {
         if( na.rm ) {

@@ -103,7 +103,7 @@ getFilteredResultsTables <- function (
 ### Get uses of parameters over lasso runs.
 ## out.file.prefix should be "isMultiple" or "Timings"/
 getFilteredLassoUsageTables <- function (
-    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
+    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
 ) {
     RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
     results.by.region.and.time.Rda.filename <-
@@ -157,11 +157,12 @@ getFilteredLassoUsageTables <- function (
       #print(names( ..hi ) );
       .mat[ names( ..hi ), .evaluator ] <- ..hi;
   }
+  .mat[ is.na( .mat ) ] <- 0;
   return( .mat );
 } );
 # This returns the average, over all models evaluated when a particular ppt is excluded, of the uses of each covariate by the lasso-selected model.
 get.uses.by.ppt.for.evaluator <- function ( the.evaluator ) {
-    .logical.mat <- do.call( rbind, lapply( .mat.per.ppt, function ( .mat.for.ppt ) { as.logical( .mat.for.ppt[ , the.evaluator ] ) } ) );
+    .logical.mat <- do.call( rbind, lapply( .mat.per.ppt, function ( .mat.for.ppt ) { .rv <- as.logical( .mat.for.ppt[ , the.evaluator ] ); .rv[ is.na( .rv ) ] <- 0; return( .rv ); } ) );
     colnames( .logical.mat ) <- rownames( .mat.per.ppt[[1]] );
     return( .logical.mat );
 } # get.uses.by.ppt.for.evaluator (..)
@@ -194,6 +195,19 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
         results.filtered <- results.filtered[ , grep( column.pattern, colnames( results.filtered ) ), drop = FALSE ];
+    }
+
+    ## Maybe also rename some cols.
+    if( !is.null( colname.pattern.map ) && !is.na( colname.pattern.map ) ) {
+        for( .pattern in names( colname.pattern.map ) ) {
+            print( paste( "renaming cols according to pattern '", .pattern, "' => '", unlist( colname.pattern.map[ .pattern ] ), "'", sep = "" ) );
+            .colname.matches <- grep( .pattern, colnames( results.filtered ), value = TRUE );
+            if( length( .colname.matches ) == 0 ) {
+                next;
+            }
+            # Now fix 'em.
+            colnames( results.filtered ) <- gsub( .pattern, unlist( colname.pattern.map[ .pattern ] ), colnames( results.filtered ) );
+        } # End foreach .pattern
     }
     
     ## Maybe also rename some rows.
