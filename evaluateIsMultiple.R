@@ -99,7 +99,7 @@ evaluateIsMultiple <- function (
     bound.and.evaluate.is.multiple.results.per.ppt <-
         function ( estimates.is.one.founder.per.person, gold.is.one.founder.per.person, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE ) {
           ## TODO: REMOVE.  DEBUGGING.
-          estimates.is.one.founder.per.person.in <- estimates.is.one.founder.per.person;
+          #estimates.is.one.founder.per.person.in <- estimates.is.one.founder.per.person;
           
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( estimates.is.one.founder.per.person );

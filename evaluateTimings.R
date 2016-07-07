@@ -590,23 +590,12 @@ evaluateTimings <- function (
                           }
                         } ) ) ) );
                     }
-                   # Exclude covars that are too highly correlated with the upper bound.
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.mat[ , .upper.bound.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
                     # Exclude covars that are too highly correlated with each other.
-                    .covars.to.consider <- setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname );
+                    .covars.to.consider <-
+                      setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) );
                     .covars.to.exclude <- c( .covars.to.exclude,
                         names( which( sapply( .covars.to.consider, function( .covar.colname ) {
+                          #print( .covar.colname );
                         .cor <- 
                             cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , .covars.to.consider ], use = "pairwise" );
                         if( any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
@@ -664,9 +653,11 @@ evaluateTimings <- function (
                   
                   # lasso.withbounds:
                   if( .estimate.colname == "none" ) {
-                      .lasso.withbounds.mat <- as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds ] );
+                      .lasso.withbounds.mat <-
+                        as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds ] );
                   } else {
-                      .lasso.withbounds.mat <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds, .estimate.colname ) ] );
+                      .lasso.withbounds.mat <-
+                        as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds, .estimate.colname ) ] );
                   }
                   # exclude any rows with any NAs.
                   .retained.rows <-
@@ -694,8 +685,22 @@ evaluateTimings <- function (
                           }
                         } ) ) ) );
                     }
+                   # Exclude covars that are too highly correlated with the upper bound.
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
                     # Exclude covars that are too highly correlated with each other.
-                    .covars.to.consider <- setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) );
+                    .covars.to.consider <-
+                      setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
                     .covars.to.exclude <- c( .covars.to.exclude,
                         names( which( sapply( .covars.to.consider, function( .covar.colname ) {
                         .cor <- 
@@ -707,7 +712,7 @@ evaluateTimings <- function (
                         }
                         } ) ) ) );
                     .retained.covars <- setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
-                  if( .estimate.colname %in% .retained.covars ) {
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.withbounds.mat <- .lasso.withbounds.mat[ , setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
@@ -996,7 +1001,7 @@ evaluateTimings <- function (
            unique.ppt.suffices <- unique( ppt.suffices );
            .results.by.suffix <- lapply( unique.ppt.suffices, function ( .ppt.suffix ) {
                ## TODO: REMOVE
-               print( paste( "suffix:", .ppt.suffix ) );
+               #print( paste( "suffix:", .ppt.suffix ) );
                .diffs.by.stat <-
                    lapply( diffs.by.stat, function( .diffs.for.stat ) { .diffs.for.stat[ ppt.suffices == .ppt.suffix ]; } );
                .diffs.by.stat.zeroNAs <-
