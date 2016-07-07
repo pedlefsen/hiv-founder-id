@@ -1017,9 +1017,19 @@ evaluateTimings <- function (
         } else {
             results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
         }
+
+        if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { ( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) } )
+        } else {
+            stopifnot( the.region == "v3" );
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { ( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) } )
+        }
+        ## Add viral loads.
+        results.with.pvl <- cbind( results.in, pvl.at.the.time );
+        colnames( results.with.pvl )[ ncol( results.with.pvl ) ] <- "viralload";
         
         results.covars.per.person.with.extra.cols <-
-          summarizeCovariatesOnePerParticipant( results.in );
+          summarizeCovariatesOnePerParticipant( results.with.pvl );
         ## TODO: Add to that the loading of the viralloads.csv files (in the gold_standards dirs).
         
         days.colnames <- c( grep( "time", colnames( results.in ), value = T ), grep( "days", colnames( results.in ), value = T ) );

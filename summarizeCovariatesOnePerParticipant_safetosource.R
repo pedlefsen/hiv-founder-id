@@ -17,8 +17,9 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
     days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
     days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
-    
-    results.covars.colnames <- c( "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
+
+    ### ERE I AM.  See below where aggregation happens.  Note viralload will be the same for one subject/sample, vs the other things which may differ by eg region.
+    results.covars.colnames <- c( "viralload", "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
     
     ## Setting up.  Add a column for the coefficients that are used by the daysFromLambda function.
     mutation.rate.coefs <-
