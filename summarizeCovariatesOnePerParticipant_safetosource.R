@@ -18,8 +18,8 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
     days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
 
-    ### ERE I AM.  See below where aggregation happens.  Note viralload will be the same for one subject/sample, vs the other things which may differ by eg region.
-    results.covars.colnames <- c( "viralload", "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
+    results.covars.colnames <- c( "lPVL", "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
+    stopifnot( all( results.covars.colnames %in% colnames( results ) ) );
     
     ## Setting up.  Add a column for the coefficients that are used by the daysFromLambda function.
     mutation.rate.coefs <-
@@ -44,8 +44,22 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
             mutation.rate.coefs,
             mutation.rate.coefs.totalbases
         );
+
+    ## Aggregate across samples to make one estimate per participant.
+    # Seven cases: lPVL, diversity, entropy, single, mut.rate.coef, Starphy.R, and the rest ("max").
+
+    # Case 0: for lPVL, for now the value is constant because it is the "1m" lPVL for the "1m6m" and "1m" samples,  so no "combined measure" is needed.
+    lPVL.one.per.ppt <- 
+        sapply( unique( rownames( covars ) ), function( .ppt ) {
+            .ppt.cells <- covars[ rownames( covars ) == .ppt, "lPVL" ];
+            if( all( is.na( .ppt.cells ) ) ) {
+              return( NA );
+            }
+            stopifnot( all( .ppt.cells[ -1 ] == .ppt.cells[ 1 ] ) );
+            .ppt.cells[ 1 ];
+        } );
+    names( lPVL.one.per.ppt ) <- unique( rownames( covars ) );
     
-    # Six cases: diversity, entropy, single, mut.rate.coef, Starphy.R, and the rest ("max").
     # Case 1: for diversity, we create combined measures weighted using num.diversity.seqs.
     diversity.colnames <-
         grep( "diversity", colnames( covars ), value = TRUE, perl = TRUE )
@@ -166,6 +180,6 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
         return( .rv );
     } );
     
-    return( cbind( diversity.one.per.ppt, entropy.one.per.ppt, single.one.per.ppt, mut.rate.coef.one.per.ppt, Starphy.R.one.per.ppt, max.one.per.ppt )[ , colnames( covars ) ] );
+    return( cbind( lPVL.one.per.ppt, diversity.one.per.ppt, entropy.one.per.ppt, single.one.per.ppt, mut.rate.coef.one.per.ppt, Starphy.R.one.per.ppt, max.one.per.ppt )[ , colnames( covars ) ] );
 } # summarizeCovariatesOnePerParticipant (..)
         

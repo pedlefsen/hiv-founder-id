@@ -33,22 +33,29 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                } );
            names( results.by.time ) <- times;
 
+           if( !all( c( "1m", "6m" ) %in% times ) ) {
+               return( results.by.time );
+           }
            .vars <- setdiff( names( results.by.time[[1]] ), "evaluated.results" );
            results.1m.6m <- lapply( .vars, function ( .varname ) {
-               #print( .varname );
+               print( .varname );
                if( .varname == "bounds" ) {
-                   .rv <- 
-                   lapply( names( results.by.time[[ "1m" ]][[ .varname ]] ), function( .bounds.type ) {
-                       print( .bounds.type );
-                       missing.column.safe.rbind(
-                           results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
-                           results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
-                           "1m",
-                           "6m"
-                       )
-                   } );
-                   names( .rv ) <-
-                       names( results.by.time[[ "1m" ]][[ .varname ]] );
+                   if( length( intersect( names( results.by.time[[ "1m" ]][[ .varname ]] ), names( results.by.time[[ "6m" ]][[ .varname ]] ) ) ) > 0 ) {
+                     .rv <- 
+                     lapply( intersect( names( results.by.time[[ "1m" ]][[ .varname ]] ), names( results.by.time[[ "6m" ]][[ .varname ]] ) ), function( .bounds.type ) {
+                         print( .bounds.type );
+                         missing.column.safe.rbind(
+                             results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
+                             results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
+                             "1m",
+                             "6m"
+                         )
+                     } );
+                     names( .rv ) <-
+                         names( results.by.time[[ "1m" ]][[ .varname ]] );
+                   } else {
+                       .rv <- NULL;
+                   }
                    
                    ## ## Add a new bounds.type called "uniform_1m5weeks_6m30weeks"
                    ## new.bounds.table <-
@@ -81,14 +88,23 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                    ## .rv <- c( list( "gammawidth_uniform_1m5weeks_6m30weeks" = yetanother.new.bounds.table ), .rv );
 
                    ## Add a new bounds.type called "sampledwidth_uniform_1monemonth_6msixmonths"
-                   stillanother.new.bounds.table <-
+                   # stillanother.new.bounds.table <-
+                   #     missing.column.safe.rbind(
+                   #         results.by.time[[ "1m" ]][[ .varname ]][[ "sampledwidth_uniform_onemonth" ]],
+                   #         results.by.time[[ "6m" ]][[ .varname ]][[ "sampledwidth_uniform_sixmonths" ]],
+                   #         "1m",
+                   #         "6m"
+                   #     );
+
+                   ## Add a new bounds.type called "sampledwidth_uniform_1mmtn003_6mhvtn502"
+                   great.new.bounds.table <-
                        missing.column.safe.rbind(
-                           results.by.time[[ "1m" ]][[ .varname ]][[ "sampledwidth_uniform_onemonth" ]],
-                           results.by.time[[ "6m" ]][[ .varname ]][[ "sampledwidth_uniform_sixmonths" ]],
+                           results.by.time[[ "1m" ]][[ .varname ]][[ "sampledwidth_uniform_mtn003" ]],
+                           results.by.time[[ "6m" ]][[ .varname ]][[ "sampledwidth_uniform_hvtn502" ]],
                            "1m",
                            "6m"
                        );
-                   .rv <- c( list( "sampledwidth_uniform_1monemonth_6msixmonths" = stillanother.new.bounds.table ), .rv );
+                   .rv <- c( list( "sampledwidth_uniform_1mmtn003_6mhvtn502" = great.new.bounds.table ), .rv );
                    return( .rv );
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
@@ -167,19 +183,19 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                ##     cbind( yetanother.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
                ## }
              
-               ## Add a new center-of-bounds result called "COB.sampledwidth.uniform.1monemonth.6msixmonths.time.est"
-               if( ( paste( .colname.root, "sampledwidth.uniform.onemonth.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "sampledwidth.uniform.sixmonths.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
+               ## Add a new center-of-bounds result called "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est"
+               if( ( paste( .colname.root, "sampledwidth.uniform.mtn003.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "sampledwidth.uniform.hvtn502.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
                  stillanother.new.estimates.table <-
                    rbind(
-                     results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.onemonth.time.est", sep = "." ), drop = FALSE ],
-                     results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.sixmonths.time.est", sep = "." ), drop = FALSE ]
+                     results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.mtn003.time.est", sep = "." ), drop = FALSE ],
+                     results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.hvtn502.time.est", sep = "." ), drop = FALSE ]
                    );
                  rownames( stillanother.new.estimates.table ) <-
                    c(
                      paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
                      paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
                    );
-                 colnames( stillanother.new.estimates.table ) <- paste( .colname.root, "sampledwidth.uniform.1monemonth.6msixmonths.time.est", sep = "." );
+                 colnames( stillanother.new.estimates.table ) <- paste( .colname.root, "sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", sep = "." );
                  results.1m.6m[[ "results.per.person" ]] <-
                    cbind( stillanother.new.estimates.table, results.1m.6m[[ "results.per.person" ]] );
                }
@@ -192,6 +208,9 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
        } ); # End foreach the.region
         names( results.by.region.and.time ) <- regions;
 
+      if( !all( c( "nflg", "v3" ) %in% regions ) ) {
+          return( results.by.region.and.time );
+      }
       # We now evaluate pooled results for every pair of regions, except nflg&rv217_v3.
       results.across.regions.by.time <-
         lapply( 1:( length( regions ) - 1), function( from.region.i ) {

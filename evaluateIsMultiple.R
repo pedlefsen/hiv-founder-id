@@ -1,5 +1,4 @@
 ## First do all the stuff in README.postprocessing.txt.
-## [TODO: FUTURE: Also run evaluateTimings.R because its outputs are used as inputs here]
 library( "ROCR" ) # for "prediction" and "performance"
 library( "glmnet" ) # for cv.glmnet
 library( "parallel" ) # for mcapply
@@ -16,6 +15,15 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' Evaluate isMultiple estimates and produce results tables.
 #'
 #' This function runs the BakeOff results analysis for the isMultiple results.
+#' This will also look for plasma viral load measurements in files
+#' called
+#' /fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv
+#' and
+#' /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv. These
+#' files have three important columns: ptid,viralload,timepoint.  For
+#' each ptid the viral loads at timepoints 1,2,3 correspond to the
+#' gold-standard, 1m, and 6m time points.  Viral loads are not logged
+#' in the input file.
 #'
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation.
 #' @param include.bounds.in.glm include the corresponding prior bounds in the regression equations used for cross-validation.
@@ -62,6 +70,9 @@ evaluateIsMultiple <- function (
     caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
     names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
 
+    rv217.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv" );
+    caprisa002.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv" );
+    
     ## Sometimes there are multiple entries for one ptid/sample, eg
     ## for the NFLGs there are often right half and left half (RH and
     ## LH) and sometimes additionally NFLG results.  If so, for
@@ -115,9 +126,21 @@ evaluateIsMultiple <- function (
            # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
            .keep.cols <-
                grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
-            ## Try removing some variables that are rarely selected
-           .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R" );
+        # Also exclude this strange test.
+        .keep.cols <-
+            grep( "DS\\.Star[pP]hy\\.is\\.starlike", .keep.cols, value = TRUE, invert = TRUE );
+        # Also exclude this, which is based on the strange test.
+        .keep.cols <-
+            grep( "StarPhy\\.is\\.one\\.founder", .keep.cols, value = TRUE, invert = TRUE );
+
+        # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "hvtn502" ones.
+        .keep.cols <-
+            grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
+           
+        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders)p
+           .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
            .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+           
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
            
@@ -139,18 +162,18 @@ evaluateIsMultiple <- function (
         results.covars.per.person.df <-
             data.frame( results.covars.per.person );
 
-        regression.df <- cbind( data.frame( is.one.founder = gold.is.one.founder.per.person[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
+        regression.df <- cbind( data.frame( is.one.founder = gold.is.one.founder.per.person[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "onemonth").
+        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
         if( the.time == "6m" ) {
-            .lower.bound.colname <- "sampledwidth_uniform_sixmonths.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_sixmonths.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_hvtn502.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_hvtn502.upper";
         } else if( the.time == "1m.6m" ) {
-            .lower.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.upper";
         } else {
-            .lower.bound.colname <- "sampledwidth_uniform_onemonth.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_onemonth.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_mtn003.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_mtn003.upper";
         }
         
         if( use.glm.validate ) {
@@ -480,9 +503,20 @@ evaluateIsMultiple <- function (
                     1-rv217.gold.is.multiple[ rownames( estimates.is.one.founder.per.person ) ];
             }
             
-            results.covars.per.person.with.extra.cols <-
-                summarizeCovariatesOnePerParticipant( identify.founders.study );
+            # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
+            if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
+                pvl.at.the.time <- sapply( rownames( identify.founders.study ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            } else {
+                stopifnot( the.region == "v3" );
+                pvl.at.the.time <- sapply( rownames( identify.founders.study ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            }
+            ## Add log plasma viral load (lPVL).
+            identify.founders.study.with.lPVL <- cbind( identify.founders.study, log( pvl.at.the.time ) );
+            colnames( identify.founders.study.with.lPVL )[ ncol( identify.founders.study.with.lPVL ) ] <- "lPVL";
             
+            results.covars.per.person.with.extra.cols <-
+              summarizeCovariatesOnePerParticipant( identify.founders.study.with.lPVL );
+           
           if( use.bounds ) {
               the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
               # Only keep the "sampledwidth" bounds.

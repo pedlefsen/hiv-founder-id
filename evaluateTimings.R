@@ -315,20 +315,32 @@ evaluateTimings <- function (
         ## anything to do here.
         days.est.cols <- colnames( results.per.person );
         days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
+        days.est.cols <- grep( "lPVL", days.est.cols, invert = TRUE, value = TRUE );
         days.est.cols <- grep( "PFitter|Star[Pp]hy", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
     
       if( use.glm.validate || use.lasso.validate ) {
         results.covars.per.person.with.extra.cols <-
             cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );
-        
         .keep.cols <-
             grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
         # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
         .keep.cols <-
-          grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
-        ## Try removing some variables that are rarely selected
-        .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike" );
-       .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+            grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
+        # Also exclude this strange test.
+        .keep.cols <-
+            grep( "DS\\.Star[pP]hy\\.is\\.starlike", .keep.cols, value = TRUE, invert = TRUE );
+        # Also exclude this, which is based on the strange test.
+        .keep.cols <-
+            grep( "StarPhy\\.is\\.one\\.founder", .keep.cols, value = TRUE, invert = TRUE );
+
+        # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "sixmonths" ones.
+        .keep.cols <-
+            grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
+
+        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders)
+        .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
+        .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+        
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
         anchre.cols <- grep( "anchre", .keep.cols, value = TRUE );
@@ -351,18 +363,18 @@ evaluateTimings <- function (
         results.covars.per.person.df <-
             data.frame( results.covars.per.person );
 
-        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds, function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
+        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "onemonth").
+        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
         if( ( the.time == "6m" ) || ( the.time == "1m6m" ) ) {
-            .lower.bound.colname <- "sampledwidth_uniform_sixmonths.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_sixmonths.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_hvtn502.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_hvtn502.upper";
         } else if( the.time == "1m.6m" ) {
-            .lower.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_1monemonth_6msixmonths.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.upper";
         } else {
-            .lower.bound.colname <- "sampledwidth_uniform_onemonth.lower";
-            .upper.bound.colname <- "sampledwidth_uniform_onemonth.upper";
+            .lower.bound.colname <- "sampledwidth_uniform_mtn003.lower";
+            .upper.bound.colname <- "sampledwidth_uniform_mtn003.upper";
         }
         
         if( use.glm.validate ) {
@@ -453,7 +465,7 @@ evaluateTimings <- function (
                   # .covariates.glm.withbounds.nointercept <-
                   #   #c( .lower.bound.colname, .upper.bound.colname );
                   #   c( .upper.bound.colname );
-                  
+
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
@@ -533,8 +545,7 @@ evaluateTimings <- function (
                   
                   # covariates for lasso.withbounds
                   .covariates.lasso.withbounds <-
-                    #c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
-                    c( .upper.bound.colname, all.additional.cols );
+                    c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
 
                   ## # covariates for lasso.nointercept
                   ## .covariates.lasso.nointercept <- 
@@ -553,13 +564,60 @@ evaluateTimings <- function (
                     .lasso.mat <-
                         as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso, .estimate.colname ), drop = FALSE ] );
                   }
+                  # exclude any rows with any NAs.
+                  .retained.rows <-
+                      which( apply( .lasso.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
+                  .lasso.mat <-
+                      .lasso.mat[ .retained.rows, , drop = FALSE ];
+                  .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
                   .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
-                      return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
-                  } );
-                  # TODO: Also exclude covars that are too highly correlated.
-                  .retained.covars <- setdiff( colnames( .lasso.mat ), names( which( .covars.to.exclude ) ) );
+                        return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+                   } );
+                   # Exclude covars that are too highly correlated with the estimate.
+                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                    COR.THRESHOLD <- 0.9;
+                    if( .estimate.colname != "none" ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.mat[ , .estimate.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    }
+                   # Exclude covars that are too highly correlated with the upper bound.
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.mat[ , .upper.bound.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    # Exclude covars that are too highly correlated with each other.
+                    .covars.to.consider <- setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname );
+                    .covars.to.exclude <- c( .covars.to.exclude,
+                        names( which( sapply( .covars.to.consider, function( .covar.colname ) {
+                        .cor <- 
+                            cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , .covars.to.consider ], use = "pairwise" );
+                        if( any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                          TRUE
+                        } else {
+                          FALSE
+                        }
+                        } ) ) ) );
+                    .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                    .lasso.mat <- .lasso.mat[ , setdiff( colnames( .lasso.mat ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                      .lasso.mat <- .lasso.mat[ , setdiff( colnames( .lasso.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
@@ -574,7 +632,8 @@ evaluateTimings <- function (
                             .lasso.validation.results.per.person.coefs.cell;
                       }
                       for( .row.i in the.rows.for.ptid ) {
-                        .pred.value.lasso <- predict( .cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.mat ), drop = FALSE ] ), s = "lambda.min" );
+                          .pred.value.lasso <-
+                              predict( .cv.glmnet.fit, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.mat ), drop = FALSE ] ), s = "lambda.min" );
                         lasso.validation.results.per.person[ .row.i, .col.i ] <- 
                             .pred.value.lasso;
                       }
@@ -609,12 +668,47 @@ evaluateTimings <- function (
                   } else {
                       .lasso.withbounds.mat <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds, .estimate.colname ) ] );
                   }
+                  # exclude any rows with any NAs.
+                  .retained.rows <-
+                      which( apply( .lasso.withbounds.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
+                  .lasso.withbounds.mat <-
+                      .lasso.withbounds.mat[ .retained.rows, , drop = FALSE ];
+                  .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
                   .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
-                  .retained.covars <- setdiff( colnames( .lasso.withbounds.mat ), names( which( .covars.to.exclude ) ) );
+                   # Exclude covars that are too highly correlated with the estimate.
+                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                    COR.THRESHOLD <- 0.9;
+                    if( .estimate.colname != "none" ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.withbounds.mat[ , .estimate.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    }
+                    # Exclude covars that are too highly correlated with each other.
+                    .covars.to.consider <- setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) );
+                    .covars.to.exclude <- c( .covars.to.exclude,
+                        names( which( sapply( .covars.to.consider, function( .covar.colname ) {
+                        .cor <- 
+                            cor( .lasso.withbounds.mat[ , .covar.colname ], .lasso.withbounds.mat[ , .covars.to.consider ], use = "pairwise" );
+                        if( any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                          TRUE
+                        } else {
+                          FALSE
+                        }
+                        } ) ) ) );
+                    .retained.covars <- setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
                   if( .estimate.colname %in% .retained.covars ) {
-                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , setdiff( colnames( .lasso.withbounds.mat ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
@@ -931,7 +1025,7 @@ evaluateTimings <- function (
         ## the boundary.  Note we don't do this with
         ## the deterministic bounds, and we only do it
         ## for the time corresponding to the sample (
-        ## onemonth for "1m" and sixmonths for "6m" ) [each
+        ## mtn003 for "1m" and hvtn502 for "6m" ) [each
         ## gets an additional week for the difference
         ## between the 2 weeks added at the beginning
         ## and 1 week subtracted at the end, for
@@ -942,7 +1036,8 @@ evaluateTimings <- function (
         ## this time I have no idea what the right
         ## number is, but this seems reasonable.]
         .artificial.bounds.to.use <-
-            grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1monemonth_6msixmonths", "sixmonths" ), "onemonth" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
+           #grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1mmtn003_6msixmonths", "sixmonths" ), "mtn003" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
+            grep( ifelse( the.time == "6m", ifelse( the.time == "1m.6m", "1mmtn003_6mhvtn502", "hvtn502" ), "mtn003" ), grep( "deterministic", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), value = TRUE );
         results.per.person.bounded <-
           lapply( .artificial.bounds.to.use, function ( .artificial.bounds.name ) {
             .mat <-
@@ -1018,19 +1113,19 @@ evaluateTimings <- function (
             results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
         }
 
+        # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
         if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { ( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) } )
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
         } else {
             stopifnot( the.region == "v3" );
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { ( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) } )
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
         }
-        ## Add viral loads.
-        results.with.pvl <- cbind( results.in, pvl.at.the.time );
-        colnames( results.with.pvl )[ ncol( results.with.pvl ) ] <- "viralload";
+        ## Add log plasma viral load (lPVL).
+        results.with.lPVL <- cbind( results.in, log( pvl.at.the.time ) );
+        colnames( results.with.lPVL )[ ncol( results.with.lPVL ) ] <- "lPVL";
         
         results.covars.per.person.with.extra.cols <-
-          summarizeCovariatesOnePerParticipant( results.with.pvl );
-        ## TODO: Add to that the loading of the viralloads.csv files (in the gold_standards dirs).
+          summarizeCovariatesOnePerParticipant( results.with.lPVL );
         
         days.colnames <- c( grep( "time", colnames( results.in ), value = T ), grep( "days", colnames( results.in ), value = T ) );
         
@@ -1044,7 +1139,7 @@ evaluateTimings <- function (
         days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
         days.est.nseq <- results.in[ , days.est.colnames.nseq, drop = FALSE ];
         
-        results <- results.in[ , days.est.colnames, drop = FALSE ];
+        results <- results.with.lPVL[ , c( "lPVL", days.est.colnames ), drop = FALSE ];
         
         if( use.infer && is.na( partition.size ) ) { ## TODO: process infer results on partitions.
           infer.results.columns <- get.infer.results.columns( the.region, the.time, rownames( results ), partition.size );
@@ -1166,7 +1261,7 @@ evaluateTimings <- function (
         
             matrix.of.unbounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ "unbounded" ]]$rmse } );
             mode( matrix.of.unbounded.results.rmses ) <- "numeric";
-            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "onemonth" unless the.time is "1m" in which case it is "sixmonths".
+            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "mtn003" unless the.time is "1m" in which case it is "hvtn502".
             matrix.of.bounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ 2 ]]$rmse } );
             mode( matrix.of.bounded.results.rmses ) <- "numeric";
             
@@ -1200,33 +1295,35 @@ evaluateTimings <- function (
     ##  [done] for comparison need to include eg just-bounds, just-helpful.additional.cols.
     ##  *) select a set of best predictions, using the cross-validation runs, for input into the evaluation of isMultiple.
     ##  *) check out results of the partitions of evaluateTimings.
-    
-    ## For partition size == 10
-    ## NOTE that this part is presently broken. TODO: FIX IT.
-    timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
-    
-    # Make a table out of it. (one per study).
-    results.table.by.region.and.time.p10 <-
-        lapply( names( timings.results.by.region.and.time.p10 ), function( the.region ) {
-            .rv <- 
-                lapply( names( timings.results.by.region.and.time.p10[[ the.region ]] ), function( the.time ) {
-                    sapply( timings.results.by.region.and.time.p10[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
-            names( .rv ) <- times;
-            return( .rv );
-        } );
-    names( results.table.by.region.and.time.p10 ) <- "v3";
-    
-    ## Write these out.
-    .result.ignored <- sapply( "v3", function ( the.region ) {
-        ..result.ignored <- 
-        sapply( times, function ( the.time ) {
-            out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
-            .tbl <- apply( results.table.by.region.and.time.p10[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
-            write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
-            return( NULL );
-        } );
-        return( NULL );
-    } );
+
+    if( FALSE ) {
+      ## For partition size == 10
+      ## NOTE that this part is presently broken. TODO: FIX IT.
+      timings.results.by.region.and.time.p10 <- getTimingsResultsByRegionAndTime( partition.size = 10 );
+      
+      # Make a table out of it. (one per study).
+      results.table.by.region.and.time.p10 <-
+          lapply( names( timings.results.by.region.and.time.p10 ), function( the.region ) {
+              .rv <- 
+                  lapply( names( timings.results.by.region.and.time.p10[[ the.region ]] ), function( the.time ) {
+                      sapply( timings.results.by.region.and.time.p10[[ the.region ]][[ the.time ]], function( results.list ) { results.list } ) } );
+              names( .rv ) <- times;
+              return( .rv );
+          } );
+      names( results.table.by.region.and.time.p10 ) <- "v3";
+      
+      ## Write these out.
+      .result.ignored <- sapply( "v3", function ( the.region ) {
+          ..result.ignored <- 
+          sapply( times, function ( the.time ) {
+              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
+              .tbl <- apply( results.table.by.region.and.time.p10[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
+              write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
+              return( NULL );
+          } );
+          return( NULL );
+      } );
+    } # End if FALSE
     
     return( invisible( NULL ) );
 } # evaluateTimings (..)
