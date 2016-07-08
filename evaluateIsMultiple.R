@@ -121,11 +121,11 @@ evaluateIsMultiple <- function (
            results.covars.per.person.with.extra.cols <-
                cbind( estimates.is.one.founder.per.person, results.covars.per.person.with.extra.cols[ , setdiff( colnames( results.covars.per.person.with.extra.cols ), colnames( estimates.is.one.founder.per.person ) ) , drop = FALSE ] );
         
-           .keep.cols <-
-               grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+        .keep.cols <-
+           grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
            # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
-           .keep.cols <-
-               grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
+        .keep.cols <-
+            grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
         # Also exclude this strange test.
         .keep.cols <-
             grep( "DS\\.Star[pP]hy\\.is\\.starlike", .keep.cols, value = TRUE, invert = TRUE );
@@ -137,9 +137,9 @@ evaluateIsMultiple <- function (
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
            
-        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders)p
-           .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
-           .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE DO THIS PROGRAMMATICALLY]
+           #.donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
+           #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
@@ -154,6 +154,16 @@ evaluateIsMultiple <- function (
             estimate.cols <- setdiff( keep.cols, helpful.additional.cols );
         }
 
+        # Don't evaluate estimators that have no variation at
+        # all. Note that technically we could/should do this after holding
+        # out each person, in case a value has no variation among the
+        # subset excluding that person.  But we do it here only.
+        estimators.to.exclude <-
+          apply( results.covars.per.person.with.extra.cols[ , estimate.cols, drop = FALSE ], 2, function ( .col ) {
+            return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+          } );
+        estimate.cols <- setdiff( estimate.cols, names( which( estimators.to.exclude ) ) );
+           
         # Also always evaluate no-estimate: "none".
         estimate.cols <- c( "none", estimate.cols );
           
@@ -180,9 +190,10 @@ evaluateIsMultiple <- function (
             ## Note that there might be multiple rows per ppt in the regression.df and in this prediction output matrix; the values will be filled in using leave-one-ptid-out xv, ie in each iteration there might be multiple rows filled in, since multiple rows correspond to one held-out ptid.
             glm.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( regression.df ), ncol = length( estimate.cols ) );
         }
-           if( use.lasso.validate ) {
+        if( use.lasso.validate ) {
             ## See note above (for use.glm.validate)
-            lasso.validation.estimates.is.one.founder.per.person <- matrix( NA, nrow = nrow( regression.df ), ncol = length( estimate.cols ) );
+            lasso.validation.estimates.is.one.founder.per.person <-
+                matrix( NA, nrow = nrow( regression.df ), ncol = length( estimate.cols ) );
             if( return.lasso.coefs ) {
                 ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the predictio noutput matrices).
                 lasso.validation.estimates.is.one.founder.per.person.coefs <-
@@ -217,13 +228,15 @@ evaluateIsMultiple <- function (
                   }
                   if( include.bounds.in.glm ) {
                       .covariates.glm <-
-                          c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                        #c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
+                        c( .covariates.glm, .upper.bound.colname );
                   }
                   # glm:
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
-                  .retained.covars <- setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
+                  .retained.covars <-
+                    setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     if( .estimate.colname == "none" ) {
                           .cv.glm <- intersect( .retained.covars, .covariates.glm );
@@ -271,8 +284,8 @@ evaluateIsMultiple <- function (
                   .covariates.lasso <- c( all.additional.cols );
                   if( include.bounds.in.lasso ) {
                       .covariates.lasso <-
-                          #c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
-                        c( .covariates.lasso, .upper.bound.colname );
+                        c( .covariates.lasso, .lower.bound.colname, .upper.bound.colname );
+                        #c( .covariates.lasso, .upper.bound.colname );
                   }
                   # lasso:
                   if( .estimate.colname == "none" ) {
@@ -292,18 +305,73 @@ evaluateIsMultiple <- function (
                   }
                   .out <- regression.df.without.ptid.i[[ "is.one.founder" ]];
                   
-                  .covars.to.exclude <- apply( .mat1, 2, function ( .col ) {
+                  .covars.to.exclude <- apply( .mat1[ , setdiff( colnames( .mat1 ), .estimate.colname ) ], 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
-                  .retained.covars <- setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) );
-                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                    .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
-                    if( length( .ptids.to.exclude ) > 0 ) {
+                  .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                  if( length( .ptids.to.exclude ) > 0 ) {
                       ## TODO: REMOVE
                       #print( paste( "excluding samples (", paste( .ptids.to.exclude, collapse = ", " ), ") due to NAs in", .estimate.colname ) );
                       .mat1 <- .mat1[ -.rows.to.exclude, , drop = FALSE ];
                       .out <- .out[ -.rows.to.exclude ];
+                   }
+                   # Exclude covars that are too highly correlated with the estimate.
+                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                    COR.THRESHOLD <- 0.9;
+                    if( .estimate.colname != "none" ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .mat1[ , .estimate.colname ], .mat1[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
                     }
+                   # Exclude covars that are too highly correlated with the upper bound.
+                   if( include.bounds.in.lasso ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .mat1[ , .upper.bound.colname ], .mat1[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    } # End if include.bounds.in.lasso
+                                              
+                  # Exclude covars that are too highly correlated with each other.
+                  .covars.to.consider <-
+                    setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
+                  ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
+                  .covars.to.consider <- rev( .covars.to.consider );
+                  .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
+                  names( .new.covars.to.exclude ) <- .covars.to.consider;
+                  for( .c.i in 1:length( .covars.to.consider ) ) {
+                    .covar.colname <- .covars.to.consider[ .c.i ];
+                    #print( .covar.colname );
+                    # Only consider those not already excluded.
+                    .cor <- 
+                      cor( .mat1[ , .covar.colname ], .mat1[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
+                    #print( .cor );
+                        if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                          .new.covars.to.exclude[ .c.i ] <- TRUE;
+                        } else {
+                          .new.covars.to.exclude[ .c.i ] <- FALSE;
+                        }
+                  } # End foreach of the .covars.to.consider
+
+                  .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
+                  .retained.covars <- setdiff( colnames( .mat1 ), .covars.to.exclude );
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     # penalty.factor = 0 to force the .estimate.colname variable.
                     
                     tryCatch( {
@@ -546,6 +614,48 @@ evaluateIsMultiple <- function (
     }
 
     writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE );
+
+    if( FALSE ) {
+      # AUC is 1.0 for 1m, nflg, "Synonymous.PFitter.is.starlike"-- but even for "none" it's good (AUC 0.965!)
+      .uses <- sapply( 1: length( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]][[.i]][[ "Synonymous.PFitter.is.starlike" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
+      .vars.to.include
+# [1] "(Intercept)"                       "lPVL"                             
+# [3] "diversity"                         "priv.sites"                       
+# [5] "inf.sites.clusters"                "DS.Starphy.R"                     
+# [7] "sampledwidth_uniform_mtn003.upper" "Synonymous.PFitter.is.starlike"
+      .uses <- sapply( 1: length( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]][[.i]][[ "none" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
+      .vars.to.include
+# [1] "(Intercept)"                         
+# [2] "lPVL"                                
+# [3] "diversity"                           
+# [4] "priv.sites"                          
+# [5] "DS.Starphy.R"                        
+# [6] "multifounder.Synonymous.DS.StarPhy.R"
+# [7] "sampledwidth_uniform_mtn003.upper"
+## Now for the multi-region, multi-time results, where we can get an AUC of 0.933 using lasso with "multifounder.PFitter.mut.rate.coef", but even "none" gets 0.927.
+      #sort( ( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][[1]][[1]] ))
+      .uses <- sapply( 1: length( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]][[.i]][[ "multifounder.PFitter.mut.rate.coef" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
+      .vars.to.include
+# [1] "(Intercept)"                                  
+# [2] "lPVL"                                         
+# [3] "diversity"                                    
+# [4] "priv.sites"                                   
+# [5] "inf.sites.clusters"                           
+# [6] "DS.Starphy.R"                                 
+# [7] "multifounder.Synonymous.DS.StarPhy.R"         
+# [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
+# [9] "multifounder.PFitter.mut.rate.coef"                 
+      .uses <- sapply( 1: length( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]][[.i]][[ "none" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
+      .vars.to.include
+# [1] "(Intercept)"                                  
+# [2] "lPVL"                                         
+# [3] "diversity"                                    
+# [4] "priv.sites"                                   
+# [5] "inf.sites.clusters"                           
+# [6] "DS.Starphy.R"                                 
+# [7] "multifounder.Synonymous.DS.StarPhy.R"         
+# [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
+}
     
     # Return the file name.
     return( output.table.path );

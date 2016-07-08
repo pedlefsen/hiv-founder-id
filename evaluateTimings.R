@@ -337,9 +337,9 @@ evaluateTimings <- function (
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
 
-        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders)
-        .donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
-        .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE DO THIS PROGRAMMATICALLY]
+        #.donotkeep.cols <- c( "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "insites.is.one.founder", "InSites.founders" );
+        #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
         
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
@@ -355,6 +355,16 @@ evaluateTimings <- function (
           keep.cols <- c( helpful.additional.cols, estimate.cols );
         }
         
+        # Don't evaluate estimators that have no variation at
+        # all. Note that technically we could/should do this after holding
+        # out each person, in case a value has no variation among the
+        # subset excluding that person.  But we do it here only.
+        estimators.to.exclude <-
+          apply( results.covars.per.person.with.extra.cols[ , estimate.cols, drop = FALSE ], 2, function ( .col ) {
+            return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+          } );
+        estimate.cols <- setdiff( estimate.cols, names( which( estimators.to.exclude ) ) );
+           
         # Also always evaluate no-estimate: "none".
         estimate.cols <- c( "none", estimate.cols );
         
@@ -451,6 +461,8 @@ evaluateTimings <- function (
             .out <- regression.df.without.ptid.i[[ "days.since.infection" ]];
             for( .col.i in 1:length( estimate.cols ) ) {
                 .estimate.colname <- estimate.cols[ .col.i ];
+                ## TODO: REMOVE
+                #print( .estimate.colname );
                 if( use.glm.validate ) {
                   # covariates for glm
                   .covariates.glm <-
@@ -583,28 +595,36 @@ evaluateTimings <- function (
                           .cor <- 
                               cor( .lasso.mat[ , .estimate.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
                             #print( .cor );
-                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
                             TRUE
                           } else {
                             FALSE
                           }
                         } ) ) ) );
                     }
-                    # Exclude covars that are too highly correlated with each other.
-                    .covars.to.consider <-
-                      setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) );
-                    .covars.to.exclude <- c( .covars.to.exclude,
-                        names( which( sapply( .covars.to.consider, function( .covar.colname ) {
-                          #print( .covar.colname );
-                        .cor <- 
-                            cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , .covars.to.consider ], use = "pairwise" );
-                        if( any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
-                          TRUE
+                  # Exclude covars that are too highly correlated with each other.
+                  .covars.to.consider <-
+                    setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
+                  ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
+                  .covars.to.consider <- rev( .covars.to.consider );
+                  .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
+                  names( .new.covars.to.exclude ) <- .covars.to.consider;
+                  for( .c.i in 1:length( .covars.to.consider ) ) {
+                    .covar.colname <- .covars.to.consider[ .c.i ];
+                    #print( .covar.colname );
+                    # Only consider those not already excluded.
+                    .cor <- 
+                      cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
+                    #print( .cor );
+                        if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                          .new.covars.to.exclude[ .c.i ] <- TRUE;
                         } else {
-                          FALSE
+                          .new.covars.to.exclude[ .c.i ] <- FALSE;
                         }
-                        } ) ) ) );
-                    .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
+                  } # End foreach of the .covars.to.consider
+
+                  .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
+                  .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                       .lasso.mat <- .lasso.mat[ , setdiff( colnames( .lasso.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
@@ -668,23 +688,28 @@ evaluateTimings <- function (
                   .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
-                   # Exclude covars that are too highly correlated with the estimate.
-                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
-                    COR.THRESHOLD <- 0.9;
-                    if( .estimate.colname != "none" ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.withbounds.mat[ , .estimate.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                    }
+                  # Exclude covars that are too highly correlated with each other.
+                  .covars.to.consider <-
+                    setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
+                  ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
+                  .covars.to.consider <- rev( .covars.to.consider );
+                  .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
+                  names( .new.covars.to.exclude ) <- .covars.to.consider;
+                  for( .c.i in 1:length( .covars.to.consider ) ) {
+                    .covar.colname <- .covars.to.consider[ .c.i ];
+                    #print( .covar.colname );
+                    # Only consider those not already excluded.
+                    .cor <- 
+                      cor( .lasso.withbounds.mat[ , .covar.colname ], .lasso.withbounds.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
+                    #print( .cor );
+                        if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                          .new.covars.to.exclude[ .c.i ] <- TRUE;
+                        } else {
+                          .new.covars.to.exclude[ .c.i ] <- FALSE;
+                        }
+                  } # End foreach of the .covars.to.consider
+                  .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
+                  
                    # Exclude covars that are too highly correlated with the upper bound.
                       .covars.to.exclude <- c( .covars.to.exclude,
                           names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
@@ -692,7 +717,7 @@ evaluateTimings <- function (
                           .cor <- 
                               cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
                             #print( .cor );
-                          if( is.na( .cor ) || ( .cor >= COR.THRESHOLD ) ) {
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
                             TRUE
                           } else {
                             FALSE
