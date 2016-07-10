@@ -158,9 +158,9 @@ evaluateIsMultiple <- function (
         }
 
         # Don't evaluate estimators that have no variation at
-        # all. Note that technically we could/should do this after holding
+        # all. Note that we also redo this after holding
         # out each person, in case a value has no variation among the
-        # subset excluding that person.  But we do it here only.
+        # subset excluding that person.  But we do it here first.
         estimators.to.exclude <-
           apply( results.covars.per.person.with.extra.cols[ , estimate.cols, drop = FALSE ], 2, function ( .col ) {
             return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
@@ -219,8 +219,18 @@ evaluateIsMultiple <- function (
             }
             regression.df.without.ptid.i <-
                 regression.df[ the.rows.excluding.ptid, , drop = FALSE ];
-            for( .col.i in 1:length( estimate.cols ) ) {
-                .estimate.colname <- estimate.cols[ .col.i ];
+
+            # Don't evaluate estimators that have no variation at
+            # all. Note that we also do this above, before holding
+            # out each person.  But we do it here too.
+            .estimators.to.exclude <- # exclude the first ("none") when doing this:
+              apply( regression.df.without.ptid.i[ , estimate.cols[ -1 ], drop = FALSE ], 2, function ( .col ) {
+                return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+              } );
+            .estimate.cols <- setdiff( estimate.cols, names( which( .estimators.to.exclude ) ) );
+           
+            for( .col.i in 1:length( .estimate.cols ) ) {
+                .estimate.colname <- .estimate.cols[ .col.i ];
                 ##print( .estimate.colname );
                 if( use.glm.validate ) {
                   # covariates for glm
@@ -234,7 +244,7 @@ evaluateIsMultiple <- function (
                         #c( .covariates.glm, .lower.bound.colname, .upper.bound.colname );
                         c( .covariates.glm, .upper.bound.colname );
                   }
-                  # glm:
+                  # glm:v
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
@@ -312,6 +322,7 @@ evaluateIsMultiple <- function (
                       return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
                   } );
                   .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
+                  .covars.to.exclude <- names( which( .covars.to.exclude ) );
                   if( length( .ptids.to.exclude ) > 0 ) {
                       ## TODO: REMOVE
                       #print( paste( "excluding samples (", paste( .ptids.to.exclude, collapse = ", " ), ") due to NAs in", .estimate.colname ) );
@@ -319,11 +330,12 @@ evaluateIsMultiple <- function (
                       .out <- .out[ -.rows.to.exclude ];
                    }
                    # Exclude covars that are too highly correlated with the estimate.
-                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
                     COR.THRESHOLD <- 0.9;
                     if( .estimate.colname != "none" ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                      .covars.to.consider <-
+                        setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) );
+                      .covar.is.too.highly.correlated.with.upper.bound <-
+                        sapply( .covars.to.consider, function( .covar.colname ) {
                             #print( .covar.colname );
                           .cor <- 
                               cor( .mat1[ , .estimate.colname ], .mat1[ , .covar.colname ], use = "pairwise" );
@@ -333,22 +345,30 @@ evaluateIsMultiple <- function (
                           } else {
                             FALSE
                           }
-                        } ) ) ) );
+                        } );
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( .covar.is.too.highly.correlated.with.upper.bound ) ) );
                     }
                    # Exclude covars that are too highly correlated with the upper bound.
                    if( include.bounds.in.lasso ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .mat1[ , .upper.bound.colname ], .mat1[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
+                     .covars.to.consider <-
+                       setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) );
+                     if( length( .covars.to.consider ) > 0 ) {
+                       .covar.is.too.highly.correlated.with.upper.bound <-
+                         sapply( .covars.to.consider, function( .covar.colname ) {
+                              #print( .covar.colname );
+                            .cor <- 
+                                cor( .mat1[ , .upper.bound.colname ], .mat1[ , .covar.colname ], use = "pairwise" );
+                              #print( .cor );
+                            if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                              TRUE
+                            } else {
+                              FALSE
+                            }
+                          } );
+                        .covars.to.exclude <- c( .covars.to.exclude,
+                            names( which( .covar.is.too.highly.correlated.with.upper.bound ) ) );
+                     } # End if there are any remaining covars to consider removing.
                     } # End if include.bounds.in.lasso
                                               
                   # Exclude covars that are too highly correlated with each other.
