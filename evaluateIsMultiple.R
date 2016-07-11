@@ -476,35 +476,23 @@ evaluateIsMultiple <- function (
       ## presently), we change all of these estimates
       ## from NA to 1 (meaning yes, it's single-founder).
                                         #stopifnot( sum( is.na( estimates.is.one.founder.per.person ) ) == 0 );
-#            if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
-#                warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
-#            }
-      # estimates.is.one.founder.per.person.oneNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
-      #     if( is.na( .value ) ) {
-      #         1
-      #     } else {
-      #         .value
-      #     }
-      # } );
+      if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
+        warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
+        estimates.is.one.founder.per.person.oneNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
+            if( is.na( .value ) ) {
+                1
+            } else {
+                .value
+            }
+        } );
+        estimates.is.one.founder.per.person <- estimates.is.one.founder.per.person.oneNAs;
+      } # End if any are NA, replace with 1 (meaning single-founder).
        
       ## EVALUATION
         
-        # sum.correct.among.one.founder.people <-
-        #   apply( estimates.is.one.founder.per.person[ as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
-        # sum.incorrect.among.one.founder.people <-
-        #   apply( estimates.is.one.founder.per.person[ as.logical( gold.is.one.founder.per.person ),  ], 2, function( .row ) { sum( 1-.row ) } );
-        # sum.correct.among.multiple.founder.people <-
-        #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, function( .row ) { sum( 1-.row ) } );
-        # sum.incorrect.among.multiple.founder.people <-
-        #   apply( estimates.is.one.founder.per.person[ !as.logical( gold.is.one.founder.per.person ),  ], 2, sum );
-
-       #if( use.lasso.validate && return.lasso.coefs ) {
-       #    return( lasso.validation.estimates.is.one.founder.per.person.coefs );
-       #}
-       #print( colnames( estimates.is.one.founder.per.person )[ 25 ] );
         isMultiple.aucs <- 
             sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
-              print( .col.i );
+              #print( .col.i );
               #print( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ) );
                 if( sum( sapply( as.numeric( estimates.is.one.founder.per.person[ , .col.i ] ), function ( .x ) { !is.null( .x ) && !is.na( .x ) } ) ) > 1 ) {
                   
@@ -528,7 +516,7 @@ evaluateIsMultiple <- function (
            unique.ppt.suffices <- unique( ppt.suffices );
            .results.by.suffix <- lapply( unique.ppt.suffices, function ( .ppt.suffix ) {
                ## TODO: REMOVE
-               print( paste( "suffix:", .ppt.suffix ) );
+               #print( paste( "suffix:", .ppt.suffix ) );
                .isMultiple.aucs <- 
                    sapply( 1:ncol( estimates.is.one.founder.per.person ), function( .col.i ) {
                                         #print( .col.i );

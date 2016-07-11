@@ -37,13 +37,14 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                return( results.by.time );
            }
            .vars <- setdiff( names( results.by.time[[1]] ), "evaluated.results" );
+                ### ERE I AM.  The big discrepency when estimating parameters from multiple times may be effectively due to the greater standard deviation of date estimates from the 6m timepoint than from the 1m timepoint: the magnitude of the residuals depends on the date.  This suggests that a better model might allow that heteroskedasticity -- ie by using a negative binomial model (robust poisson regression like I do for the Picker TB project), or by using a heteroskedasticity-tolerant linear model.
            results.1m.6m <- lapply( .vars, function ( .varname ) {
-               print( .varname );
+               #print( .varname );
                if( .varname == "bounds" ) {
                    if( length( intersect( names( results.by.time[[ "1m" ]][[ .varname ]] ), names( results.by.time[[ "6m" ]][[ .varname ]] ) ) ) > 0 ) {
                      .rv <- 
                      lapply( intersect( names( results.by.time[[ "1m" ]][[ .varname ]] ), names( results.by.time[[ "6m" ]][[ .varname ]] ) ), function( .bounds.type ) {
-                         print( .bounds.type );
+                         #print( .bounds.type );
                          missing.column.safe.rbind(
                              results.by.time[[ "1m" ]][[ .varname ]][[ .bounds.type ]],
                              results.by.time[[ "6m" ]][[ .varname ]][[ .bounds.type ]],
@@ -203,7 +204,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
            } # End foreach .colname.root
            results.1m.6m <-
                c( results.1m.6m,
-                 list( evaluated.results = evaluate.results.per.person.fn( results.1m.6m[[ "results.per.person" ]], results.1m.6m[[ gold.standard.varname ]], results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", results.1m.6m[[ "bounds" ]] ) ) );
+                 list( evaluated.results = evaluate.results.per.person.fn( results.per.person = results.1m.6m[[ "results.per.person" ]], days.since.infection = results.1m.6m[[ gold.standard.varname ]], results.covars.per.person.with.extra.cols = results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", the.artificial.bounds = results.1m.6m[[ "bounds" ]] ) ) );
            return( c( list( "1m.6m" = results.1m.6m ), results.by.time ) );
        } ); # End foreach the.region
         names( results.by.region.and.time ) <- regions;
@@ -267,6 +268,13 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
            } );
            names( .rv.for.time ) <- .vars;
 
+            ## Add a covar to indicate the region (to.region vs from.region)
+            .new.column <- c( rep( 0, nrow( results.by.region.and.time[[ from.region ]][[ the.time ]][[ "results.covars.per.person.with.extra.cols" ]] ) ), rep( 1, nrow( results.by.region.and.time[[ to.region ]][[ the.time ]][[ "results.covars.per.person.with.extra.cols" ]] ) ) );
+            .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]] <-
+              cbind( .new.column, .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]] );
+            colnames( .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]] )[ 1 ] <-
+              paste( to.region, "not", from.region, sep = "_" );
+            
            # Add the evaluated.results:
            .evaluated.results <-
                evaluate.results.per.person.fn( .rv.for.time[[ "results.per.person" ]], .rv.for.time[[ gold.standard.varname ]], .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
