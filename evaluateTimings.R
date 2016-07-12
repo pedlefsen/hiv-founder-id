@@ -355,10 +355,10 @@ evaluateTimings <- function (
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
 
         ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE ADD TO THIS PROGRAMMATICALLY]
-        .donotkeep.cols <- c( "multifounder.Synonymous.PFitter.is.poisson", "Synonymous.PFitter.is.poisson", "multifounder.PFitter.is.poisson", "PFitter.is.poisson", "multifounder.Synonymous.PFitter.is.starlike", "Synonymous.PFitter.is.starlike", "multifounder.PFitter.is.starlike", "PFitter.is.starlike", "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "multifounder.DS.Starphy.fits", "multifounder.Synonymous.DS.StarPhy.fits", "Synonymous.DS.StarPhy.fits", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "InSites.is.one.founder", "InSites.founders" );
+        #.donotkeep.cols <- c( "multifounder.Synonymous.PFitter.is.poisson", "Synonymous.PFitter.is.poisson", "multifounder.PFitter.is.poisson", "PFitter.is.poisson", "multifounder.Synonymous.PFitter.is.starlike", "Synonymous.PFitter.is.starlike", "multifounder.PFitter.is.starlike", "PFitter.is.starlike", "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "multifounder.DS.Starphy.fits", "multifounder.Synonymous.DS.StarPhy.fits", "Synonymous.DS.StarPhy.fits", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "InSites.is.one.founder", "InSites.founders" );
         ## TODO: REMOVE . TESTING
         #.donotkeep.cols <- c( .donotkeep.cols, "gold.is.multiple" );
-        .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+        #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
         
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
@@ -401,11 +401,11 @@ evaluateTimings <- function (
             data.frame( results.covars.per.person );
 
         ## TODO: REMOVE. TESTING inclusion of interactions with gold.is.multiple.
-        #gold.is.multiple.interactions.df <- t( sapply( 1:nrow( results.covars.per.person.df ), function( .ppt.i ) { ( results.covars.per.person.df[ .ppt.i, "gold.is.multiple" ] * results.covars.per.person.df[ .ppt.i, setdiff( all.additional.cols, "gold.is.multiple" ) ] ) } ) );
-        #colnames( gold.is.multiple.interactions.df ) <- paste( "gold.is.multiple", colnames( gold.is.multiple.interactions.df ), sep = ".." );
-        #results.covars.per.person.df <- cbind( results.covars.per.person.df, gold.is.multiple.interactions.df );
-        #keep.cols <- c( keep.cols, colnames( gold.is.multiple.interactions.df ) );
-        #all.additional.cols <- c( all.additional.cols, colnames( gold.is.multiple.interactions.df ) );
+        gold.is.multiple.interactions.df <- t( sapply( 1:nrow( results.covars.per.person.df ), function( .ppt.i ) { ( results.covars.per.person.df[ .ppt.i, "gold.is.multiple" ] * results.covars.per.person.df[ .ppt.i, setdiff( all.additional.cols, "gold.is.multiple" ) ] ) } ) );
+        colnames( gold.is.multiple.interactions.df ) <- paste( "gold.is.multiple", colnames( gold.is.multiple.interactions.df ), sep = ".." );
+        results.covars.per.person.df <- cbind( results.covars.per.person.df, gold.is.multiple.interactions.df );
+        keep.cols <- c( keep.cols, colnames( gold.is.multiple.interactions.df ) );
+        all.additional.cols <- c( all.additional.cols, colnames( gold.is.multiple.interactions.df ) );
         
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
@@ -630,8 +630,26 @@ evaluateTimings <- function (
                   .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
                         return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
                    } );
-                   # Exclude covars that are too highly correlated with the estimate.
                     .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                  
+                  # At least one DF is needed for the variance estimate (aka the error term)
+                  MINIMUM.DF <- 1; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  cors.with.the.outcome <-
+                    sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          .cor <- 
+                              cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                            return( .cor );
+                        } );
+                  sorted.cors.with.the.outcome <-
+                    cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                  # Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                  if( .estimate.colname == "none" ) {
+                    .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                  } else {
+                    .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                  }
+                  
+                   # Exclude covars that are too highly correlated with the estimate.
                     COR.THRESHOLD <- 0.9;
                     if( .estimate.colname != "none" ) {
                       .covars.to.exclude <- c( .covars.to.exclude,
@@ -670,13 +688,21 @@ evaluateTimings <- function (
 
                   .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
                   .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
+                  .needed.df <-
+                    ( length( .retained.covars ) - ( nrow( .lasso.mat ) - MINIMUM.DF ) );
+                  if( .needed.df > 0 ) {
+                    # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
+                    # They are in order, so just chop them off the end.
+                    .lasso.mat <- .lasso.mat[ , 1:( ncol( .lasso.mat ) - .needed.df ), drop = FALSE ];
+                  }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
+                    
                     .lasso.mat <- .lasso.mat[ , setdiff( colnames( .lasso.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
-                    {
-                      .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = TRUE,
+                    { # We exclude the intercept.
+                      .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = FALSE,
                                                  penalty.factor = as.numeric( colnames( .lasso.mat ) != .estimate.colname ) );
                       .lasso.validation.results.per.person.coefs.cell <-
                          coef( .cv.glmnet.fit, s = "lambda.min" );
@@ -696,10 +722,10 @@ evaluateTimings <- function (
                     error = function( e )
                     {
                         if( .estimate.colname == "none" ) {
-                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
+                            warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
                             .formula <- as.formula( paste( "days.since.infection ~ 1" ) );
                         } else {
-                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                            warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                             .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                         }
                         .lm <- lm( .formula, data = regression.df.without.ptid.i );
@@ -736,6 +762,23 @@ evaluateTimings <- function (
                   .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
                       return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
                   } );
+                  .covars.to.exclude <- names( which( .covars.to.exclude ) );
+
+                  cors.with.the.outcome <-
+                    sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          .cor <- 
+                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            return( .cor );
+                        } );
+                  sorted.cors.with.the.outcome <-
+                    cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                  # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                  if( .estimate.colname == "none" ) {
+                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                  } else {
+                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                  }
+                  
                   # Exclude covars that are too highly correlated with each other.
                   .covars.to.consider <-
                     setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
@@ -785,15 +828,22 @@ evaluateTimings <- function (
                         }
                         } ) ) ) );
                     .retained.covars <- setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
+                  .needed.df <-
+                    ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
+                  if( .needed.df > 0 ) {
+                    # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
+                    # They are in order, so just chop them off the end.
+                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , 1:( ncol( .lasso.withbounds.mat ) - .needed.df ), drop = FALSE ];
+                  }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.withbounds.mat <-
                       .lasso.withbounds.mat[ , setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude ), drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
-                    {
+                    { # We exclude the intercept.
                       .cv.glmnet.fit.withbounds <-
-                        cv.glmnet( .lasso.withbounds.mat, .out, intercept = TRUE,
+                        cv.glmnet( .lasso.withbounds.mat, .out, intercept = FALSE,
                                   penalty.factor = as.numeric( colnames( .lasso.withbounds.mat ) != .estimate.colname ) );
                       .lasso.withbounds.validation.results.per.person.coefs.cell <-
                           coef( .cv.glmnet.fit.withbounds, s = "lambda.min" );
@@ -813,7 +863,7 @@ evaluateTimings <- function (
                     },
                     error = function( e )
                     {
-                      warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                      warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                       .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                       for( .row.i in the.rows.for.ptid ) {
                         .pred.value.lasso.withbounds <- predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );

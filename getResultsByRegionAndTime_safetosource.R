@@ -37,7 +37,16 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                return( results.by.time );
            }
            .vars <- setdiff( names( results.by.time[[1]] ), "evaluated.results" );
-                ### ERE I AM.  The big discrepency when estimating parameters from multiple times may be effectively due to the greater standard deviation of date estimates from the 6m timepoint than from the 1m timepoint: the magnitude of the residuals depends on the date.  This suggests that a better model might allow that heteroskedasticity -- ie by using a negative binomial model (robust poisson regression like I do for the Picker TB project), or by using a heteroskedasticity-tolerant linear model.
+                ### ERE I AM.  The big discrepency when estimating parameters from multiple times may be effectively due to the greater standard deviation of date estimates from the 6m timepoint than from the 1m timepoint: the magnitude of the residuals depends on the date.  This suggests that a better model might allow that heteroskedasticity -- ie by using a negative binomial model (robust poisson regression like I do for the Picker TB project), or by using a heteroskedasticity-tolerant linear model. -- UPDATE. alas. that does not seem to help; the basic problem is that the study design is not ideal. We should have made the variation in the true days-since-infection equal the variation we will see in the trial (for this we can use as a surrogate the sampling date distribution from eg mtn003 or hvtn505) by using samples collected at more varying dates (rather than just at the 1m timepoint). Ironically, this makes eg Phambili a better choice for now, although that is impacted by uncertainty in the true dates of infection of those persons). But perhaps Morgane could sequence more samples?  Maybe Carolyn?  I could add it to the grant upon resubmission, if I get that lucky.
+## After doing some playing with the mtn003 timing windows (see createArtificialBoundsOnInfectionDate.R) (see below), it seems that there's an argument to be made that for AMP, the SDs of our one month stuff is ok.  Still means we use a trivial model though. Or does it?
+# sd( mtn003.timing.windows.of.infecteds)
+# [1] 83.62038
+# > sd( mtn003.timing.windows.of.infecteds[ mtn003.timing.windows.of.infecteds < 101 ])
+# [1] 17.59504
+# > sd( mtn003.timing.windows.of.infecteds[ mtn003.timing.windows.of.infecteds < 61 ])
+# [1] 9.790947
+# > sd( mtn003.timing.windows.of.infecteds[ mtn003.timing.windows.of.infecteds < 41 ])
+# [1] 4.701886
            results.1m.6m <- lapply( .vars, function ( .varname ) {
                #print( .varname );
                if( .varname == "bounds" ) {

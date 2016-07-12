@@ -138,11 +138,10 @@ evaluateIsMultiple <- function (
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
            
         ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE ADD TO THIS PROGRAMMATICALLY]
-           .donotkeep.cols <- c( "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "insites.is.one.founder", "inf.to.priv.ratio" );
+           #.donotkeep.cols <- c( "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "insites.is.one.founder", "inf.to.priv.ratio" );
            # NOTE ALSO MORE (formerly excluded below because cor > 0.9):
-           .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
-
-           .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+           #.donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
+           # .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
@@ -246,7 +245,7 @@ evaluateIsMultiple <- function (
                   }
                   # glm:v
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
-                      return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+                      return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE ) == 0 ) );
                   } );
                   .retained.covars <-
                     setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
@@ -319,7 +318,7 @@ evaluateIsMultiple <- function (
                   .out <- regression.df.without.ptid.i[[ "is.one.founder" ]];
                   
                   .covars.to.exclude <- apply( .mat1[ , setdiff( colnames( .mat1 ), .estimate.colname ) ], 2, function ( .col ) {
-                      return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
+                      return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE ) == 0 ) );
                   } );
                   .mat1 <- .mat1[ , setdiff( colnames( .mat1 ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
                   .covars.to.exclude <- names( which( .covars.to.exclude ) );
@@ -329,6 +328,24 @@ evaluateIsMultiple <- function (
                       .mat1 <- .mat1[ -.rows.to.exclude, , drop = FALSE ];
                       .out <- .out[ -.rows.to.exclude ];
                    }
+                  
+                  # At least one DF is needed for the variance estimate (aka the error term)
+                  MINIMUM.DF <- 1; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  cors.with.the.outcome <-
+                    sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          .cor <- 
+                              cor( .out, .mat1[ , .covar.colname ], use = "pairwise" );
+                            return( .cor );
+                        } );
+                  sorted.cors.with.the.outcome <-
+                    cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                  # Sort the columns of .mat1 by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                  if( .estimate.colname == "none" ) {
+                    .mat1 <- .mat1[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                  } else {
+                    .mat1 <- .mat1[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                  }
+                  
                    # Exclude covars that are too highly correlated with the estimate.
                     COR.THRESHOLD <- 0.9;
                     if( .estimate.colname != "none" ) {
@@ -394,6 +411,13 @@ evaluateIsMultiple <- function (
 
                   .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
                   .retained.covars <- setdiff( colnames( .mat1 ), .covars.to.exclude );
+                  .needed.df <-
+                    ( length( .retained.covars ) - ( nrow( .mat1 ) - MINIMUM.DF ) );
+                  if( .needed.df > 0 ) {
+                    # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
+                    # They are in order, so just chop them off the end.
+                    .mat1 <- .mat1[ , 1:( ncol( .mat1 ) - .needed.df ), drop = FALSE ];
+                  }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     # penalty.factor = 0 to force the .estimate.colname variable.
                     
