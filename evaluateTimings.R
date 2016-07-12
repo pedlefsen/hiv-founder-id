@@ -349,6 +349,10 @@ evaluateTimings <- function (
         # Also exclude this, which is based on the strange test.
         .keep.cols <-
             grep( "StarPhy\\.is\\.one\\.founder", .keep.cols, value = TRUE, invert = TRUE );
+        .keep.cols <-
+            grep( "Star[pP]hy\\.fits", .keep.cols, value = TRUE, invert = TRUE );
+        .keep.cols <-
+            grep( "Star[pP]hy\\.founders", .keep.cols, value = TRUE, invert = TRUE );
 
         # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "sixmonths" ones.
         .keep.cols <-
@@ -358,6 +362,9 @@ evaluateTimings <- function (
         #.donotkeep.cols <- c( "multifounder.Synonymous.PFitter.is.poisson", "Synonymous.PFitter.is.poisson", "multifounder.PFitter.is.poisson", "PFitter.is.poisson", "multifounder.Synonymous.PFitter.is.starlike", "Synonymous.PFitter.is.starlike", "multifounder.PFitter.is.starlike", "PFitter.is.starlike", "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "multifounder.DS.Starphy.fits", "multifounder.Synonymous.DS.StarPhy.fits", "Synonymous.DS.StarPhy.fits", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "InSites.is.one.founder", "InSites.founders" );
         ## TODO: REMOVE . TESTING
         #.donotkeep.cols <- c( .donotkeep.cols, "gold.is.multiple" );
+        ## Remove some cols that will not be in future versions.
+        #.donotkeep.cols <- grep( "DS\\.Star[pP]y\\.(fits|founders|is.starlike)", .keep, value = TRUE );
+        #.donotkeep.cols <- c( "StarPhy.founders", "InSites.founders", "multifounder.DS.Starphy.fits",  );
         #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
         
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
@@ -634,6 +641,8 @@ evaluateTimings <- function (
                   
                   # At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
                   MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+
+                  MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
                   cors.with.the.outcome <-
                     sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
                           .cor <- 
@@ -648,9 +657,22 @@ evaluateTimings <- function (
                   } else {
                     .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
                   }
+                  # Exclude covars that are not sufficiently correlated with the outcome.
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
                   
+                    COR.THRESHOLD <- 0.8;
                    # Exclude covars that are too highly correlated with the estimate.
-                    COR.THRESHOLD <- 0.9;
                     if( .estimate.colname != "none" ) {
                       .covars.to.exclude <- c( .covars.to.exclude,
                           names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
@@ -665,6 +687,7 @@ evaluateTimings <- function (
                           }
                         } ) ) ) );
                     }
+                  
                   # Exclude covars that are too highly correlated with each other.
                   .covars.to.consider <-
                     setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
@@ -780,7 +803,53 @@ evaluateTimings <- function (
                     .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
                   }
                   
-                  # Exclude covars that are too highly correlated with each other.
+                  # Exclude covars that are not sufficiently correlated with the outcome.
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                  
+                   # Exclude covars that are too highly correlated with the estimate.
+                    if( .estimate.colname != "none" ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.withbounds.mat[ , .estimate.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    }
+
+                  # Exclude covars that are too highly correlated with the upper bound.
+                  if( !( .upper.bound.colname %in% .covars.to.exclude ) ) {
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                    }
+                  
+                  # Exclude covars that are too highly correlated with each other (not including bounds)
                   .covars.to.consider <-
                     setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
                   ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
@@ -802,33 +871,7 @@ evaluateTimings <- function (
                   } # End foreach of the .covars.to.consider
                   .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
                   
-                   # Exclude covars that are too highly correlated with the upper bound.
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                    # Exclude covars that are too highly correlated with each other.
-                    .covars.to.consider <-
-                      setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
-                    .covars.to.exclude <- c( .covars.to.exclude,
-                        names( which( sapply( .covars.to.consider, function( .covar.colname ) {
-                        .cor <- 
-                            cor( .lasso.withbounds.mat[ , .covar.colname ], .lasso.withbounds.mat[ , .covars.to.consider ], use = "pairwise" );
-                        if( any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
-                          TRUE
-                        } else {
-                          FALSE
-                        }
-                        } ) ) ) );
-                    .retained.covars <-
+                  .retained.covars <-
                       setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
                   .needed.df <-
                     ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
@@ -1317,7 +1360,7 @@ evaluateTimings <- function (
               get.anchre.results.columns( the.region, the.time, sample.dates.in, partition.size );
             
           results <- cbind( results, anchre.results.columns );
-        } # End if use.ancher and the.time is 1m6m, add anchre results too.
+        } # End if use.anchre and the.time is 1m6m, add anchre results too.
        
         if( is.na( partition.size ) ) {
           ## Now the issue is that there are multiple input files per ppt, eg for the NFLGs ther are often "LH" and "RH" files.  What to do?  The number of sequences varies.  Do a weighted average.
@@ -1339,7 +1382,11 @@ evaluateTimings <- function (
               
               results.per.person <-
                 cbind( results.per.person, center.of.bounds.table[ rownames( results.per.person ), , drop = FALSE ] );
-            
+
+              ## TODO: REMOVE. TEMPORARY HACK TO REMOVE OLD RESULTS. Remove "onemonth" and "sixmonths" results.
+              results.per.person <-
+                results.per.person[ , grep( "uniform\\.(one|six)month", colnames( results.per.person ), invert = TRUE ), drop = FALSE ];
+              
               return( list( results.per.person = results.per.person, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
             } else {
               return( list( results.per.person = results.per.person, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, evaluated.results = bound.and.evaluate.results.per.ppt( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time ) ) );

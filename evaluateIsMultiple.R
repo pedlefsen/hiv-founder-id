@@ -122,8 +122,8 @@ evaluateIsMultiple <- function (
                cbind( estimates.is.one.founder.per.person, results.covars.per.person.with.extra.cols[ , setdiff( colnames( results.covars.per.person.with.extra.cols ), colnames( estimates.is.one.founder.per.person ) ) , drop = FALSE ] );
         
         .keep.cols <-
-           grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
-           # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
+            grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
+        # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
         .keep.cols <-
             grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
         # Also exclude this strange test.
@@ -132,16 +132,21 @@ evaluateIsMultiple <- function (
         # Also exclude this, which is based on the strange test.
         .keep.cols <-
             grep( "StarPhy\\.is\\.one\\.founder", .keep.cols, value = TRUE, invert = TRUE );
+        .keep.cols <-
+            grep( "Star[pP]hy\\.fits", .keep.cols, value = TRUE, invert = TRUE );
+        .keep.cols <-
+            grep( "Star[pP]hy\\.founders", .keep.cols, value = TRUE, invert = TRUE );
 
-        # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "hvtn502" ones.
+        # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "sixmonths" ones.
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
-           
         ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE ADD TO THIS PROGRAMMATICALLY]
            #.donotkeep.cols <- c( "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "insites.is.one.founder", "inf.to.priv.ratio" );
            # NOTE ALSO MORE (formerly excluded below because cor > 0.9):
            #.donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
-           # .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+           # This one is problematic, because it is almost always 1; this is a problem because it breaks cv.glmnet, and also because it effectively acts as an intercept.
+           #.donotkeep.cols <- c( "StarPhy.founders", "InSites.founders" );
+           #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
@@ -278,7 +283,7 @@ evaluateIsMultiple <- function (
                       .df <- .df[ -.rows.to.exclude, , drop = FALSE ];
                     }
                     .lm <-
-                        glm( .formula, family = "binomial", data = .df );
+                        suppressWarnings( glm( .formula, family = "binomial", data = .df ) );
                     ## TODO: REMOVE
                     ##print( summary( .lm ) );
                     # Ok so now put the predicted values at their appropriate places in the matrix.
@@ -329,8 +334,10 @@ evaluateIsMultiple <- function (
                       .out <- .out[ -.rows.to.exclude ];
                    }
                   
-                  # At least one DF is needed for the cv.glmnet
-                  MINIMUM.DF <- 1; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  # At least one DF is needed for the cv.glmnet, and one for the intercept
+                  MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  
+                  MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
                   cors.with.the.outcome <-
                     sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
                           .cor <- 
@@ -346,8 +353,22 @@ evaluateIsMultiple <- function (
                     .mat1 <- .mat1[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
                   }
                   
+                  # Exclude covars that are not sufficiently correlated with the outcome.
+                      .covars.to.exclude <- c( .covars.to.exclude,
+                          names( which( sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                            #print( .covar.colname );
+                          .cor <- 
+                              cor( .out, .mat1[ , .covar.colname ], use = "pairwise" );
+                            #print( .cor );
+                          if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
+                            TRUE
+                          } else {
+                            FALSE
+                          }
+                        } ) ) ) );
+                  
+                    COR.THRESHOLD <- 0.8;
                    # Exclude covars that are too highly correlated with the estimate.
-                    COR.THRESHOLD <- 0.9;
                     if( .estimate.colname != "none" ) {
                       .covars.to.consider <-
                         setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) );
@@ -422,8 +443,12 @@ evaluateIsMultiple <- function (
                     # penalty.factor = 0 to force the .estimate.colname variable.
                     
                     tryCatch( {
-                      cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
-                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) );
+                      tryCatch( {
+                        cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial", penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) );
+                      }, error = function( e ) {
+                        # First try removing the penalty factor, which for some reason can help even when it doesn't seem to matter.
+                        cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial", grouped = FALSE, nfold = length( .out ) );
+                      } );
                     ## TODO: REMOVE
                     ##print( coef( cv.glmnet.fit, s = "lambda.min" ) );
                       if( return.lasso.coefs ) {
@@ -442,14 +467,14 @@ evaluateIsMultiple <- function (
                      },
                      error = function( e ) {
                         if( .estimate.colname == "none" ) {
-                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
+                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
                             .formula <- as.formula( paste( "is.one.founder ~ 1" ) );
                         } else {
-                            warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                         }
                         .formula <- as.formula( paste( "is.one.founder ~", .estimate.colname ) );
                                         # Ok so now put the predicted values at their appropriate places in the matrix.
-                        .lm <- glm( .formula, family = "binomial", data = regression.df.without.ptid.i );
+                        .lm <- suppressWarnings( glm( .formula, family = "binomial", data = regression.df.without.ptid.i ) );
                         ## TODO: REMOVE
                         ##print( "fallback from lasso to glm\n", summary( .lm ) ); 
                         for( .row.i in the.rows.for.ptid ) {
@@ -643,6 +668,8 @@ evaluateIsMultiple <- function (
     if( force.recomputation || !file.exists( is.multiple.results.by.region.and.time.Rda.filename ) ) {
         results.by.region.and.time <- getIsMultipleResultsByRegionAndTime();
         save( results.by.region.and.time, file = is.multiple.results.by.region.and.time.Rda.filename );
+        ## TODO: REMOVE
+        #.m <- sapply( 1:length( results.by.region.and.time[[3]][[1]][[1]][["1m.6m"]][[5]][["unbounded"]][[2]] ), function( .i ) { .rv <- as.numeric( results.by.region.and.time[[3]][[1]][[1]][["1m.6m"]][[5]][["unbounded"]][[2]][[.i]][["multifounder.Synonymous.PFitter.is.poisson" ]] ) != 0; names( .rv ) <- rownames( results.by.region.and.time[[3]][[1]][[1]][["1m.6m"]][[5]][["unbounded"]][[2]][[.i]][["multifounder.Synonymous.PFitter.is.poisson" ]] ); return( .rv ); } );apply( .m, 1, mean )
     } else {
         # loads results.by.region.and.time
         load( file = is.multiple.results.by.region.and.time.Rda.filename );
