@@ -329,7 +329,7 @@ evaluateIsMultiple <- function (
                       .out <- .out[ -.rows.to.exclude ];
                    }
                   
-                  # At least one DF is needed for the variance estimate (aka the error term)
+                  # At least one DF is needed for the cv.glmnet
                   MINIMUM.DF <- 1; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
                   cors.with.the.outcome <-
                     sapply( setdiff( colnames( .mat1 ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
@@ -423,7 +423,7 @@ evaluateIsMultiple <- function (
                     
                     tryCatch( {
                       cv.glmnet.fit <- cv.glmnet( .mat1, .out, family = "binomial",
-                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ) );
+                                                 penalty.factor = as.numeric( colnames( .mat1 ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) );
                     ## TODO: REMOVE
                     ##print( coef( cv.glmnet.fit, s = "lambda.min" ) );
                       if( return.lasso.coefs ) {

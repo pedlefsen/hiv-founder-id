@@ -632,8 +632,8 @@ evaluateTimings <- function (
                    } );
                     .covars.to.exclude <- names( which( .covars.to.exclude ) );
                   
-                  # At least one DF is needed for the variance estimate (aka the error term)
-                  MINIMUM.DF <- 1; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  # At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
+                  MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
                   cors.with.the.outcome <-
                     sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
                           .cor <- 
@@ -693,17 +693,18 @@ evaluateTimings <- function (
                   if( .needed.df > 0 ) {
                     # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
                     # They are in order, so just chop them off the end.
-                    .lasso.mat <- .lasso.mat[ , 1:( ncol( .lasso.mat ) - .needed.df ), drop = FALSE ];
+                    .retained.covars <-
+                      .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
                   }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     
-                    .lasso.mat <- .lasso.mat[ , setdiff( colnames( .lasso.mat ), .covars.to.exclude ), drop = FALSE ];
+                    .lasso.mat <- .lasso.mat[ , .retained.covars, drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
                     { # We exclude the intercept.
                       .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = FALSE,
-                                                 penalty.factor = as.numeric( colnames( .lasso.mat ) != .estimate.colname ) );
+                                                 penalty.factor = as.numeric( colnames( .lasso.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
                       .lasso.validation.results.per.person.coefs.cell <-
                          coef( .cv.glmnet.fit, s = "lambda.min" );
                       if( return.lasso.coefs ) {
@@ -721,11 +722,11 @@ evaluateTimings <- function (
                     },
                     error = function( e )
                     {
-                        if( .estimate.colname == "none" ) {
-                            warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
+                        if( .col.i == 1 ) {
+                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
                             .formula <- as.formula( paste( "days.since.infection ~ 1" ) );
                         } else {
-                            warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                             .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                         }
                         .lm <- lm( .formula, data = regression.df.without.ptid.i );
@@ -827,24 +828,26 @@ evaluateTimings <- function (
                           FALSE
                         }
                         } ) ) ) );
-                    .retained.covars <- setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
+                    .retained.covars <-
+                      setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
                   .needed.df <-
                     ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
                   if( .needed.df > 0 ) {
                     # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
                     # They are in order, so just chop them off the end.
-                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , 1:( ncol( .lasso.withbounds.mat ) - .needed.df ), drop = FALSE ];
+                    .retained.covars <-
+                      .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
                   }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.withbounds.mat <-
-                      .lasso.withbounds.mat[ , setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude ), drop = FALSE ];
+                      .lasso.withbounds.mat[ , .retained.covars, drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
                     { # We exclude the intercept.
                       .cv.glmnet.fit.withbounds <-
                         cv.glmnet( .lasso.withbounds.mat, .out, intercept = FALSE,
-                                  penalty.factor = as.numeric( colnames( .lasso.withbounds.mat ) != .estimate.colname ) );
+                                  penalty.factor = as.numeric( colnames( .lasso.withbounds.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.
                       .lasso.withbounds.validation.results.per.person.coefs.cell <-
                           coef( .cv.glmnet.fit.withbounds, s = "lambda.min" );
                       if( return.lasso.coefs ) {
@@ -853,7 +856,8 @@ evaluateTimings <- function (
                       }
 
                       for( .row.i in the.rows.for.ptid ) {
-                        .newx <- as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.mat ), drop = FALSE ] ) );
+                        .newx <-
+                          as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.mat ), drop = FALSE ] ) );
                         .pred.value.lasso.withbounds <-
                           sum( as.matrix( .lasso.withbounds.validation.results.per.person.coefs.cell ) * c( 1, .newx ) );
                           #predict( .cv.glmnet.fit.withbounds, newx = .newx, s = "lambda.min" );
@@ -863,7 +867,7 @@ evaluateTimings <- function (
                     },
                     error = function( e )
                     {
-                      warning( paste( "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                      warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso withbounds failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
                       .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                       for( .row.i in the.rows.for.ptid ) {
                         .pred.value.lasso.withbounds <- predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
