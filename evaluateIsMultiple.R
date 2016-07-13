@@ -148,12 +148,12 @@ evaluateIsMultiple <- function (
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
         ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE ADD TO THIS PROGRAMMATICALLY]
-           #.donotkeep.cols <- c( "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "insites.is.one.founder", "inf.to.priv.ratio" );
+           .donotkeep.cols <- c( "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "DS.Starphy.fits", "DS.Starphy.is.starlike", "insites.is.one.founder", "inf.to.priv.ratio" );
            # NOTE ALSO MORE (formerly excluded below because cor > 0.9):
-           #.donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
+           .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
            # This one is problematic, because it is almost always 1; this is a problem because it breaks cv.glmnet, and also because it effectively acts as an intercept.
-           #.donotkeep.cols <- c( "StarPhy.founders", "InSites.founders" );
-           #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+           .donotkeep.cols <- c( "StarPhy.founders", "InSites.founders" );
+           .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
            mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
@@ -188,7 +188,7 @@ evaluateIsMultiple <- function (
 
         regression.df <- cbind( data.frame( is.one.founder = gold.is.one.founder.per.person[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model with no intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
+        ## Ok build a regression model with an intercept, including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
         if( the.time == "6m" ) {
             .lower.bound.colname <- "sampledwidth_uniform_hvtn502.lower";
             .upper.bound.colname <- "sampledwidth_uniform_hvtn502.upper";

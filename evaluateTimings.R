@@ -50,6 +50,7 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param use.anchre compute results for the anchre approach.
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor, maybe with helpful.additional.cols or with the bounds.
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
+#' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
 #' @param helpful.additional.cols extra cols to be included in the glm: "priv.sites" and "multifounder.Synonymous.PFitter.is.poisson"
 #' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
@@ -65,6 +66,7 @@ evaluateTimings <- function (
                              use.anchre = TRUE,
                              use.glm.validate = TRUE,
                              use.lasso.validate = TRUE,
+                             include.intercept = FALSE,
                              helpful.additional.cols = c(),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
@@ -77,8 +79,13 @@ evaluateTimings <- function (
                              #times = c( "1m", "6m", "1m6m" )
                             )
 {
-    results.by.region.and.time.Rda.filename <-
-        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
+    if( include.intercept ) {
+        results.by.region.and.time.Rda.filename <-
+            paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.include.intercept.Rda", sep = "" );
+    } else {
+        results.by.region.and.time.Rda.filename <-
+            paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
+    }
     
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
@@ -335,8 +342,8 @@ evaluateTimings <- function (
         days.est.cols <- grep( "\\.mtn|\\.hvtn", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        }
     
-       # Do not allow use of information about the time of sampling.
-       if( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) {
+       # Do not allow use of information about the time of sampling unless include.intercept is TRUE
+       if( !include.intercept && ( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) ) {
          .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
          results.covars.per.person.with.extra.cols <-
            results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
@@ -518,13 +525,6 @@ evaluateTimings <- function (
                   # covariates for glm.withbounds
                   .covariates.glm.withbounds <-
                     c( .upper.bound.colname );
-                  # # covariates for glm.nointercept
-                  # .covariates.glm.nointercept <- 
-                  #   helpful.additional.cols;
-                  # # covariates for glm.withbounds.nointercept
-                  # .covariates.glm.withbounds.nointercept <-
-                  #   #c( .lower.bound.colname, .upper.bound.colname );
-                  #   c( .upper.bound.colname );
 
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
@@ -534,32 +534,37 @@ evaluateTimings <- function (
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                       if( .estimate.colname == "none" ) {
                         .cv.glm <- intersect( .retained.covars, .covariates.glm );
-                      ## NOTE WE NEVER USE AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time). -- EXCEPT WHEN we're using "none"; then we do use an intercept (only for the non-bounded result).
-                        
-                      #.formula <- as.formula( paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) ) );
-                      #.formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) ) );
-                        ## .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm.nointercept );
-                      if( length( .cv.glm ) == 0 ) {
-                             .formula.nointercept <- as.formula( paste( "days.since.infection ~ 1" ) );  # _only_ intercept!
-                         } else {
-                           .covariates.glm.nointercept <- .covariates.glm;
-                             .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.nointercept ), collapse = "+" ) ) );
-                         }
-                        .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
-                       .formula.withbounds.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) ) );
-                        .formula <- .formula.nointercept;
-                        .formula.withbounds <- .formula.withbounds.nointercept;
+                      ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                        if( include.intercept ) {
+                            .formula <- as.formula( paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) ) );
+                            .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) ) );
+                        } else {
+                            .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm.nointercept );
+                            if( length( .cv.glm ) == 0 ) {
+                                .formula.nointercept <- as.formula( paste( "days.since.infection ~ 1" ) );  # _only_ intercept!
+                            } else {
+                                .covariates.glm.nointercept <- .covariates.glm;
+                                .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.nointercept ), collapse = "+" ) ) );
+                            }
+                            .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
+                            .formula.withbounds.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) ) );
+                            .formula <- .formula.nointercept;
+                            .formula.withbounds <- .formula.withbounds.nointercept;
+                        }
                     } else {
-                      ## NOTE WE NEVER USE AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time).
-                      #.formula <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
-                      #.formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) ) );
-                      .covariates.glm.nointercept <- .covariates.glm;
-                      .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
-                      .formula <- .formula.nointercept;
-                      .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
-                      .formula.withbounds.nointercept <-
-                        as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
-                      .formula.withbounds <- .formula.withbounds.nointercept;
+                        ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
+                      if( include.intercept ) {
+                          .formula <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
+                          .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) ) );
+                      } else {
+                          .covariates.glm.nointercept <- .covariates.glm;
+                          .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
+                          .formula <- .formula.nointercept;
+                          .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
+                          .formula.withbounds.nointercept <-
+                              as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
+                          .formula.withbounds <- .formula.withbounds.nointercept;
+                      }
                     }
                     
                     # glm:
@@ -616,15 +621,6 @@ evaluateTimings <- function (
                   .covariates.lasso.withbounds <-
                     c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
 
-                  ## # covariates for lasso.nointercept
-                  ## .covariates.lasso.nointercept <- 
-                  ##   all.additional.cols;
-                  ## 
-                  ## # covariates for lasso.withbounds.nointercept
-                  ## .covariates.lasso.withbounds.nointercept <-
-                  ##   #c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
-                  ##   c( .upper.bound.colname, all.additional.cols );
-
                   # lasso:
                   if( .estimate.colname == "none" ) {
                     .lasso.mat <-
@@ -648,6 +644,9 @@ evaluateTimings <- function (
                   
                   # At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
                   MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                  if( include.intercept ) {
+                      MINIMUM.DF <- MINIMUM.DF + 1;
+                  }
 
                   MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
                   cors.with.the.outcome <-
@@ -732,8 +731,8 @@ evaluateTimings <- function (
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
-                    { # We exclude the intercept.
-                      .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = FALSE,
+                    {
+                      .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = include.intercept,
                                                  penalty.factor = as.numeric( colnames( .lasso.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
                       .lasso.validation.results.per.person.coefs.cell <-
                          coef( .cv.glmnet.fit, s = "lambda.min" );
@@ -742,7 +741,9 @@ evaluateTimings <- function (
                             .lasso.validation.results.per.person.coefs.cell;
                       }
                       for( .row.i in the.rows.for.ptid ) {
-                          .newx <- as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.mat ), drop = FALSE ] ) );
+                          .newx <-
+                              as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.mat ), drop = FALSE ] ) );
+                          # Note that the intercept is always the first one, even when include.intercept == FALSE
                           .pred.value.lasso <-
                               sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * c( 1, .newx ) );
                               #predict( .cv.glmnet.fit, newx = .newx, s = "lambda.min" );
@@ -757,7 +758,11 @@ evaluateTimings <- function (
                             .formula <- as.formula( paste( "days.since.infection ~ 1" ) );
                         } else {
                             warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                            if( include.intercept ) {
+                                .formula <- as.formula( paste( "days.since.infection ~ 1 + ", .estimate.colname ) );
+                            } else {
+                                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                            }
                         }
                         .lm <- lm( .formula, data = regression.df.without.ptid.i );
                         if( return.lasso.coefs ) {
@@ -894,9 +899,9 @@ evaluateTimings <- function (
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
                     tryCatch(
-                    { # We exclude the intercept.
+                    {
                       .cv.glmnet.fit.withbounds <-
-                        cv.glmnet( .lasso.withbounds.mat, .out, intercept = FALSE,
+                        cv.glmnet( .lasso.withbounds.mat, .out, intercept = include.intercept,
                                   penalty.factor = as.numeric( colnames( .lasso.withbounds.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.
                       .lasso.withbounds.validation.results.per.person.coefs.cell <-
                           coef( .cv.glmnet.fit.withbounds, s = "lambda.min" );
@@ -917,121 +922,23 @@ evaluateTimings <- function (
                     },
                     error = function( e )
                     {
-                      warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso withbounds failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                      .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
-                      for( .row.i in the.rows.for.ptid ) {
-                        .pred.value.lasso.withbounds <- predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
-                        lasso.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
-                          .pred.value.lasso.withbounds;
-                    }
+                        warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso withbounds failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                        if( include.intercept ) {
+                            .formula <- as.formula( paste( "days.since.infection ~ 1 + ", .estimate.colname ) );
+                        } else {
+                            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                        }
+                        for( .row.i in the.rows.for.ptid ) {
+                          .pred.value.lasso.withbounds <-
+                              predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
+                          lasso.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
+                              .pred.value.lasso.withbounds;
+                        }
                    },
                    finally = {}
                    );
                   } # End if the lasso.withbounds estimate variable is usable
 
-                 ##  lasso.nointercept:
-                 ## if( .estimate.colname == "none" ) {
-                 ##   .lasso.nointercept.mat <-
-                 ##       as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.nointercept, drop = FALSE ] );
-                 ## } else {
-                 ##   .lasso.nointercept.mat <-
-                 ##       as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.nointercept, .estimate.colname ), drop = FALSE ] );
-                 ## }
-                 ## .covars.to.exclude <- apply( .lasso.nointercept.mat, 2, function ( .col ) {
-                 ##     return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
-                 ## } );
-                 ## # TODO: Also exclude covars that are too highly correlated.
-                 ## .retained.covars <- setdiff( colnames( .lasso.nointercept.mat ), names( which( .covars.to.exclude ) ) );
-                 ## if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                 ##   .lasso.nointercept.mat <- .lasso.nointercept.mat[ , setdiff( colnames( .lasso.nointercept.mat ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
-                 ##   # penalty.factor = 0 to force the .estimate.colname variable.
-                 ## 
-                 ##   tryCatch(
-                 ##   {
-                 ##     .cv.glmnet.fit.nointercept <- cv.glmnet( .lasso.nointercept.mat, .out, intercept = FALSE,
-                 ##                                penalty.factor = as.numeric( colnames( .lasso.nointercept.mat ) != .estimate.colname ) );
-                 ##     if( return.lasso.coefs ) {
-                 ##       .lasso.nointercept.validation.results.per.person.coefs.cell <-
-                 ##           coef( .cv.glmnet.fit.nointercept, s = "lambda.min" );
-                 ##     
-                 ##       .lasso.nointercept.validation.results.per.person.coefs.row[[ .col.i ]] <-
-                 ##           .lasso.nointercept.validation.results.per.person.coefs.cell;
-                 ##     }
-                 ##     for( .row.i in the.rows.for.ptid ) {
-                 ##       .pred.value.lasso.nointercept <- predict( .cv.glmnet.fit.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
-                 ##       lasso.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                 ##           .pred.value.lasso.nointercept;
-                 ##     }
-                 ##   },
-                 ##   error = function( e )
-                 ##   {
-                 ##       if( .estimate.colname == "none" ) {
-                 ##           warning( paste( "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
-                 ##           .formula <- as.formula( paste( "days.since.infection ~ 1" ) );
-                 ##       } else {
-                 ##           warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                 ##           .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
-                 ##       }
-                 ##       .lm <- lm( .formula, data = regression.df.without.ptid.i );
-                 ##       for( .row.i in the.rows.for.ptid ) {
-                 ##         .pred.value.lasso.nointercept <-
-                 ##             predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
-                 ##         lasso.nointercept.validation.results.per.person[ .row.i, .col.i ] <<- 
-                 ##            .pred.value.lasso.nointercept;
-                 ##       }
-                 ##  },
-                 ##  finally = {}
-                 ##  );
-                 ## } # End if the lasso.nointercept estimate variable is usable
-                 ## 
-                 ## # lasso.withbounds.nointercept:
-                 ## if( .estimate.colname == "none" ) {
-                 ##     .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds.nointercept ] );
-                 ## } else {
-                 ##     .lasso.withbounds.nointercept.mat <- as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ] );
-                 ## }
-                 ## .covars.to.exclude <- apply( .lasso.withbounds.nointercept.mat, 2, function ( .col ) {
-                 ##     return( ( var( .col ) == 0 ) || ( sum( !is.na( .col ) ) <= 1 ) );
-                 ## } );
-                 ## .retained.covars <- setdiff( colnames( .lasso.withbounds.nointercept.mat ), names( which( .covars.to.exclude ) ) );
-                 ## if( .estimate.colname %in% .retained.covars ) {
-                 ##   .lasso.withbounds.nointercept.mat <- .lasso.withbounds.nointercept.mat[ , setdiff( colnames( .lasso.withbounds.nointercept.mat ), names( which( .covars.to.exclude ) ) ), drop = FALSE ];
-                 ##   # penalty.factor = 0 to force the .estimate.colname variable.
-                 ## 
-                 ##   tryCatch(
-                 ##   {
-                 ##     .cv.glmnet.fit.withbounds.nointercept <-
-                 ##       cv.glmnet( .lasso.withbounds.nointercept.mat, .out, intercept = FALSE,
-                 ##                 penalty.factor = as.numeric( colnames( .lasso.withbounds.nointercept.mat ) != .estimate.colname ) );
-                 ##     if( return.lasso.coefs ) {
-                 ##       .lasso.nointercept.withbounds.validation.results.per.person.coefs.cell <-
-                 ##           coef( .cv.glmnet.fit.withbounds.nointercept, s = "lambda.min" );
-                 ##     
-                 ##       .lasso.nointercept.withbounds.validation.results.per.person.coefs.row[[ .col.i ]] <-
-                 ##           .lasso.nointercept.withbounds.validation.results.per.person.coefs.cell;
-                 ##     }
-                 ## 
-                 ##     for( .row.i in the.rows.for.ptid ) {
-                 ##       .pred.value.lasso.withbounds.nointercept <-
-                 ##         predict( .cv.glmnet.fit.withbounds.nointercept, newx = as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.nointercept.mat ), drop = FALSE ] ), s = "lambda.min" );
-                 ##       lasso.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                 ##         .pred.value.lasso.withbounds.nointercept;
-                 ##     }
-                 ##   },
-                 ##   error = function( e )
-                 ##   {
-                 ##     warning( paste( "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                 ##     .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
-                 ##     for( .row.i in the.rows.for.ptid ) {
-                 ##       .pred.value.lasso.withbounds.nointercept <- predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
-                 ##       lasso.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                 ##         .pred.value.lasso.withbounds.nointercept;
-                 ##   }
-                 ##  },
-                 ##  finally = {}
-                 ##  );
-                 ## } # End if the lasso.withbounds.nointercept estimate variable is usable
-                  
                 } # End if use.lasso.validate
     
             } # End foreach .col.i
@@ -1040,10 +947,6 @@ evaluateTimings <- function (
                     .lasso.validation.results.per.person.coefs.row;
                 lasso.withbounds.validation.results.per.person.coefs[[ .ptid.i ]] <- 
                     .lasso.withbounds.validation.results.per.person.coefs.row;
-                ## lasso.nointercept.validation.results.per.person.coefs[[ .ptid.i ]] <- 
-                ##     .lasso.nointercept.validation.results.per.person.coefs.row;
-                ## lasso.nointercept.withbounds.validation.results.per.person.coefs[[ .ptid.i ]] <- 
-                ##     .lasso.nointercept.withbounds.validation.results.per.person.coefs.row;
             } # End if use.lasso.validate
         } # End foreach .ptid.i
         if( use.glm.validate ) {
@@ -1063,51 +966,6 @@ evaluateTimings <- function (
             results.per.person <-
                 cbind( results.per.person,
                       glm.withbounds.validation.results.per.person );
-          ## ## glm.nointercept:
-          ##   colnames( glm.nointercept.validation.results.per.person ) <-
-          ##       paste( "glm.nointercept.validation.results", estimate.cols, sep = "." );
-          ##   rownames( glm.nointercept.validation.results.per.person ) <-
-          ##       rownames( regression.df );
-          ##   results.per.person <-
-          ##       cbind( results.per.person,
-          ##             glm.nointercept.validation.results.per.person );
-          ##   colnames( glm.nointercept.validation.results.per.person.adjR2 ) <-
-          ##       paste( "glm.nointercept.validation.results", estimate.cols, "adjR2", sep = "." );
-          ##   rownames( glm.nointercept.validation.results.per.person.adjR2 ) <-
-          ##       all.ptids;
-          ##   glm.fit.statistics <-
-          ##       cbind( glm.fit.statistics,
-          ##             glm.nointercept.validation.results.per.person.adjR2 );
-          ##   colnames( glm.nointercept.validation.results.per.person.pcoef ) <-
-          ##       paste( "glm.nointercept.validation.results", estimate.cols, "pcoef", sep = "." );
-          ##   rownames( glm.nointercept.validation.results.per.person.pcoef ) <-
-          ##       all.ptids;
-          ##   glm.fit.statistics <-
-          ##       cbind( glm.fit.statistics,
-          ##             glm.nointercept.validation.results.per.person.pcoef );
-          ##   
-          ##   ## glm.withbounds.nointercept:
-          ##   colnames( glm.withbounds.nointercept.validation.results.per.person ) <-
-          ##       paste( "glm.withbounds.nointercept.validation.results", estimate.cols, sep = "." );
-          ##   rownames( glm.withbounds.nointercept.validation.results.per.person ) <-
-          ##       rownames( regression.df );
-          ##   results.per.person <-
-          ##       cbind( results.per.person,
-          ##             glm.withbounds.nointercept.validation.results.per.person );
-          ##   colnames( glm.withbounds.nointercept.validation.results.per.person.adjR2 ) <-
-          ##       paste( "glm.withbounds.nointercept.validation.results", estimate.cols, "adjR2", sep = "." );
-          ##   rownames( glm.withbounds.nointercept.validation.results.per.person.adjR2 ) <-
-          ##       all.ptids;
-          ##   glm.fit.statistics <-
-          ##       cbind( glm.fit.statistics,
-          ##             glm.withbounds.nointercept.validation.results.per.person.adjR2 );
-          ##   colnames( glm.withbounds.nointercept.validation.results.per.person.pcoef ) <-
-          ##       paste( "glm.withbounds.nointercept.validation.results", estimate.cols, "pcoef", sep = "." );
-          ##   rownames( glm.withbounds.nointercept.validation.results.per.person.pcoef ) <-
-          ##       all.ptids;
-          ##   glm.fit.statistics <-
-          ##       cbind( glm.fit.statistics,
-          ##             glm.withbounds.nointercept.validation.results.per.person.pcoef );
         }
         if( use.lasso.validate ) {
           ## lasso:
@@ -1126,22 +984,6 @@ evaluateTimings <- function (
           results.per.person <-
             cbind( results.per.person,
                   lasso.withbounds.validation.results.per.person );
-          ## ## lasso.nointercept:
-          ## colnames( lasso.nointercept.validation.results.per.person ) <-
-          ##   paste( "lasso.nointercept.validation.results", estimate.cols, sep = "." );
-          ## rownames( lasso.nointercept.validation.results.per.person ) <-
-          ##   rownames( regression.df );
-          ## results.per.person <-
-          ##   cbind( results.per.person,
-          ##         lasso.nointercept.validation.results.per.person );
-          ## ## lasso.withbounds.nointercept:
-          ## colnames( lasso.withbounds.nointercept.validation.results.per.person ) <-
-          ##   paste( "lasso.withbounds.nointercept.validation.results", estimate.cols, sep = "." );
-          ## rownames( lasso.withbounds.nointercept.validation.results.per.person ) <-
-          ##   rownames( regression.df );
-          ## results.per.person <-
-          ##   cbind( results.per.person,
-          ##         lasso.withbounds.nointercept.validation.results.per.person );
         }
       } # End if use.glm.validate || use.lasso.validate
       
@@ -1488,12 +1330,41 @@ evaluateTimings <- function (
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
+    if( include.intercept ) {
+        writeResultsTables( results.by.region.and.time, "_evaluateTimings_include_intercept.tab", regions = regions, results.are.bounded = TRUE );
+    } else {
+        writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
+    }
     
     ## TODO
     ##  *) select a set of best predictions from isMultiple to use here (instead of gold.standard.varname) -- if there's any benefit to using gold.standard.varname.
     ##  *) check out results of the partitions of evaluateTimings.
 
+    if( FALSE ) {
+        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["sampledwidth_uniform_1mmtn003_6mhvtn502.1m.nflg"]][[ "rmse.zeroNAs" ]] ), decreasing = T );
+        get.uses <- function ( .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( withbounds ) {
+                .withbounds.string <- "lasso.withbounds";
+            } else {
+                .withbounds.string <- "lasso";
+            }
+            if( length( regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ regions ]];
+            }
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
+            } else {
+                the.time <- times;
+            }
+            .results.by.removed.ptid <-
+                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ "lasso.coefs" ]][[ .withbounds.string ]];
+            .uses <- sapply( 1:length( .results.by.removed.ptid ), function( .i ) { .dgCMatrix <- .results.by.removed.ptid[[.i]][[.varname]]; .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ); } );
+            table( names( which( unlist( .uses ) ) ) );
+        } # get.uses (..)
+    } # End if FALSE
+    
     if( FALSE ) {
       ## For partition size == 10
       ## NOTE that this part is presently broken. TODO: FIX IT.
