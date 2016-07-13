@@ -225,7 +225,8 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
            } # End foreach .colname.root
            results.1m.6m <-
                c( results.1m.6m,
-                 list( evaluated.results = evaluate.results.per.person.fn( results.per.person = results.1m.6m[[ "results.per.person" ]], days.since.infection = results.1m.6m[[ gold.standard.varname ]], results.covars.per.person.with.extra.cols = results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", the.artificial.bounds = results.1m.6m[[ "bounds" ]] ) ) );
+#                 list( evaluated.results = evaluate.results.per.person.fn( results.per.person = results.1m.6m[[ "results.per.person" ]], days.since.infection = results.1m.6m[[ gold.standard.varname ]], results.covars.per.person.with.extra.cols = results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", the.artificial.bounds = results.1m.6m[[ "bounds" ]] ) ) );
+                                  list( evaluated.results = evaluate.results.per.person.fn( results.1m.6m[[ "results.per.person" ]], results.1m.6m[[ gold.standard.varname ]], results.covars.per.person.with.extra.cols = results.1m.6m[[ "results.covars.per.person.with.extra.cols" ]], the.time = "1m.6m", the.artificial.bounds = results.1m.6m[[ "bounds" ]] ) ) );
            return( c( list( "1m.6m" = results.1m.6m ), results.by.time ) );
        } ); # End foreach the.region
         names( results.by.region.and.time ) <- regions;
