@@ -335,6 +335,13 @@ evaluateTimings <- function (
         days.est.cols <- grep( "\\.mtn|\\.hvtn", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        }
     
+       # Do not allow use of information about the time of sampling.
+       if( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) {
+         .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
+         results.covars.per.person.with.extra.cols <-
+           results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
+       }
+       
       if( use.glm.validate || use.lasso.validate ) {
         results.covars.per.person.with.extra.cols <-
             cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );

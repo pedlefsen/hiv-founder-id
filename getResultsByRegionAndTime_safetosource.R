@@ -47,6 +47,9 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
 # [1] 9.790947
 # > sd( mtn003.timing.windows.of.infecteds[ mtn003.timing.windows.of.infecteds < 41 ])
 # [1] 4.701886
+## #############
+                ########
+                ####### ok so also if we are using intercepts for evaluateTimings, then we should also allow for a shift for the 6m.not.1m.
            results.1m.6m <- lapply( .vars, function ( .varname ) {
                #print( .varname );
                if( .varname == "bounds" ) {
@@ -134,6 +137,15 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "1m",
                            "6m"
                        );
+                     ## TODO: Put this back if/when testing evaluateTimings with intercept, to be fair.
+                     if( .varname == "results.covars.per.person.with.extra.cols" ) {
+                       .x <-
+                         c(
+                           rep( 0, nrow( results.by.time[[ "1m" ]][[ .varname ]] ) ),
+                           rep( 1, nrow( results.by.time[[ "6m" ]][[ .varname ]] ) )
+                         );
+                       .rv <- cbind( "6m.not.1m" = .x, .rv );
+                     }
                      return( .rv );
                  }
            } );

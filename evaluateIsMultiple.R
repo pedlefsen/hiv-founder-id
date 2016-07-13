@@ -116,6 +116,13 @@ evaluateIsMultiple <- function (
        all.ptids <- unique( ppt.names );
 
        mode( estimates.is.one.founder.per.person ) <- "numeric";
+
+       # Do not allow use of information about the time of sampling.
+       if( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) {
+         .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
+         results.covars.per.person.with.extra.cols <-
+           results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
+       }
        
        if( use.glm.validate || use.lasso.validate ) {
            results.covars.per.person.with.extra.cols <-
@@ -526,7 +533,7 @@ evaluateIsMultiple <- function (
       ## from NA to 1 (meaning yes, it's single-founder).
                                         #stopifnot( sum( is.na( estimates.is.one.founder.per.person ) ) == 0 );
       if( sum( is.na( estimates.is.one.founder.per.person ) ) > 0 ) {
-        warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
+        #warning( paste( "NAs!", sum( is.na( estimates.is.one.founder.per.person ) ) ) );
         estimates.is.one.founder.per.person.oneNAs <- apply( estimates.is.one.founder.per.person, 1:2, function( .value ) {
             if( is.na( .value ) ) {
                 1
