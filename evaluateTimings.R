@@ -381,13 +381,14 @@ evaluateTimings <- function (
         #.donotkeep.cols <- c( "multifounder.Synonymous.PFitter.is.poisson", "Synonymous.PFitter.is.poisson", "multifounder.PFitter.is.poisson", "PFitter.is.poisson", "multifounder.Synonymous.PFitter.is.starlike", "Synonymous.PFitter.is.starlike", "multifounder.PFitter.is.starlike", "PFitter.is.starlike", "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "multifounder.DS.Starphy.fits", "multifounder.Synonymous.DS.StarPhy.fits", "Synonymous.DS.StarPhy.fits", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "InSites.is.one.founder", "InSites.founders" );
         ## TODO: REMOVE . TESTING
         #.donotkeep.cols <- c( .donotkeep.cols, "gold.is.multiple" );
-        ## Remove some cols that will not be in future versions.
-        #.donotkeep.cols <- grep( "DS\\.Star[pP]y\\.(fits|founders|is.starlike)", .keep, value = TRUE );
-        #.donotkeep.cols <- c( "StarPhy.founders", "InSites.founders", "multifounder.DS.Starphy.fits",  );
-        #.keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
-        
+        .donotkeep.cols <- c( grep( "DS\\.Star[pP]y\\.(fits|founders|is.starlike)", .keep.cols, value = TRUE ) );
+        .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "multifounder.DS.Starphy.fits" );
+        .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
+
         ## Keep only the mut.rate.coef cols and priv.sites and multifounder.Synonymous.PFitter.is.poisson, and Infer and anchre cols.
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
+        ## Exclude Infer cols for obsolete bounds.
+        Infer.cols <- grep( "(one|six)month", Infer.cols, value = TRUE, invert = TRUE );
         ## Actually also exclude the ones that don't match the time
         if( the.time == "1m.6m" ) {
           Infer.cols <- grep( "\\.mtn|\\.hvtn", Infer.cols, value = TRUE, invert = TRUE );
@@ -395,6 +396,8 @@ evaluateTimings <- function (
         anchre.cols <- grep( "anchre", .keep.cols, value = TRUE );
         mut.rate.coef.cols <- grep( "mut\\.rate\\.coef", .keep.cols, value = TRUE );
         COB.cols <- grep( "^COB", .keep.cols, value = TRUE );
+        ## Exclude COB cols for obsolete bounds.
+        COB.cols <- grep( "(one|six)month", COB.cols, value = TRUE, invert = TRUE );
         ## Actually also exclude the ones that don't match the time
         if( the.time == "1m.6m" ) {
           COB.cols <- grep( "\\.mtn|\\.hvtn", COB.cols, value = TRUE, invert = TRUE );
@@ -425,6 +428,8 @@ evaluateTimings <- function (
             results.covars.per.person.with.extra.cols[ , keep.cols, drop = FALSE ];
         results.covars.per.person.df <-
             data.frame( results.covars.per.person );
+        ## Undo conversion of the colnames (X is added before "6m.not.1m")
+        colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person );
 
         ## TODO: REMOVE. TESTING inclusion of interactions with gold.is.multiple.
         # ..df <- sapply( 1:nrow( results.covars.per.person.df ), function( .ppt.i ) { ( results.covars.per.person.df[ .ppt.i, "gold.is.multiple" ] * results.covars.per.person.df[ .ppt.i, setdiff( all.additional.cols, "gold.is.multiple" ) ] ) } );
@@ -521,12 +526,11 @@ evaluateTimings <- function (
                             .formula <- as.formula( paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) ) );
                             .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) ) );
                         } else {
-                            .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm.nointercept );
-                            if( length( .cv.glm ) == 0 ) {
+                            .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm );
+                            if( length( .cv.glm.nointercept ) == 0 ) {
                                 .formula.nointercept <- as.formula( "days.since.infection ~ 1" );  # _only_ intercept!
                             } else {
-                                .covariates.glm.nointercept <- .covariates.glm;
-                                .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.nointercept ), collapse = "+" ) ) );
+                                .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( .cv.glm.nointercept, collapse = "+" ) ) );
                             }
                             .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
                             .formula.withbounds.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) ) );
@@ -1342,7 +1346,11 @@ evaluateTimings <- function (
             .results.by.removed.ptid <-
                 .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ "lasso.coefs" ]][[ .withbounds.string ]];
             .uses <- sapply( 1:length( .results.by.removed.ptid ), function( .i ) { .dgCMatrix <- .results.by.removed.ptid[[.i]][[.varname]]; .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ); } );
-            table( names( which( unlist( .uses ) ) ) );
+            if( is.null( dim( .uses ) ) ) {
+              table( names( which( unlist( .uses ) ) ) );
+            } else {
+              apply( .uses, 1, sum );
+            }
         } # get.uses (..)
     } # End if FALSE
     

@@ -152,7 +152,7 @@ evaluateIsMultiple <- function (
            # NOTE ALSO MORE (formerly excluded below because cor > 0.9):
            .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "PFitter.max.hd",   "PFitter.mean.hd", "sd.entropy",       "mean.entropy",     "inf.sites" );
            # This one is problematic, because it is almost always 1; this is a problem because it breaks cv.glmnet, and also because it effectively acts as an intercept.
-           .donotkeep.cols <- c( "StarPhy.founders", "InSites.founders" );
+           .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders" );
            .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
            
            single.cols <- grep( "\\.is\\.|fits", .keep.cols, perl = TRUE, value = TRUE );
@@ -685,6 +685,27 @@ evaluateIsMultiple <- function (
     writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE );
 
     if( FALSE ) {
+        get.uses <- function ( .varname = "none", regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( length( regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ regions ]];
+            }
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
+            } else {
+                the.time <- times;
+            }
+            .results.by.removed.ptid <-
+                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ "lasso.coefs" ]];
+            .uses <- sapply( 1:length( .results.by.removed.ptid ), function( .i ) { .dgCMatrix <- .results.by.removed.ptid[[.i]][[.varname]]; .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ); } );
+            if( is.null( dim( .uses ) ) ) {
+              table( names( which( unlist( .uses ) ) ) );
+            } else {
+              apply( .uses, 1, sum );
+            }
+        } # get.uses (..)
+      
       # AUC is 1.0 for 1m, nflg, "Synonymous.PFitter.is.starlike"-- but even for "none" it's good (AUC 0.965!)
       .uses <- sapply( 1: length( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]][[.i]][[ "Synonymous.PFitter.is.starlike" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
       .vars.to.include
