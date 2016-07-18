@@ -1326,7 +1326,45 @@ evaluateTimings <- function (
     ##  *) check out results of the partitions of evaluateTimings.
 
     if( FALSE ) {
-        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["sampledwidth_uniform_1mmtn003_6mhvtn502.1m.nflg"]][[ "rmse.zeroNAs" ]] ), decreasing = T );
+        get.rmses <- function ( evaluate.regions = c( "nflg", "v3" ), evaluate.times = c( "1m", "6m" ), train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
+            if( length( train.times ) == 2 ) {
+                train.time <- "1m.6m";
+                the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
+            } else {
+                train.time <- train.times;
+                if( train.time == "6m" ) {
+                    the.bound <- "sampledwidth_uniform_hvtn502";
+                    stopifnot( evaluate.time == "6m" );
+                } else {
+                    the.bound <- "sampledwidth_uniform_mtn003";
+                    stopifnot( evaluate.time == "1m" );
+                }
+            }
+            if( length( evaluate.times ) == 2 ) {
+                # Leave the.bound alone.
+            } else {
+                the.bound <- paste( the.bound, evaluate.times, sep = "." );
+            }
+            if( length( train.regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+              if( length( evaluate.regions ) == 2 ) {
+                  # Leave the.bound alone, then.
+              } else {
+                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
+              }
+            } else {
+              if( length( evaluate.regions ) == 2 ) {
+                  stop( "can't evaluate more regions than trained" );
+              } else if( evaluate.regions != train.regions ) {
+                  stop( "can't evaluate a different region than trained" );
+              }
+              .results.for.region <- results.by.region.and.time[[ train.regions ]];
+            }
+            .lst <- sort( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ "rmse.zeroNAs" ]] ), decreasing = T );
+            ## TODO: REMOVE. Temporary.
+            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
+            return( .lst );
+        } # get.rmses (..)
         get.uses <- function ( .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
             if( withbounds ) {
                 .withbounds.string <- "lasso.withbounds";

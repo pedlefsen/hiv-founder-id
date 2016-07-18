@@ -45,7 +45,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.glm = TRUE,
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
-                             helpful.additional.cols = c(),
+                             helpful.additional.cols = c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "DS.Starphy.R", "inf.sites.clusters", "v3_not_nflg", "lPVL" ),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
@@ -705,47 +705,407 @@ evaluateIsMultiple <- function (
               apply( .uses, 1, sum );
             }
         } # get.uses (..)
-      
-      # AUC is 1.0 for 1m, nflg, "Synonymous.PFitter.is.starlike"-- but even for "none" it's good (AUC 0.965!)
-      .uses <- sapply( 1: length( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]][[.i]][[ "Synonymous.PFitter.is.starlike" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
-      .vars.to.include
-# [1] "(Intercept)"                       "lPVL"                             
-# [3] "diversity"                         "priv.sites"                       
-# [5] "inf.sites.clusters"                "DS.Starphy.R"                     
-# [7] "sampledwidth_uniform_mtn003.upper" "Synonymous.PFitter.is.starlike"
-      .uses <- sapply( 1: length( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[1]][[2]][[ 5 ]][[1]][[2]][[.i]][[ "none" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
-      .vars.to.include
-# [1] "(Intercept)"                         
-# [2] "lPVL"                                
-# [3] "diversity"                           
-# [4] "priv.sites"                          
-# [5] "DS.Starphy.R"                        
-# [6] "multifounder.Synonymous.DS.StarPhy.R"
-# [7] "sampledwidth_uniform_mtn003.upper"
-## Now for the multi-region, multi-time results, where we can get an AUC of 0.933 using lasso with "multifounder.PFitter.mut.rate.coef", but even "none" gets 0.927.
-      #sort( ( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][[1]][[1]] ))
-      .uses <- sapply( 1: length( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]][[.i]][[ "multifounder.PFitter.mut.rate.coef" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
-      .vars.to.include
-# [1] "(Intercept)"                                  
-# [2] "lPVL"                                         
-# [3] "diversity"                                    
-# [4] "priv.sites"                                   
-# [5] "inf.sites.clusters"                           
-# [6] "DS.Starphy.R"                                 
-# [7] "multifounder.Synonymous.DS.StarPhy.R"         
-# [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
-# [9] "multifounder.PFitter.mut.rate.coef"                 
-      .uses <- sapply( 1: length( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]] ), function( .i ) { .dgCMatrix <- ( results.by.region.and.time[[3]][[1]][[1]][[1]][[ 5 ]][[1]][[2]][[.i]][[ "none" ]] ); .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ) } ); .use.threshold.for.inclusion <- 0.2; .vars.to.include <- names( which( apply( .uses, 1, mean ) > .use.threshold.for.inclusion ) );
-      .vars.to.include
-# [1] "(Intercept)"                                  
-# [2] "lPVL"                                         
-# [3] "diversity"                                    
-# [4] "priv.sites"                                   
-# [5] "inf.sites.clusters"                           
-# [6] "DS.Starphy.R"                                 
-# [7] "multifounder.Synonymous.DS.StarPhy.R"         
-# [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
-}
+
+        ## Overall performance, when training everything together (but note never use of 6m.not.1m)
+        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded"]][[1]] ) )
+#                                    lasso.validation.results.PFitter.is.poisson 
+#                                                              0.9095098 
+#                         lasso.validation.results.PFitter.mut.rate.coef 
+#                                                              0.9111856 
+#                           lasso.validation.results.PFitter.is.starlike 
+#                                                              0.9237537 
+#               lasso.validation.results.multifounder.PFitter.is.poisson 
+#                                                              0.9291998 
+#              lasso.validation.results.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9308756 
+#                 lasso.validation.results.Synonymous.PFitter.is.poisson 
+#                                                              0.9359028 
+#                lasso.validation.results.Synonymous.PFitter.is.starlike 
+#                                                              0.9363217 
+#    lasso.validation.results.multifounder.Synonymous.PFitter.is.poisson 
+#                                                              0.9388354 
+#            lasso.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                              0.9400922 
+#                        lasso.validation.results.InSites.is.one.founder 
+#                                                              0.9409300 
+#                                          lasso.validation.results.none 
+#                                                              0.9426058 
+# lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9455383 
+        ## 1m evaluated on v3 data from caprisa002, when training everything together (but note never use of 6m.not.1m)
+        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.v3"]][[1]] ) )
+#              glm.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                              0.9333333 
+#                           glm.validation.results.PFitter.mut.rate.coef 
+#                                                              0.9733333 
+#                         lasso.validation.results.PFitter.mut.rate.coef 
+#                                                              0.9733333 
+#                                          lasso.validation.results.none 
+#                                                              0.9866667 
+#                            lasso.validation.results.PFitter.is.poisson 
+#                                                              0.9866667 
+#                           lasso.validation.results.PFitter.is.starlike 
+#                                                              0.9866667 
+#                 lasso.validation.results.Synonymous.PFitter.is.poisson 
+#                                                              0.9866667 
+#                lasso.validation.results.Synonymous.PFitter.is.starlike 
+#                                                              0.9866667 
+#               lasso.validation.results.multifounder.PFitter.is.poisson 
+#                                                              0.9866667 
+#    lasso.validation.results.multifounder.Synonymous.PFitter.is.poisson 
+#                                                              0.9866667 
+#              lasso.validation.results.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9866667 
+#                        lasso.validation.results.InSites.is.one.founder 
+#                                                              1.0000000 
+#            lasso.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                              1.0000000 
+# lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                              1.0000000 
+        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.nflg"]][[1]] ) )
+#   glm.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9115385 
+#                           lasso.validation.results.PFitter.is.starlike 
+#                                                              0.9115385 
+#               lasso.validation.results.multifounder.PFitter.is.poisson 
+#                                                              0.9269231 
+#              glm.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                              0.9307692 
+#    lasso.validation.results.multifounder.Synonymous.PFitter.is.poisson 
+#                                                              0.9538462 
+#                lasso.validation.results.Synonymous.PFitter.is.starlike 
+#                                                              0.9576923 
+#            lasso.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                              0.9653846 
+#                                          lasso.validation.results.none 
+#                                                              0.9692308 
+#                        lasso.validation.results.InSites.is.one.founder 
+#                                                              0.9692308 
+#              lasso.validation.results.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9692308 
+#                 lasso.validation.results.Synonymous.PFitter.is.poisson 
+#                                                              0.9730769 
+# lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9730769 
+        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.v3"]][[1]] ) )
+#              lasso.validation.results.Synonymous.PFitter.mut.rate.coef 
+#                                                             0.93055556 
+#            lasso.validation.results.multifounder.PFitter.mut.rate.coef 
+#                                                             0.93055556 
+#                                          lasso.validation.results.none 
+#                                                             0.95833333 
+#                        lasso.validation.results.InSites.is.one.founder 
+#                                                             0.95833333 
+#                            lasso.validation.results.PFitter.is.poisson 
+#                                                             0.95833333 
+#                           lasso.validation.results.PFitter.is.starlike 
+#                                                             0.95833333 
+#               lasso.validation.results.multifounder.PFitter.is.poisson 
+#                                                             0.95833333 
+#                         lasso.validation.results.PFitter.mut.rate.coef 
+#                                                             0.95833333 
+#                           glm.validation.results.PFitter.mut.rate.coef 
+#                                                             0.97222222 
+#                 lasso.validation.results.Synonymous.PFitter.is.poisson 
+#                                                             0.97222222 
+#                lasso.validation.results.Synonymous.PFitter.is.starlike 
+#                                                             0.97222222 
+#    lasso.validation.results.multifounder.Synonymous.PFitter.is.poisson 
+#                                                             0.97222222 
+# lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                             0.98611111
+         sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.nflg"]][[1]] ) )        
+#                glm.validation.results.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.9375000 
+# OF NOTE ALSO:
+# lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                                              0.8666667 
+        get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" )
+#                                           (Intercept) 
+#                                            57 
+# multifounder.Synonymous.PFitter.mut.rate.coef 
+#                                            57 
+#                                     diversity 
+#                                            57 
+#                                    priv.sites 
+#                                            57 
+#          multifounder.Synonymous.DS.StarPhy.R 
+#                                            47 
+#                                  DS.Starphy.R 
+#                                            57 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower 
+#                                            57 
+#                            inf.sites.clusters 
+#                                            57 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper 
+#                                            57 
+#                                   v3_not_nflg 
+#                                            57 
+#                                          lPVL 
+#                                            56 
+
+### TODO: Describe that model, what does it do to make such good decisions, and why does it go wrong for the nflg.6m results, whereas this one does well: (note I've verified that the named coefs are the same in these two lists (above and below here):
+        get.uses( "Synonymous.PFitter.mut.rate.coef" )
+#                                   (Intercept) 
+#                                            57 
+#              Synonymous.PFitter.mut.rate.coef 
+#                                            57 
+#                                     diversity 
+#                                            57 
+#          multifounder.Synonymous.DS.StarPhy.R 
+#                                            57 
+#                                    priv.sites 
+#                                            56 
+#                                  DS.Starphy.R 
+#                                            57 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower 
+#                                            57 
+#                            inf.sites.clusters 
+#                                            57 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper 
+#                                            57 
+#                                   v3_not_nflg 
+#                                            56 
+#                                          lPVL 
+#                                            56 
+        setdiff( names( get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" ) ), "multifounder.Synonymous.PFitter.mut.rate.coef" )
+#  [1] "(Intercept)"                                  
+#  [2] "diversity"                                    
+#  [3] "priv.sites"                                   
+#  [4] "multifounder.Synonymous.DS.StarPhy.R"         
+#  [5] "DS.Starphy.R"                                 
+#  [6] "sampledwidth_uniform_1mmtn003_6mhvtn502.lower"
+#  [7] "inf.sites.clusters"                           
+#  [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
+#  [9] "v3_not_nflg"                                  
+# [10] "lPVL"
+    evaluate.specific.model <-
+        function ( model.vars, include.intercept = TRUE, step = FALSE ) {
+        results.covars.per.person.with.extra.cols <-
+            results.by.region.and.time[[3]][[1]][[1]][[1]][["results.covars.per.person.with.extra.cols"]];
+       results.covars.per.person.df <-
+           data.frame( results.covars.per.person.with.extra.cols );
+
+        regression.df <- cbind( data.frame( is.one.founder = results.by.region.and.time[[3]][[1]][[1]][[1]][["gold.is.one.founder.per.person" ]][ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, results.by.region.and.time[[3]][[1]][[1]][[1]][["bounds" ]] );
+        if( include.intercept ) {
+            .formula <- as.formula( paste( "is.one.founder ~ ", paste( model.vars, collapse = "+" ) ) );
+        } else {
+            .formula <- as.formula( paste( "is.one.founder ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
+        }
+        .lm <-
+            suppressWarnings( glm( .formula, family = "binomial", data = regression.df ) );
+        if( step ) {
+            .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
+            return( summary( .step.rv ) );            
+        }
+       return( summary( .lm ) );
+   } # evaluate.specific.model
+        evaluate.specific.model( model.vars )
+#         Call:
+# glm(formula = .formula, family = "binomial", data = regression.df)
+# 
+# Deviance Residuals: 
+#      Min        1Q    Median        3Q       Max  
+# -3.16057  -0.00125   0.04350   0.15376   1.45252  
+# 
+# Coefficients:
+#                                                 Estimate Std. Error z value
+# (Intercept)                                   -8.206e+00  4.896e+00  -1.676
+# multifounder.Synonymous.PFitter.mut.rate.coef -2.214e+03  1.676e+03  -1.321
+# diversity                                     -1.705e+03  6.415e+02  -2.658
+# priv.sites                                    -2.100e-02  2.228e-02  -0.943
+# multifounder.Synonymous.DS.StarPhy.R           7.537e-01  6.115e+00   0.123
+# DS.Starphy.R                                   3.757e+00  3.259e+00   1.153
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  2.387e-02  1.375e-02   1.736
+# inf.sites.clusters                             5.742e-01  5.078e-01   1.131
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper  7.701e-03  7.843e-03   0.982
+# v3_not_nflg                                    6.369e+00  3.279e+00   1.943
+# lPVL                                           1.024e+00  5.327e-01   1.923
+#                                               Pr(>|z|)   
+# (Intercept)                                    0.09368 . 
+# multifounder.Synonymous.PFitter.mut.rate.coef  0.18657   
+# diversity                                      0.00787 **
+# priv.sites                                     0.34591   
+# multifounder.Synonymous.DS.StarPhy.R           0.90191   
+# DS.Starphy.R                                   0.24892   
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  0.08260 . 
+# inf.sites.clusters                             0.25816   
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper  0.32619   
+# v3_not_nflg                                    0.05207 . 
+# lPVL                                           0.05448 . 
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+#     Null deviance: 128.807  on 106  degrees of freedom
+# Residual deviance:  26.948  on  96  degrees of freedom
+#   (1 observation deleted due to missingness)
+# AIC: 48.948
+# 
+# Number of Fisher Scoring iterations: 9
+        evaluate.specific.model( model.vars, step = TRUE )
+# Step:  AIC=44.79
+# is.one.founder ~ multifounder.Synonymous.PFitter.mut.rate.coef + 
+#     diversity + DS.Starphy.R + sampledwidth_uniform_1mmtn003_6mhvtn502.lower + 
+#     inf.sites.clusters + v3_not_nflg + lPVL
+# 
+#                                                 Df Deviance     AIC
+# <none>                                               28.788  44.788
+# - inf.sites.clusters                             1   30.975  44.975
+# - multifounder.Synonymous.PFitter.mut.rate.coef  1   31.098  45.098
+# - lPVL                                           1   32.392  46.392
+# - sampledwidth_uniform_1mmtn003_6mhvtn502.lower  1   32.849  46.849
+# - DS.Starphy.R                                   1   35.362  49.362
+# - v3_not_nflg                                    1   48.157  62.157
+# - diversity                                      1   92.318 106.318
+# 
+# Call:
+# glm(formula = is.one.founder ~ multifounder.Synonymous.PFitter.mut.rate.coef + 
+#     diversity + DS.Starphy.R + sampledwidth_uniform_1mmtn003_6mhvtn502.lower + 
+#     inf.sites.clusters + v3_not_nflg + lPVL, family = "binomial", 
+#     data = regression.df)
+# 
+# Deviance Residuals: 
+#      Min        1Q    Median        3Q       Max  
+# -2.58921  -0.00305   0.05761   0.16963   1.74489  
+# 
+# Coefficients:
+#                                                 Estimate Std. Error z value
+# (Intercept)                                   -5.699e+00  3.424e+00  -1.665
+# multifounder.Synonymous.PFitter.mut.rate.coef -2.273e+03  1.759e+03  -1.292
+# diversity                                     -1.586e+03  5.312e+02  -2.986
+# DS.Starphy.R                                   5.626e+00  2.605e+00   2.160
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  2.008e-02  1.070e-02   1.876
+# inf.sites.clusters                             6.346e-01  4.787e-01   1.326
+# v3_not_nflg                                    6.830e+00  2.771e+00   2.465
+# lPVL                                           6.694e-01  3.938e-01   1.700
+#                                               Pr(>|z|)   
+# (Intercept)                                    0.09601 . 
+# multifounder.Synonymous.PFitter.mut.rate.coef  0.19624   
+# diversity                                      0.00282 **
+# DS.Starphy.R                                   0.03080 * 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  0.06071 . 
+# inf.sites.clusters                             0.18496   
+# v3_not_nflg                                    0.01370 * 
+# lPVL                                           0.08915 . 
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+#     Null deviance: 128.807  on 106  degrees of freedom
+# Residual deviance:  28.788  on  99  degrees of freedom
+#   (1 observation deleted due to missingness)
+# AIC: 44.788
+# 
+# Number of Fisher Scoring iterations: 8
+        
+        ##
+# evaluate.specific.model( c( "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "lPVL" ) )
+# 
+# Call:
+# glm(formula = .formula, family = "binomial", data = regression.df)
+# 
+# Deviance Residuals: 
+#      Min        1Q    Median        3Q       Max  
+# -2.26627  -0.00246   0.17435   0.38541   2.18787  
+# 
+# Coefficients:
+#                                                 Estimate Std. Error z value
+# (Intercept)                                   -9.624e-01  2.336e+00  -0.412
+# diversity                                     -1.348e+03  2.952e+02  -4.566
+# v3_not_nflg                                    4.873e+00  1.453e+00   3.355
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  1.553e-02  6.834e-03   2.272
+# lPVL                                           4.605e-01  2.492e-01   1.848
+#                                               Pr(>|z|)    
+# (Intercept)                                   0.680363    
+# diversity                                     4.97e-06 ***
+# v3_not_nflg                                   0.000793 ***
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower 0.023096 *  
+# lPVL                                          0.064554 .  
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+#     Null deviance: 129.487  on 107  degrees of freedom
+# Residual deviance:  47.513  on 103  degrees of freedom
+# AIC: 57.513
+# 
+# Number of Fisher Scoring iterations: 7
+evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "lPVL" ) )
+# 
+# Call:
+# glm(formula = .formula, family = "binomial", data = regression.df)
+# 
+# Deviance Residuals: 
+#      Min        1Q    Median        3Q       Max  
+# -2.20021  -0.01191   0.09426   0.28203   1.78930  
+# 
+# Coefficients:
+#                                                 Estimate Std. Error z value
+# (Intercept)                                   -3.223e+00  2.690e+00  -1.198
+# multifounder.Synonymous.PFitter.mut.rate.coef -2.803e+03  1.221e+03  -2.296
+# diversity                                     -1.208e+03  3.007e+02  -4.016
+# v3_not_nflg                                    5.246e+00  1.658e+00   3.164
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  2.134e-02  8.190e-03   2.606
+# lPVL                                           7.908e-01  3.265e-01   2.422
+#                                               Pr(>|z|)    
+# (Intercept)                                    0.23081    
+# multifounder.Synonymous.PFitter.mut.rate.coef  0.02170 *  
+# diversity                                     5.92e-05 ***
+# v3_not_nflg                                    0.00156 ** 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.lower  0.00917 ** 
+# lPVL                                           0.01544 *  
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+#     Null deviance: 128.807  on 106  degrees of freedom
+# Residual deviance:  40.271  on 101  degrees of freedom
+#   (1 observation deleted due to missingness)
+# AIC: 52.271
+# 
+# Number of Fisher Scoring iterations: 8
+evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ) )
+#### Conclusion: upper is better than lower!!
+# Call:
+# glm(formula = .formula, family = "binomial", data = regression.df)
+# 
+# Deviance Residuals: 
+#      Min        1Q    Median        3Q       Max  
+# -3.03133  -0.01292   0.09300   0.26800   2.35990  
+# 
+# Coefficients:
+#                                                 Estimate Std. Error z value
+# (Intercept)                                   -3.780e+00  2.630e+00  -1.437
+# multifounder.Synonymous.PFitter.mut.rate.coef -2.794e+03  1.223e+03  -2.284
+# diversity                                     -1.246e+03  3.271e+02  -3.807
+# v3_not_nflg                                    5.726e+00  1.849e+00   3.098
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper  1.700e-02  5.920e-03   2.872
+# lPVL                                           6.845e-01  2.855e-01   2.398
+#                                               Pr(>|z|)    
+# (Intercept)                                    0.15072    
+# multifounder.Synonymous.PFitter.mut.rate.coef  0.02235 *  
+# diversity                                      0.00014 ***
+# v3_not_nflg                                    0.00195 ** 
+# sampledwidth_uniform_1mmtn003_6mhvtn502.upper  0.00408 ** 
+# lPVL                                           0.01650 *  
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+#     Null deviance: 128.807  on 106  degrees of freedom
+# Residual deviance:  35.984  on 101  degrees of freedom
+#   (1 observation deleted due to missingness)
+# AIC: 47.984
+# 
+# Number of Fisher Scoring iterations: 8
+
+    } # END IF FALSE
     
     # Return the file name.
     return( output.table.path );
