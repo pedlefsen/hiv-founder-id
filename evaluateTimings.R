@@ -477,7 +477,7 @@ evaluateTimings <- function (
             # lasso.nointercept.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
             # lasso.withbounds.nointercept.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
             if( return.lasso.coefs ) {
-                ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the predictio noutput matrices).
+                ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the prediction output matrices).
                 # and these are per-ptid!
                 lasso.validation.results.per.person.coefs <-
                     as.list( rep( NA, length( all.ptids ) ) );
@@ -705,11 +705,11 @@ evaluateTimings <- function (
                 if( use.lasso.validate ) {
                   # covariates for lasso
                   .covariates.lasso <- 
-                    unique( c( helpful.additional.cols, all.additional.cols ) );
+                      intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, all.additional.cols ) ) );
                   
                   # covariates for lasso.withbounds
                   .covariates.lasso.withbounds <-
-                      unique( c( helpful.additional.cols, .lower.bound.colname, .upper.bound.colname, all.additional.cols ) );
+                      intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, .lower.bound.colname, .upper.bound.colname, all.additional.cols ) ) );
 
                   # lasso:
                   if( .estimate.colname == "none" ) {
