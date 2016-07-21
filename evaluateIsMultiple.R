@@ -900,7 +900,7 @@ evaluateIsMultiple <- function (
         }
        return( summary( .lm ) );
    } # evaluate.specific.model
-        evaluate.specific.model( model.vars )
+        evaluate.specific.model( model.vars = c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "priv.sites", "multifounder.Synonymous.DS.StarPhy.R", "DS.Starphy.R", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "inf.sites.clusters", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "v3_not_nflg", "lPVL" ) );
 #         Call:
 # glm(formula = .formula, family = "binomial", data = regression.df)
 # 

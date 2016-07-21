@@ -137,7 +137,6 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                            "1m",
                            "6m"
                        );
-                     ## TODO: Put this back if/when testing evaluateTimings with intercept, to be fair.
                      if( .varname == "results.covars.per.person.with.extra.cols" ) {
                        .x <-
                          c(

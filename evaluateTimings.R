@@ -2,6 +2,7 @@
 
 library( "parallel" ); # for mclapply
 library( "glmnet" ); # for cv.glmnet
+library( "glmnetUtils" ); # for formula interface (cv.glmnet.formula): see https://github.com/Hong-Revo/glmnetUtils
 
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
@@ -51,7 +52,8 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor, maybe with helpful.additional.cols or with the bounds.
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
 #' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
-#' @param helpful.additional.cols extra cols to be included in the glm: "priv.sites" and "multifounder.Synonymous.PFitter.is.poisson"
+#' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
+#' @param helpful.additional.cols.with.interactions extra cols to be included in the glm both as-is and interacting with each other and with members of the helpful.additional.cols set.
 #' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
 #' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
@@ -67,7 +69,8 @@ evaluateTimings <- function (
                              use.glm.validate = TRUE,
                              use.lasso.validate = TRUE,
                              include.intercept = FALSE,
-                             helpful.additional.cols = c(),
+                             helpful.additional.cols = c( "lPVL" ),
+                             helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
@@ -131,7 +134,8 @@ evaluateTimings <- function (
         } );
     } # compute.results.per.person
 
-    get.infer.results.columns <- function ( the.region, the.time, the.ptids, partition.size = NA ) {
+    get.infer.results.columns <-
+        function ( the.region, the.time, the.ptids, partition.size = NA ) {
         ## Add to results: "infer" results.
         if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
             the.region.dir <- "v3_edited_20160216";
@@ -346,13 +350,14 @@ evaluateTimings <- function (
          # Then keep the 1mmtn003.6mhvtn502 results, but not each separately.
         days.est.cols <- grep( "\\.mtn|\\.hvtn", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        }
-    
+
+### TODO: PUT THAT BACK.  TESTING.
        # Do not allow use of information about the time of sampling unless include.intercept is TRUE
-       if( !include.intercept && ( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) ) {
-         .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
-         results.covars.per.person.with.extra.cols <-
-           results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
-       }
+#        if( !include.intercept && ( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) ) {
+#          .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
+#          results.covars.per.person.with.extra.cols <-
+#            results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
+#        }
        
       if( use.glm.validate || use.lasso.validate ) {
         results.covars.per.person.with.extra.cols <-
@@ -406,10 +411,10 @@ evaluateTimings <- function (
         all.additional.cols <- setdiff( .keep.cols, estimate.cols );
         
         if( use.lasso.validate ) {
-          keep.cols <- c( all.additional.cols, estimate.cols );
+          keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, all.additional.cols, estimate.cols ) );
         } else {
-          keep.cols <- c( helpful.additional.cols, estimate.cols );
-        }
+          keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, estimate.cols ) );
+      }
         
         # Don't evaluate estimators that have no variation at
         # all. Note that technically we could/should do this after holding
@@ -423,13 +428,18 @@ evaluateTimings <- function (
            
         # Also always evaluate no-estimate: "none".
         estimate.cols <- c( "none", estimate.cols );
-        
+
+        # To make things consistent we actually change this _to_ X6m.not.1m.
+        colnames( results.covars.per.person.with.extra.cols )[ colnames( results.covars.per.person.with.extra.cols ) == "6m.not.1m" ] <- "X6m.not.1m";
+        # Some cols from "helpful.additional.cols" or "helpful.additional.cols.with.interactions" might be missing
+        keep.cols <-
+            intersect( keep.cols, colnames( results.covars.per.person.with.extra.cols ) );
         results.covars.per.person <-
             results.covars.per.person.with.extra.cols[ , keep.cols, drop = FALSE ];
         results.covars.per.person.df <-
             data.frame( results.covars.per.person );
-        ## Undo conversion of the colnames (X is added before "6m.not.1m")
-        colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person );
+        ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
+        #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
 
         ## TODO: REMOVE. TESTING inclusion of interactions with gold.is.multiple.
         # ..df <- sapply( 1:nrow( results.covars.per.person.df ), function( .ppt.i ) { ( results.covars.per.person.df[ .ppt.i, "gold.is.multiple" ] * results.covars.per.person.df[ .ppt.i, setdiff( all.additional.cols, "gold.is.multiple" ) ] ) } );
@@ -441,7 +451,7 @@ evaluateTimings <- function (
         
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
-        ## Ok build a regression model , including only the helpful.additional.cols, and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
+        ## Ok build a regression model, including only the helpful.additional.cols and helpful.additional.cols.with.interactions (and interactions among them), and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
         if( ( the.time == "6m" ) || ( the.time == "1m6m" ) ) {
             .lower.bound.colname <- "sampledwidth_uniform_hvtn502.lower";
             .upper.bound.colname <- "sampledwidth_uniform_hvtn502.upper";
@@ -505,55 +515,149 @@ evaluateTimings <- function (
                 if( use.glm.validate ) {
                   # covariates for glm
                   .covariates.glm <-
-                    helpful.additional.cols;
+                    c( helpful.additional.cols, helpful.additional.cols.with.interactions );
                   # covariates for glm.withbounds
                   .covariates.glm.withbounds <-
-                    c( .upper.bound.colname );
+                    c( helpful.additional.cols, helpful.additional.cols.with.interactions, .upper.bound.colname );
 
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
                   } );
                   # Also exclude covars that are too highly correlated.
-                  .retained.covars <- setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
+                  .retained.covars <-
+                      setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                      if( .estimate.colname == "none" ) {
+                     ## ERE I AM.
+                     .interactors <-
+                         intersect( .retained.covars, helpful.additional.cols.with.interactions );
+                     # Add interactions among the interactors.
+                     if( length( .interactors ) > 1 ) {
+                         ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                         .interactions.among.interactors <- c();
+                         for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
+                             .interactor <- .interactors[ .interactor.i ];
+                             .remaining.interactors <-
+                                 .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
+                             .interactions.among.interactors <-
+                                 c( .interactions.among.interactors,
+                                   paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
+                         } # End foreach .interactor.i
+                         .interactors <- c( .interactors, .interactions.among.interactors );
+                     } # End if there's more than one "interactor"
+                     
+                     if( .estimate.colname == "none" ) {
                         .cv.glm <- intersect( .retained.covars, .covariates.glm );
                         if( length( .cv.glm ) == 0 ) {
                           .cv.glm <- 1;
-                        }
+                      }
                       ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
                         if( include.intercept ) {
-                            .formula <- as.formula( paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) ) );
-                            .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) ) );
+                            .formula <- paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) );
+                            .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) );
                         } else {
                             .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm );
                             if( length( .cv.glm.nointercept ) == 0 ) {
-                                .formula.nointercept <- as.formula( "days.since.infection ~ 1" );  # _only_ intercept!
+                                .formula.nointercept <- "days.since.infection ~ 1";  # _only_ intercept!
                             } else {
-                                .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( .cv.glm.nointercept, collapse = "+" ) ) );
+                                .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( .cv.glm.nointercept, collapse = "+" ) );
                             }
                             .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
-                            .formula.withbounds.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) ) );
+                            .formula.withbounds.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds.nointercept ), collapse = "+" ) );
                             .formula <- .formula.nointercept;
                             .formula.withbounds <- .formula.withbounds.nointercept;
                         }
                     } else {
                         ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
                       if( include.intercept ) {
-                          .formula <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) ) );
-                          .formula.withbounds <- as.formula( paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) ) );
+                          .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) );
+                          .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) );
                       } else {
                           .covariates.glm.nointercept <- .covariates.glm;
-                          .formula.nointercept <- as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
+                          .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.nointercept, .estimate.colname ) ), collapse = "+" ) );
                           .formula <- .formula.nointercept;
                           .covariates.glm.withbounds.nointercept <- .covariates.glm.withbounds;
                           .formula.withbounds.nointercept <-
-                              as.formula( paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) ) );
+                              paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) );
                           .formula.withbounds <- .formula.withbounds.nointercept;
                       }
                     }
-                    
-                    # glm:
+                     if( length( .interactors ) > 0 ) {
+                         .interactees <-
+                             setdiff( intersect( .retained.covars, .covariates.glm ), .interactors );
+                         if( length( .interactees ) > 0 ) {
+                             ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                             .interactions.formula.part.components <- c();
+                             for( .interactor.i in 1:length( .interactors ) ) {
+                                 .interactor <- .interactors[ .interactor.i ];
+                                 .interactions.formula.part.components <-
+                                     c( .interactions.formula.part.components,
+                                       paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
+                             } # End foreach .interactor.i
+                                                                      
+                             .interactions.formula.part <-
+                                 paste( .interactions.formula.part.components, collapse =" + " );
+                             .formula <-
+                                 paste( .formula, .interactions.formula.part, sep = " + " );
+                         } # End if there's any "interactees"
+                         ## Also add interactions with the estimate colname and everything included so far.
+                         if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula <- 
+                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+                             ## TODO: Move this part down later
+                             .everything.included.so.far.in.formula.withbounds <- 
+                                 strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions.
+                             .new.interactions.with.estimator.in.formula <-
+                                 sapply( .everything.included.so.far.in.formula[ -1 ], function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+                             ## TODO: Move this part down later
+                             .new.interactions.with.estimator.in.formula.withbounds <-
+                                 sapply( .everything.included.so.far.in.formula.withbounds[ -1 ], function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
+                         } # End if .estimate.colname != "none"
+
+                         ## withbounds
+                         .interactees.withbounds <-
+                             setdiff( intersect( .retained.covars, .covariates.glm.withbounds ), .interactors );
+                         if( length( .interactees.withbounds ) > 0 ) {
+                             ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                             .interactions.withbounds.formula.part.components <- c();
+                             for( .interactor.i in 1:length( .interactors ) ) {
+                                 .interactor <- .interactors[ .interactor.i ];
+                                 .interactions.withbounds.formula.part.components <-
+                                     c( .interactions.withbounds.formula.part.components,
+                                       paste( .interactor, .interactees.withbounds, collapse = "+", sep = ":" ) );
+                             } # End foreach .interactor.i
+                                                                      
+                             .interactions.withbounds.formula.part <-
+                                 paste( .interactions.withbounds.formula.part.components, collapse =" + " );
+                             .formula.withbounds <-
+                                 paste( .formula.withbounds, .interactions.withbounds.formula.part, sep = " + " );
+                         } # End if there's any "interactees.withbounds"
+                         ## Also add interactions with the estimate colname and everything included so far.
+                         if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula.withbounds <- 
+                                 strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions.
+                             .new.interactions.with.estimator.in.formula.withbounds <-
+                                 sapply( .everything.included.so.far.in.formula.withbounds[ -1 ], function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
+                         } # End if .estimate.colname != "none"
+                     } # End if there are any interactors.
+                     
+                     # To this point these are still strings:
+                     #.formula <- as.formula( .formula );
+                     #.formula.withbounds <- as.formula( .formula.withbounds );
+                     
                     .df <- regression.df.without.ptid.i[ , .retained.covars, drop = FALSE ];
                     .glm.result <- lm( .formula, data = regression.df.without.ptid.i );
                       
@@ -601,11 +705,11 @@ evaluateTimings <- function (
                 if( use.lasso.validate ) {
                   # covariates for lasso
                   .covariates.lasso <- 
-                    all.additional.cols;
+                    unique( c( helpful.additional.cols, all.additional.cols ) );
                   
                   # covariates for lasso.withbounds
                   .covariates.lasso.withbounds <-
-                    c( .lower.bound.colname, .upper.bound.colname, all.additional.cols );
+                      unique( c( helpful.additional.cols, .lower.bound.colname, .upper.bound.colname, all.additional.cols ) );
 
                   # lasso:
                   if( .estimate.colname == "none" ) {
@@ -703,6 +807,111 @@ evaluateTimings <- function (
 
                   .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
                   .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
+
+                  ## MARK
+                  .covariates.lasso <- intersect( .retained.covars, .covariates.lasso );
+
+                     if( .estimate.colname == "none" ) {
+                        .cv.lasso <- intersect( .retained.covars, .covariates.lasso );
+                        if( length( .cv.lasso ) == 0 ) {
+                          .cv.lasso <- 1;
+                      }
+                      ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                        if( include.intercept ) {
+                            .formula <- paste( "days.since.infection ~", paste( .cv.lasso, collapse = "+" ) );
+                        } else {
+                            .cv.lasso.nointercept <- intersect( .retained.covars, .covariates.lasso );
+                            if( length( .cv.lasso.nointercept ) == 0 ) {
+                                .formula.nointercept <- "days.since.infection ~ 1";  # _only_ intercept!
+                            } else {
+                                .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( .cv.lasso.nointercept, collapse = "+" ) );
+                            }
+                            .formula <- .formula.nointercept;
+                        }
+                    } else {
+                        ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
+                      if( include.intercept ) {
+                          .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso, .estimate.colname ) ), collapse = "+" ) );
+                      } else {
+                          .covariates.lasso.nointercept <- .covariates.lasso;
+                          .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.nointercept, .estimate.colname ) ), collapse = "+" ) );
+                          .formula <- .formula.nointercept;
+                      }
+                    }
+                  
+                     .interactors <-
+                         intersect( .retained.covars, helpful.additional.cols.with.interactions );
+                     # Add interactions among the interactors.
+                     if( length( .interactors ) > 1 ) {
+                         ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                         .interactions.among.interactors <- c();
+                         for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
+                             .interactor <- .interactors[ .interactor.i ];
+                             .remaining.interactors <-
+                                 .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
+                             .interactions.among.interactors <-
+                                 c( .interactions.among.interactors,
+                                   paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
+                         } # End foreach .interactor.i
+                         .interactors <- c( .interactors, .interactions.among.interactors );
+                     } # End if there's more than one "interactor"
+                     if( length( .interactors ) > 0 ) {
+                         .interactees <-
+                             setdiff( .retained.covars, .interactors );
+                         if( length( .interactees ) > 0 ) {
+                             ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                             .interactions.formula.part.components <- c();
+                             for( .interactor.i in 1:length( .interactors ) ) {
+                                 .interactor <- .interactors[ .interactor.i ];
+                                 .interactions.formula.part.components <-
+                                     c( .interactions.formula.part.components,
+                                       paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
+                             } # End foreach .interactor.i
+                                                                      
+                             .interactions.formula.part <-
+                                 paste( .interactions.formula.part.components, collapse =" + " );
+                             .formula <-
+                                 paste( .formula, .interactions.formula.part, sep = " + " );
+                         } # End if there's any "interactees"
+                         ## Also add interactions with the estimate colname and everything included so far.
+                         if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula <- 
+                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions.
+                             .new.interactions.with.estimator.in.formula <-
+                                 sapply( .everything.included.so.far.in.formula[ -1 ], function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
+                         } # End if .estimate.colname != "none"
+
+
+                         .mf <- stats::model.frame( as.formula( .formula ), data = regression.df.without.ptid.i );
+                         .lasso.mat <- model.matrix(as.formula( .formula ), .mf);
+                         
+                         .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
+                             return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
+                         } );
+                         .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                         
+                         cors.with.the.outcome <-
+                             sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          .cor <- 
+                              cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                            return( .cor );
+                         } );
+                         sorted.cors.with.the.outcome <-
+                             cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                         # Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                         if( .estimate.colname == "none" ) {
+                             .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                         } else {
+                             .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                         }
+                         .retained.covars <- colnames( .lasso.mat );
+                     } # End if length( .interactors ) > 0
                   .needed.df <-
                     ( length( .retained.covars ) - ( nrow( .lasso.mat ) - MINIMUM.DF ) );
                   if( .needed.df > 0 ) {
@@ -713,30 +922,39 @@ evaluateTimings <- function (
                   }
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     
-                    .lasso.mat <- .lasso.mat[ , .retained.covars, drop = FALSE ];
+                      .lasso.mat <- .lasso.mat[ , .retained.covars, drop = FALSE ];
+
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
+                    .penalty.factor <-
+                        as.numeric( colnames( .lasso.mat ) != .estimate.colname )
+                                
                     tryCatch(
-                    {
-                      .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = include.intercept,
-                                                 penalty.factor = as.numeric( colnames( .lasso.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
-                      .lasso.validation.results.per.person.coefs.cell <-
-                         coef( .cv.glmnet.fit, s = "lambda.min" );
-                      if( return.lasso.coefs ) {
-                        .lasso.validation.results.per.person.coefs.row[[ .col.i ]] <-
-                            .lasso.validation.results.per.person.coefs.cell;
-                      }
-                      for( .row.i in the.rows.for.ptid ) {
-                          .newx <-
-                              as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.mat ), drop = FALSE ] ) );
-                          # Note that the intercept is always the first one, even when include.intercept == FALSE
-                          .pred.value.lasso <-
-                              sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * c( 1, .newx ) );
-                              #predict( .cv.glmnet.fit, newx = .newx, s = "lambda.min" );
-                        lasso.validation.results.per.person[ .row.i, .col.i ] <- 
-                            .pred.value.lasso;
-                      }
-                    },
+                        {
+                            .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = include.intercept,
+                                                        penalty.factor = .penalty.factor, grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
+                            .lasso.validation.results.per.person.coefs.cell <-
+                                coef( .cv.glmnet.fit, s = "lambda.min" );
+                            if( return.lasso.coefs ) {
+                                .lasso.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                                    .lasso.validation.results.per.person.coefs.cell;
+                            }
+                            .mf.ptid <- stats::model.frame( as.formula( .formula ), data = regression.df );
+                            
+                            .lasso.mat.ptid <-
+                                model.matrix(as.formula( .formula ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
+                            for( .row.i.j in 1:length(the.rows.for.ptid) ) {
+                                .row.i <- the.rows.for.ptid[ .row.i.j ];
+                                .newx <-
+                                    c( 1, .lasso.mat.ptid[ .row.i.j, rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1], drop = FALSE ] );
+                                names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1] );
+                                        # Note that the intercept is always the first one, even when include.intercept == FALSE
+                                .pred.value.lasso <-
+                                    sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * .newx );
+                                lasso.validation.results.per.person[ .row.i, .col.i ] <- 
+                                    .pred.value.lasso;
+                            }
+                        },
                     error = function( e )
                     {
                         if( .col.i == 1 ) {
@@ -803,7 +1021,7 @@ evaluateTimings <- function (
                   
                   # Exclude covars that are not sufficiently correlated with the outcome.
                       .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .lower.bound.colname, .upper.bound.colname, .estimate.colname ) ), function( .covar.colname ) {
                             #print( .covar.colname );
                           .cor <- 
                               cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
@@ -815,7 +1033,7 @@ evaluateTimings <- function (
                           }
                         } ) ) ) );
                   
-                   # Exclude covars that are too highly correlated with the estimate.
+                   # Exclude covars that are too highly correlated with the estimate.  Here we can exclude the upper or lower bound too if it is too highly correlated with the estimate.
                     if( .estimate.colname != "none" ) {
                       .covars.to.exclude <- c( .covars.to.exclude,
                           names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
@@ -865,12 +1083,108 @@ evaluateTimings <- function (
                           .new.covars.to.exclude[ .c.i ] <- TRUE;
                         } else {
                           .new.covars.to.exclude[ .c.i ] <- FALSE;
-                        }
-                  } # End foreach of the .covars.to.consider
+                      }
+                   } # End foreach of the .covars.to.consider
                   .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
                   
                   .retained.covars <-
                       setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
+
+                  .covariates.lasso.withbounds <- intersect( .retained.covars, .covariates.lasso.withbounds );
+                  if( .estimate.colname == "none" ) {
+                      ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                        if( include.intercept ) {
+                            .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.lasso.withbounds ), collapse = "+" ) );
+                        } else {
+                            .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
+                            .formula.withbounds.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.lasso.withbounds.nointercept ), collapse = "+" ) );
+                            .formula.withbounds <- .formula.withbounds.nointercept;
+                        }
+                    } else {
+                        ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
+                      if( include.intercept ) {
+                          .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds, .estimate.colname ) ), collapse = "+" ) );
+                      } else {
+                          .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
+                          .formula.withbounds.nointercept <-
+                              paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) );
+                          .formula.withbounds <- .formula.withbounds.nointercept;
+                      }
+                    }
+                
+                .interactors <-
+                         intersect( .retained.covars, helpful.additional.cols.with.interactions );
+                     # Add interactions among the interactors.
+                     if( length( .interactors ) > 1 ) {
+                         ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                         .interactions.among.interactors <- c();
+                         for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
+                             .interactor <- .interactors[ .interactor.i ];
+                             .remaining.interactors <-
+                                 .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
+                             .interactions.among.interactors <-
+                                 c( .interactions.among.interactors,
+                                   paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
+                         } # End foreach .interactor.i
+                         .interactors <- c( .interactors, .interactions.among.interactors );
+                     } # End if there's more than one "interactor"
+                     if( length( .interactors ) > 0 ) {
+                         .interactees <-
+                             setdiff( .retained.covars, .interactors );
+                         if( length( .interactees ) > 0 ) {
+                             ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                             .interactions.formula.part.components <- c();
+                             for( .interactor.i in 1:length( .interactors ) ) {
+                                 .interactor <- .interactors[ .interactor.i ];
+                                 .interactions.formula.part.components <-
+                                     c( .interactions.formula.part.components,
+                                       paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
+                             } # End foreach .interactor.i
+                                                                      
+                             .interactions.formula.part <-
+                                 paste( .interactions.formula.part.components, collapse =" + " );
+                             .formula.withbounds <-
+                                 paste( .formula.withbounds, .interactions.formula.part, sep = " + " );
+                         } # End if there's any "interactees"
+                         ## Also add interactions with the estimate colname and everything included so far.
+                         if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula.withbounds <- 
+                                 strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions.
+                             .new.interactions.with.estimator.in.formula.withbounds <-
+                                 sapply( .everything.included.so.far.in.formula.withbounds[ -1 ], function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
+                         } # End if .estimate.colname != "none"
+
+                         .mf.withbounds <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df.without.ptid.i );
+                         .lasso.withbounds.mat <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds);
+                         
+                         .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
+                             return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
+                         } );
+                         .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                         
+                         cors.with.the.outcome <-
+                             sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                          .cor <- 
+                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                            return( .cor );
+                         } );
+                         sorted.cors.with.the.outcome <-
+                             cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                         # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                         if( .estimate.colname == "none" ) {
+                             .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                         } else {
+                             .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                         }
+                         .retained.covars <- colnames( .lasso.withbounds.mat );
+                     } # End if length( .interactors ) > 0
+                  
                   .needed.df <-
                     ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
                   if( .needed.df > 0 ) {
@@ -879,6 +1193,7 @@ evaluateTimings <- function (
                     .retained.covars <-
                       .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
                   }
+                
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.withbounds.mat <-
                       .lasso.withbounds.mat[ , .retained.covars, drop = FALSE ];
@@ -896,11 +1211,17 @@ evaluateTimings <- function (
                             .lasso.withbounds.validation.results.per.person.coefs.cell;
                       }
 
-                      for( .row.i in the.rows.for.ptid ) {
+                      .mf.ptid <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df );
+                            
+                      .lasso.withbounds.mat.ptid <- model.matrix(as.formula( .formula.withbounds ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
+                      for( .row.i.j in 1:length(the.rows.for.ptid) ) {
+                          .row.i <- the.rows.for.ptid[ .row.i.j ];
                         .newx <-
-                          as.numeric( as.matrix( regression.df[ .row.i, colnames( .lasso.withbounds.mat ), drop = FALSE ] ) );
+                            c( 1, .lasso.withbounds.mat.ptid[ .row.i.j, rownames( .lasso.withbounds.validation.results.per.person.coefs.cell )[ -1 ], drop = FALSE ] );
+                          names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.withbounds.validation.results.per.person.coefs.cell ) )[-1] );
+
                         .pred.value.lasso.withbounds <-
-                          sum( as.matrix( .lasso.withbounds.validation.results.per.person.coefs.cell ) * c( 1, .newx ) );
+                          sum( as.matrix( .lasso.withbounds.validation.results.per.person.coefs.cell ) * .newx );
                           #predict( .cv.glmnet.fit.withbounds, newx = .newx, s = "lambda.min" );
                         lasso.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
                           .pred.value.lasso.withbounds;
@@ -1326,7 +1647,7 @@ evaluateTimings <- function (
     ##  *) check out results of the partitions of evaluateTimings.
 
     if( FALSE ) {
-        get.rmses <- function ( evaluate.regions = c( "nflg", "v3" ), evaluate.times = c( "1m", "6m" ), train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
+        get.rmses <- function ( evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
             if( length( train.times ) == 2 ) {
                 train.time <- "1m.6m";
                 the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
@@ -1334,15 +1655,17 @@ evaluateTimings <- function (
                 train.time <- train.times;
                 if( train.time == "6m" ) {
                     the.bound <- "sampledwidth_uniform_hvtn502";
-                    stopifnot( evaluate.time == "6m" );
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "6m" );
                 } else {
                     the.bound <- "sampledwidth_uniform_mtn003";
-                    stopifnot( evaluate.time == "1m" );
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "1m" );
                 }
             }
             if( length( evaluate.times ) == 2 ) {
                 # Leave the.bound alone.
-            } else {
+            } else if( length( train.times ) == 2 ) {
                 the.bound <- paste( the.bound, evaluate.times, sep = "." );
             }
             if( length( train.regions ) == 2 ) {
@@ -1365,6 +1688,52 @@ evaluateTimings <- function (
             .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
             return( .lst );
         } # get.rmses (..)
+
+        # This returns biases in order of rmses.
+        get.biases <- function ( evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
+            if( length( train.times ) == 2 ) {
+                train.time <- "1m.6m";
+                the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
+            } else {
+                train.time <- train.times;
+                if( train.time == "6m" ) {
+                    the.bound <- "sampledwidth_uniform_hvtn502";
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "6m" );
+                } else {
+                    the.bound <- "sampledwidth_uniform_mtn003";
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "1m" );
+                }
+            }
+            if( length( evaluate.times ) == 2 ) {
+                # Leave the.bound alone.
+            } else if( length( train.times ) == 2 ) {
+                the.bound <- paste( the.bound, evaluate.times, sep = "." );
+            }
+            if( length( train.regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+              if( length( evaluate.regions ) == 2 ) {
+                  # Leave the.bound alone, then.
+              } else {
+                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
+              }
+            } else {
+              if( length( evaluate.regions ) == 2 ) {
+                  stop( "can't evaluate more regions than trained" );
+              } else if( evaluate.regions != train.regions ) {
+                  stop( "can't evaluate a different region than trained" );
+              }
+              .results.for.region <- results.by.region.and.time[[ train.regions ]];
+            }
+            .lst <- unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ "bias.zeroNAs" ]] )[ order( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ "rmse.zeroNAs" ]] ), decreasing = T ) ];
+            ## TODO: REMOVE. Temporary.
+            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
+            return( .lst );
+        } # get.biases (..)
+
+        get.bias.and.rmse <- function ( ... ) { cbind( bias = get.biases( ... ), rmse = get.rmses( ... ) ) }
+        
         get.uses <- function ( .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
             if( withbounds ) {
                 .withbounds.string <- "lasso.withbounds";
@@ -1390,6 +1759,82 @@ evaluateTimings <- function (
               apply( .uses, 1, sum );
             }
         } # get.uses (..)
+
+        ## ERE I AM. NOTE that include.intercept requires loading a separate set of data.
+        evaluate.specific.model <-
+          function ( model.vars, .include.intercept = include.intercept, step = FALSE, reload.data = ( .include.intercept != include.intercept ) ) {
+            if( reload.data ) {
+              if( include.intercept ) {
+                  results.by.region.and.time.Rda.filename <-
+                      paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.include.intercept.Rda", sep = "" );
+              } else {
+                  results.by.region.and.time.Rda.filename <-
+                      paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
+              }
+              load( results.by.region.and.time.Rda.filename );
+             } # End if( reload.data )
+        results.covars.per.person.with.extra.cols <-
+            results.by.region.and.time[[3]][[1]][[1]][[1]][["results.covars.per.person.with.extra.cols"]];
+       results.covars.per.person.df <-
+           data.frame( results.covars.per.person.with.extra.cols );
+        ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
+        #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
+
+        regression.df <- cbind( data.frame( days.since.infection = results.by.region.and.time[[3]][[1]][[1]][[1]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), results.by.region.and.time[[3]][[1]][[1]][[1]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, results.by.region.and.time[[3]][[1]][[1]][[1]][["bounds" ]] );
+
+        if( include.intercept ) {
+            .formula <- as.formula( paste( "days.since.infection ~ ", paste( model.vars, collapse = "+" ) ) );
+        } else {
+            .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
+        }
+        .lm <-
+            suppressWarnings( lm( .formula, data = regression.df ) );
+        if( step ) {
+            .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
+            return( summary( .step.rv ) );            
+        }
+       return( summary( .lm ) );
+     } # evaluate.specific.model
+                                        #        evaluate.specific.model( model.vars = c( "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ), step = TRUE );
+     evaluate.specific.model( model.vars = c( "X6m.not.1m", "lPVL", "v3_not_nflg:lPVL","X6m.not.1m:v3_not_nflg:lPVL"  ), step = TRUE );
+  # Start:  AIC=555.72
+  # days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
+  #     X6m.not.1m:v3_not_nflg:lPVL
+  # 
+  #                               Df Sum of Sq   RSS    AIC
+  # <none>                                     17216 555.72
+  # - X6m.not.1m:lPVL:v3_not_nflg  1    4306.3 21523 577.83
+  # 
+  # Call:
+  # lm(formula = days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
+  #     X6m.not.1m:v3_not_nflg:lPVL, data = regression.df)
+  # 
+  # Residuals:
+  #     Min      1Q  Median      3Q     Max 
+  # -33.702  -4.799   2.636  10.244  31.015 
+  # 
+  # Coefficients:
+  #                             Estimate Std. Error t value Pr(>|t|)    
+  # X6m.not.1m                  145.9451     2.8690  50.870  < 2e-16 ***
+  # lPVL                          4.0772     0.1986  20.528  < 2e-16 ***
+  # lPVL:v3_not_nflg              1.3970     0.3222   4.336 3.36e-05 ***
+  # X6m.not.1m:lPVL:v3_not_nflg  -2.3826     0.4671  -5.100 1.53e-06 ***
+  # ---
+  # Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+  # 
+  # Residual standard error: 12.87 on 104 degrees of freedom
+  # Multiple R-squared:  0.9909,	Adjusted R-squared:  0.9906 
+  # F-statistic:  2834 on 4 and 104 DF,  p-value: < 2.2e-16
+
+        ## ERE I AM.STILL WORKING ON THAT . CHECK THIS. lPVL is up early down late, not unexpected!
+# > plot( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
+# > cor( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
+# [1] 0.2237065
+# > plot( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
+# > cor( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
+# [1] -0.2758797
+        
+        
     } # End if FALSE
     
     if( FALSE ) {
