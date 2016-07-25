@@ -4,6 +4,11 @@ library( "parallel" ); # for mclapply
 library( "glmnet" ); # for cv.glmnet
 library( "glmnetUtils" ); # for formula interface (cv.glmnet.formula): see https://github.com/Hong-Revo/glmnetUtils
 
+# install.packages("devtools")
+# library(devtools)
+# install_github("hong-revo/glmnetUtils")
+# library(glmnetUtils)
+
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
