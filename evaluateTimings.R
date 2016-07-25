@@ -93,6 +93,9 @@ evaluateTimings <- function (
     if( include.intercept ) {
         config.string <- "include.intercept";
     }
+    if( !include.all.vars.in.lasso ) {
+        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "." );
+    }
     results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
     
@@ -513,8 +516,8 @@ evaluateTimings <- function (
             }
             regression.df.without.ptid.i <-
                 regression.df[ the.rows.excluding.ptid, , drop = FALSE ];
-            .out <- regression.df.without.ptid.i[[ "days.since.infection" ]];
             for( .col.i in 1:length( estimate.cols ) ) {
+                
                 .estimate.colname <- estimate.cols[ .col.i ];
                 ## TODO: REMOVE
                 #print( .estimate.colname );
@@ -869,6 +872,7 @@ evaluateTimings <- function (
                     ## NOTE: in the below, the .retained.covars for the !include.all.vars.in.lasso case are defined above, with the computation of the non-withbounds ("glm") results.
                     if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) ) {
                     .mf <- stats::model.frame( as.formula( .formula ), data = regression.df.without.ptid.i );
+                    .out <- .mf[ , "days.since.infection" ];
                     .lasso.mat <- model.matrix(as.formula( .formula ), .mf);
                     
                     .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
@@ -1147,6 +1151,7 @@ evaluateTimings <- function (
                     ## NOTE: in the below, the .retained.covars for the !include.all.vars.in.lasso case are defined above, with the computation of the non-withbounds ("glm") results.
                     if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) ) {
                       .mf.withbounds <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df.without.ptid.i );
+                      .out <- .mf.withbounds[ , "days.since.infection" ];
                       .lasso.withbounds.mat <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds);
                              
                       .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
