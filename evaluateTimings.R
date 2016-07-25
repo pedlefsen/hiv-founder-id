@@ -4,6 +4,11 @@ library( "parallel" ); # for mclapply
 library( "glmnet" ); # for cv.glmnet
 library( "glmnetUtils" ); # for formula interface (cv.glmnet.formula): see https://github.com/Hong-Revo/glmnetUtils
 
+# install.packages("devtools")
+# library(devtools)
+# install_github("hong-revo/glmnetUtils")
+# library(glmnetUtils)
+
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
@@ -190,7 +195,7 @@ evaluateTimings <- function (
 
         ## Exclude old/outdated bounds
         infer.results.bounds.types <- 
-          grep( "(one|six)month", infer.results.bounds.types, invert = TRUE );
+          grep( "(one|six)month", infer.results.bounds.types, invert = TRUE, value = TRUE );
 
         infer.results.bounds.tables <- lapply( infer.results.bounds.types, function ( .bounds.type ) {
           return( infer.results[ !is.na( infer.results.bounds.type ) & ( infer.results.bounds.type == .bounds.type ), , drop = FALSE ] );
