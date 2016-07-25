@@ -57,6 +57,7 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor, maybe with helpful.additional.cols or with the bounds.
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
 #' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
+#' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
 #' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
 #' @param helpful.additional.cols.with.interactions extra cols to be included in the glm both as-is and interacting with each other and with members of the helpful.additional.cols set.
 #' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
@@ -74,6 +75,7 @@ evaluateTimings <- function (
                              use.glm.validate = TRUE,
                              use.lasso.validate = TRUE,
                              include.intercept = FALSE,
+                             include.all.vars.in.lasso = TRUE,
                              helpful.additional.cols = c( "lPVL" ),
                              helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
                              results.dirname = "raw_edited_20160216",
@@ -87,13 +89,12 @@ evaluateTimings <- function (
                              #times = c( "1m", "6m", "1m6m" )
                             )
 {
+    config.string <- "";
     if( include.intercept ) {
-        results.by.region.and.time.Rda.filename <-
-            paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.include.intercept.Rda", sep = "" );
-    } else {
-        results.by.region.and.time.Rda.filename <-
-            paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
+        config.string <- "include.intercept";
     }
+    results.by.region.and.time.Rda.filename <-
+        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
     
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
@@ -415,7 +416,7 @@ evaluateTimings <- function (
         estimate.cols <- c( COB.cols, mut.rate.coef.cols, Infer.cols, anchre.cols );
         all.additional.cols <- setdiff( .keep.cols, estimate.cols );
         
-        if( use.lasso.validate ) {
+        if( use.lasso.validate && include.all.vars.in.lasso ) {
           keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, all.additional.cols, estimate.cols ) );
         } else {
           keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, estimate.cols ) );
@@ -517,7 +518,7 @@ evaluateTimings <- function (
                 .estimate.colname <- estimate.cols[ .col.i ];
                 ## TODO: REMOVE
                 #print( .estimate.colname );
-                if( use.glm.validate ) {
+                if( use.glm.validate || ( use.lasso.validate && !include.all.vars.in.lasso ) ) {
                   # covariates for glm
                   .covariates.glm <-
                     c( helpful.additional.cols, helpful.additional.cols.with.interactions );
@@ -532,7 +533,6 @@ evaluateTimings <- function (
                   .retained.covars <-
                       setdiff( colnames( regression.df.without.ptid.i ), names( which( .covars.to.exclude ) ) );
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                     ## ERE I AM.
                      .interactors <-
                          intersect( .retained.covars, helpful.additional.cols.with.interactions );
                      # Add interactions among the interactors.
@@ -608,21 +608,12 @@ evaluateTimings <- function (
                          if( .estimate.colname != "none" ) {
                              .everything.included.so.far.in.formula <- 
                                  strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
-                             ## TODO: Move this part down later
-                             .everything.included.so.far.in.formula.withbounds <- 
-                                 strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
 
                              # Add interactions.
                              .new.interactions.with.estimator.in.formula <-
                                  sapply( .everything.included.so.far.in.formula[ -1 ], function ( .existing.part ) {
                                      paste( .existing.part, .estimate.colname, sep = ":" )
                                  } );
-                             ## TODO: Move this part down later
-                             .new.interactions.with.estimator.in.formula.withbounds <-
-                                 sapply( .everything.included.so.far.in.formula.withbounds[ -1 ], function ( .existing.part ) {
-                                     paste( .existing.part, .estimate.colname, sep = ":" )
-                                 } );
-
                              .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
                          } # End if .estimate.colname != "none"
 
@@ -662,268 +653,254 @@ evaluateTimings <- function (
                      # To this point these are still strings:
                      #.formula <- as.formula( .formula );
                      #.formula.withbounds <- as.formula( .formula.withbounds );
-                     
-                    .df <- regression.df.without.ptid.i[ , .retained.covars, drop = FALSE ];
-                    .glm.result <- lm( .formula, data = regression.df.without.ptid.i );
+
+                     # The condition below is required now that we also compute the above for the case with use.lasso.validate && !include.all.vars.in.lasso
+                     if( use.glm.validate ) {
+                       .glm.result <- lm( .formula, data = regression.df.without.ptid.i );
+                         
+                       for( .row.i in the.rows.for.ptid ) {
+                         .pred.value.glm <- predict( .glm.result, regression.df[ .row.i, , drop = FALSE ] );
+                         glm.validation.results.per.person[ .row.i, .col.i ] <- 
+                             .pred.value.glm;
+                       }
                       
-                    for( .row.i in the.rows.for.ptid ) {
-                      .pred.value.glm <- predict( .glm.result, regression.df[ .row.i, , drop = FALSE ] );
-                      glm.validation.results.per.person[ .row.i, .col.i ] <- 
-                          .pred.value.glm;
-                    }
-                      
-                    # glm.withbounds:
-                    .glm.withbounds.result <- lm( .formula.withbounds, data = regression.df.without.ptid.i );
-                    for( .row.i in the.rows.for.ptid ) {
-                      .pred.value.glm.withbounds <- predict( .glm.withbounds.result, regression.df[ .row.i, , drop = FALSE ] );
-                      glm.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
-                          .pred.value.glm.withbounds;
-                    }
-                    
-                    ## # glm.nointercept:
-                    ## .glm.nointercept <- lm( .formula.nointercept, data = regression.df.without.ptid.i );
-                    ## glm.nointercept.validation.results.per.person.adjR2[ .ptid.i, .col.i ] <- 
-                    ##     ( summary( .glm.nointercept ) )$adj.r.squared;
-                    ## glm.nointercept.validation.results.per.person.pcoef[ .ptid.i, .col.i ] <- 
-                    ##     coef( summary( .glm.nointercept ) )[ 1, "Pr(>|t|)" ];
-                    ## for( .row.i in the.rows.for.ptid ) {
-                    ##   .pred.value.glm.nointercept <- predict( .glm.nointercept, regression.df[ .row.i, , drop = FALSE ] );
-                    ##   glm.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                    ##       .pred.value.glm.nointercept;
-                    ## }
-                    ## 
-                    ## # glm.withbounds.nointercept:
-                    ## .glm.withbounds.nointercept <- lm( .formula.withbounds.nointercept, data = regression.df.without.ptid.i );
-                    ## glm.withbounds.nointercept.validation.results.per.person.adjR2[ .ptid.i, .col.i ] <- 
-                    ##     ( summary( .glm.withbounds.nointercept ) )$adj.r.squared;
-                    ## glm.withbounds.nointercept.validation.results.per.person.pcoef[ .ptid.i, .col.i ] <- 
-                    ##     coef( summary( .glm.withbounds.nointercept ) )[ 1, "Pr(>|t|)" ];
-                    ## for( .row.i in the.rows.for.ptid ) {
-                    ##   .pred.value.glm.withbounds.nointercept <- predict( .glm.withbounds.nointercept, regression.df[ .row.i, , drop = FALSE ] );
-                    ##   glm.withbounds.nointercept.validation.results.per.person[ .row.i, .col.i ] <- 
-                    ##       .pred.value.glm.withbounds.nointercept;
-                    ## }
-                  } # If the estimate can be used
-    
-                } # End if use.glm.validate
+                       # glm.withbounds:
+                       .glm.withbounds.result <-
+                           lm( .formula.withbounds, data = regression.df.without.ptid.i );
+                       for( .row.i in the.rows.for.ptid ) {
+                           .pred.value.glm.withbounds <-
+                               predict( .glm.withbounds.result, regression.df[ .row.i, , drop = FALSE ] );
+                          glm.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
+                              .pred.value.glm.withbounds;
+                       }
+                     } # End if use.glm.validate
+                 } # End if the estimate can be used
+                } # End if use.glm.validate || ( use.lasso.validate && !include.all.vars.in.lasso )
     
                 if( use.lasso.validate ) {
-                  # covariates for lasso
-                  .covariates.lasso <- 
-                      intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, all.additional.cols ) ) );
-                  
-                  # covariates for lasso.withbounds
-                  .covariates.lasso.withbounds <-
-                      intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, .lower.bound.colname, .upper.bound.colname, all.additional.cols ) ) );
-
-                  # lasso:
-                  if( .estimate.colname == "none" ) {
-                    .lasso.mat <-
-                        as.matrix( regression.df.without.ptid.i[ , .covariates.lasso, drop = FALSE ] );
-                  } else {
-                    .lasso.mat <-
-                        as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso, .estimate.colname ), drop = FALSE ] );
-                  }
-                  mode( .lasso.mat ) <- "numeric";
-                  
-                  # exclude any rows with any NAs.
-                  .retained.rows <-
-                      which( apply( .lasso.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
-                  .lasso.mat <-
-                      .lasso.mat[ .retained.rows, , drop = FALSE ];
-                  .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
-                  .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
-                        return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
-                   } );
-                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
-                  
-                  # At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
-                  MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
-                  if( include.intercept ) {
-                      MINIMUM.DF <- MINIMUM.DF + 1;
-                  }
-
-                  MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
-                  cors.with.the.outcome <-
-                    sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                          .cor <- 
-                              cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
-                            return( .cor );
+                    ## lasso (not withbounds)
+                    if( include.all.vars.in.lasso ) {
+# covariates for lasso
+                        .covariates.lasso <- 
+                            intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, all.additional.cols ) ) );
+                        
+# covariates for lasso.withbounds
+                        .covariates.lasso.withbounds <-
+                            intersect( colnames( regression.df.without.ptid.i ), unique( c( helpful.additional.cols, .lower.bound.colname, .upper.bound.colname, all.additional.cols ) ) );
+# lasso:
+                        if( .estimate.colname == "none" ) {
+                            .lasso.mat <-
+                                as.matrix( regression.df.without.ptid.i[ , .covariates.lasso, drop = FALSE ] );
+                        } else {
+                            .lasso.mat <-
+                                as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso, .estimate.colname ), drop = FALSE ] );
+                        }
+                        mode( .lasso.mat ) <- "numeric";
+                        
+# exclude any rows with any NAs.
+                        .retained.rows <-
+                            which( apply( .lasso.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
+                        .lasso.mat <-
+                            .lasso.mat[ .retained.rows, , drop = FALSE ];
+                        .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
+                        .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
+                            return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
                         } );
-                  sorted.cors.with.the.outcome <-
-                    cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
-                  # Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
-                  if( .estimate.colname == "none" ) {
-                    .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
-                  } else {
-                    .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
-                  }
-                  # Exclude covars that are not sufficiently correlated with the outcome.
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                  
-                    COR.THRESHOLD <- 0.8;
-                   # Exclude covars that are too highly correlated with the estimate.
-                    if( .estimate.colname != "none" ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.mat[ , .estimate.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                    }
-                  
-                  # Exclude covars that are too highly correlated with each other.
-                  .covars.to.consider <-
-                    setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
-                  ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
-                  .covars.to.consider <- rev( .covars.to.consider );
-                  .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
-                  names( .new.covars.to.exclude ) <- .covars.to.consider;
-                  for( .c.i in 1:length( .covars.to.consider ) ) {
-                    .covar.colname <- .covars.to.consider[ .c.i ];
-                    #print( .covar.colname );
-                    # Only consider those not already excluded.
-                    .cor <- 
-                      cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
-                    #print( .cor );
-                        if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
-                          .new.covars.to.exclude[ .c.i ] <- TRUE;
-                        } else {
-                          .new.covars.to.exclude[ .c.i ] <- FALSE;
-                        }
-                  } # End foreach of the .covars.to.consider
-
-                  .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
-                  .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
-
-                  ## MARK
-                  .covariates.lasso <- intersect( .retained.covars, .covariates.lasso );
-
-                     if( .estimate.colname == "none" ) {
-                        .cv.lasso <- intersect( .retained.covars, .covariates.lasso );
-                        if( length( .cv.lasso ) == 0 ) {
-                          .cv.lasso <- 1;
-                      }
-                      ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                        .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                        
+# At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
+                        MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
                         if( include.intercept ) {
-                            .formula <- paste( "days.since.infection ~", paste( .cv.lasso, collapse = "+" ) );
-                        } else {
-                            .cv.lasso.nointercept <- intersect( .retained.covars, .covariates.lasso );
-                            if( length( .cv.lasso.nointercept ) == 0 ) {
-                                .formula.nointercept <- "days.since.infection ~ 1";  # _only_ intercept!
-                            } else {
-                                .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( .cv.lasso.nointercept, collapse = "+" ) );
-                            }
-                            .formula <- .formula.nointercept;
+                            MINIMUM.DF <- MINIMUM.DF + 1;
                         }
-                    } else {
-                        ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
-                      if( include.intercept ) {
-                          .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso, .estimate.colname ) ), collapse = "+" ) );
-                      } else {
-                          .covariates.lasso.nointercept <- .covariates.lasso;
-                          .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.nointercept, .estimate.colname ) ), collapse = "+" ) );
-                          .formula <- .formula.nointercept;
-                      }
-                    }
 
-                  ## NOTE: We now always include these helpful.additional.cols.with.interactions, even they would otherwise be excluded.
-                     .interactors <-
-                         intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
-                         #intersect( .retained.covars, helpful.additional.cols.with.interactions );
-                     # Add interactions among the interactors.
-                     if( length( .interactors ) > 1 ) {
-                         ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
-                         .interactions.among.interactors <- c();
-                         for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
-                             .interactor <- .interactors[ .interactor.i ];
-                             .remaining.interactors <-
-                                 .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
-                             .interactions.among.interactors <-
-                                 c( .interactions.among.interactors,
-                                   paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
-                         } # End foreach .interactor.i
-                         .interactors <- c( .interactors, .interactions.among.interactors );
-                     } # End if there's more than one "interactor"
-                  .interactees <-
-                      setdiff( .retained.covars, .interactors );
-                  if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
-                      ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
-                      .interactions.formula.part.components <- c();
-                      for( .interactor.i in 1:length( .interactors ) ) {
-                          .interactor <- .interactors[ .interactor.i ];
-                          .interactions.formula.part.components <-
-                              c( .interactions.formula.part.components,
-                                paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
-                      } # End foreach .interactor.i
-                                                               
-                      .interactions.formula.part <-
-                          paste( .interactions.formula.part.components, collapse =" + " );
-                      .formula <-
-                          paste( .formula, .interactions.formula.part, sep = " + " );
-                  } # End if there's any "interactees"
-                  ## Also add interactions with the estimate colname and everything included so far.
-                  if( .estimate.colname != "none" ) {
-                      .everything.included.so.far.in.formula <- 
-                          strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
-                  
-                      # Add interactions.
-                      .new.interactions.with.estimator.in.formula <-
-                          sapply( .everything.included.so.far.in.formula[ 3:length( .everything.included.so.far.in.formula ) ], function ( .existing.part ) {
-                              paste( .existing.part, .estimate.colname, sep = ":" )
-                          } );
-                  
-                      .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
-                  } # End if .estimate.colname != "none"
-                  
-                  .mf <- stats::model.frame( as.formula( .formula ), data = regression.df.without.ptid.i );
-                  .lasso.mat <- model.matrix(as.formula( .formula ), .mf);
-                  
-                  .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
-                      return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
-                  } );
-                  .covars.to.exclude <- names( which( .covars.to.exclude ) );
-                  
-                  cors.with.the.outcome <-
-                      sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                   .cor <- 
-                       cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
-                     return( .cor );
-                  } );
-                  sorted.cors.with.the.outcome <-
-                      cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
-                  # Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
-                  if( .estimate.colname == "none" ) {
-                      .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
-                  } else {
-                      .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
-                  }
-                  .retained.covars <- colnames( .lasso.mat );
-                  .needed.df <-
-                    ( length( .retained.covars ) - ( nrow( .lasso.mat ) - MINIMUM.DF ) );
-                  if( .needed.df > 0 ) {
-                    # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
-                    # They are in order, so just chop them off the end.
-                    .retained.covars <-
-                      .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
-                  }
+                        MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
+                        cors.with.the.outcome <-
+                            sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                                .cor <- 
+                                    cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                                return( .cor );
+                            } );
+                        sorted.cors.with.the.outcome <-
+                            cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+# Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                        if( .estimate.colname == "none" ) {
+                            .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                        } else {
+                            .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                        }
+# Exclude covars that are not sufficiently correlated with the outcome.
+                        .covars.to.exclude <- c( .covars.to.exclude,
+                                                names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+#print( .covar.colname );
+                                                    .cor <- 
+                                                        cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+#print( .cor );
+                                                    if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
+                                                        TRUE
+                                                    } else {
+                                                        FALSE
+                                                    }
+                                                } ) ) ) );
+                        
+                        COR.THRESHOLD <- 0.8;
+# Exclude covars that are too highly correlated with the estimate.
+                        if( .estimate.colname != "none" ) {
+                            .covars.to.exclude <- c( .covars.to.exclude,
+                                                    names( which( sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+#print( .covar.colname );
+                                                        .cor <- 
+                                                            cor( .lasso.mat[ , .estimate.colname ], .lasso.mat[ , .covar.colname ], use = "pairwise" );
+#print( .cor );
+                                                        if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                                                            TRUE
+                                                        } else {
+                                                            FALSE
+                                                        }
+                                                    } ) ) ) );
+                        }
+                        
+# Exclude covars that are too highly correlated with each other.
+                        .covars.to.consider <-
+                            setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
+                        ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
+                        .covars.to.consider <- rev( .covars.to.consider );
+                        .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
+                        names( .new.covars.to.exclude ) <- .covars.to.consider;
+                        for( .c.i in 1:length( .covars.to.consider ) ) {
+                            .covar.colname <- .covars.to.consider[ .c.i ];
+#print( .covar.colname );
+# Only consider those not already excluded.
+                            .cor <- 
+                                cor( .lasso.mat[ , .covar.colname ], .lasso.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
+#print( .cor );
+                            if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                                .new.covars.to.exclude[ .c.i ] <- TRUE;
+                            } else {
+                                .new.covars.to.exclude[ .c.i ] <- FALSE;
+                            }
+                        } # End foreach of the .covars.to.consider
+
+                        .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
+                        .retained.covars <- setdiff( colnames( .lasso.mat ), .covars.to.exclude );
+
+                        .covariates.lasso <- intersect( .retained.covars, .covariates.lasso );
+                        
+                        if( .estimate.colname == "none" ) {
+                            .cv.lasso <- intersect( .retained.covars, .covariates.lasso );
+                            if( length( .cv.lasso ) == 0 ) {
+                                .cv.lasso <- 1;
+                            }
+                            ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                            if( include.intercept ) {
+                                .formula <- paste( "days.since.infection ~", paste( .cv.lasso, collapse = "+" ) );
+                            } else {
+                                .cv.lasso.nointercept <- intersect( .retained.covars, .covariates.lasso );
+                                if( length( .cv.lasso.nointercept ) == 0 ) {
+                                    .formula.nointercept <- "days.since.infection ~ 1";  # _only_ intercept!
+                                } else {
+                                    .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( .cv.lasso.nointercept, collapse = "+" ) );
+                                }
+                                .formula <- .formula.nointercept;
+                            }
+                        } else {
+                            ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
+                            if( include.intercept ) {
+                                .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso, .estimate.colname ) ), collapse = "+" ) );
+                            } else {
+                                .covariates.lasso.nointercept <- .covariates.lasso;
+                                .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.nointercept, .estimate.colname ) ), collapse = "+" ) );
+                                .formula <- .formula.nointercept;
+                            }
+                        }
+                        
+                        ## NOTE: We now always include these helpful.additional.cols.with.interactions, even they would otherwise be excluded.
+                        .interactors <-
+                            intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
+#intersect( .retained.covars, helpful.additional.cols.with.interactions );
+# Add interactions among the interactors.
+                        if( length( .interactors ) > 1 ) {
+                            ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                            .interactions.among.interactors <- c();
+                            for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
+                                .interactor <- .interactors[ .interactor.i ];
+                                .remaining.interactors <-
+                                    .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
+                                .interactions.among.interactors <-
+                                    c( .interactions.among.interactors,
+                                      paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
+                            } # End foreach .interactor.i
+                            .interactors <- c( .interactors, .interactions.among.interactors );
+                        } # End if there's more than one "interactor"
+                        .interactees <-
+                            setdiff( .retained.covars, .interactors );
+                        if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
+                            ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                            .interactions.formula.part.components <- c();
+                            for( .interactor.i in 1:length( .interactors ) ) {
+                                .interactor <- .interactors[ .interactor.i ];
+                                .interactions.formula.part.components <-
+                                    c( .interactions.formula.part.components,
+                                      paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
+                            } # End foreach .interactor.i
+                            
+                            .interactions.formula.part <-
+                                paste( .interactions.formula.part.components, collapse =" + " );
+                            .formula <-
+                                paste( .formula, .interactions.formula.part, sep = " + " );
+                        } # End if there's any "interactees"
+                        ## Also add interactions with the estimate colname and everything included so far.
+                        if( .estimate.colname != "none" ) {
+                            .everything.included.so.far.in.formula <- 
+                                strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+                            
+# Add interactions.
+                            .new.interactions.with.estimator.in.formula <-
+                                sapply( .everything.included.so.far.in.formula[ 3:length( .everything.included.so.far.in.formula ) ], function ( .existing.part ) {
+                                    paste( .existing.part, .estimate.colname, sep = ":" )
+                                } );
+                            
+                            .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
+                        } # End if .estimate.colname != "none"
+                        
+                    } else {
+                        ## Great, do nothing, just use .formula already defined.
+                    }
+                    ## NOTE: in the below, the .retained.covars for the !include.all.vars.in.lasso case are defined above, with the computation of the non-withbounds ("glm") results.
+                    if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) ) {
+                    .mf <- stats::model.frame( as.formula( .formula ), data = regression.df.without.ptid.i );
+                    .lasso.mat <- model.matrix(as.formula( .formula ), .mf);
+                    
+                    .covars.to.exclude <- apply( .lasso.mat, 2, function ( .col ) {
+                        return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
+                    } );
+                    .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                    
+                    cors.with.the.outcome <-
+                        sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                     .cor <- 
+                         cor( .out, .lasso.mat[ , .covar.colname ], use = "pairwise" );
+                       return( .cor );
+                    } );
+                    sorted.cors.with.the.outcome <-
+                        cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                    # Sort the columns of .lasso.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                    if( .estimate.colname == "none" ) {
+                        .lasso.mat <- .lasso.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                    } else {
+                        .lasso.mat <- .lasso.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                    }
+                    .retained.covars <- colnames( .lasso.mat );
+                    .needed.df <-
+                      ( length( .retained.covars ) - ( nrow( .lasso.mat ) - MINIMUM.DF ) );
+                    if( .needed.df > 0 ) {
+                      # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
+                      # They are in order, so just chop them off the end.
+                      .retained.covars <-
+                        .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
+                    }
+                  } # End if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) )
+
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     
                       .lasso.mat <- .lasso.mat[ , .retained.covars, drop = FALSE ];
@@ -952,7 +929,7 @@ evaluateTimings <- function (
                                 .newx <-
                                     c( 1, .lasso.mat.ptid[ .row.i.j, rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1], drop = FALSE ] );
                                 names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1] );
-                                        # Note that the intercept is always the first one, even when include.intercept == FALSE
+# Note that the intercept is always the first one, even when include.intercept == FALSE
                                 .pred.value.lasso <-
                                     sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * .newx );
                                 lasso.validation.results.per.person[ .row.i, .col.i ] <- 
@@ -986,217 +963,223 @@ evaluateTimings <- function (
                    finally = {}
                    );
                   } # End if the lasso estimate variable is usable
-                  
-                  # lasso.withbounds:
-                  if( .estimate.colname == "none" ) {
-                      .lasso.withbounds.mat <-
-                        as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds ] );
-                  } else {
-                      .lasso.withbounds.mat <-
-                        as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds, .estimate.colname ) ] );
-                  }
-                  mode( .lasso.withbounds.mat ) <- "numeric";
-                  
-                  # exclude any rows with any NAs.
-                  .retained.rows <-
-                      which( apply( .lasso.withbounds.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
-                  .lasso.withbounds.mat <-
-                      .lasso.withbounds.mat[ .retained.rows, , drop = FALSE ];
-                  .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
-                  .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
-                      return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
-                  } );
-                  .covars.to.exclude <- names( which( .covars.to.exclude ) );
-
-                  cors.with.the.outcome <-
-                    sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                          .cor <- 
-                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            return( .cor );
-                        } );
-                  sorted.cors.with.the.outcome <-
-                    cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
-                  # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
-                  if( .estimate.colname == "none" ) {
-                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
-                  } else {
-                    .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
-                  }
-                  
-                  # Exclude covars that are not sufficiently correlated with the outcome.
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .lower.bound.colname, .upper.bound.colname, .estimate.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                  
-                   # Exclude covars that are too highly correlated with the estimate.  Here we can exclude the upper or lower bound too if it is too highly correlated with the estimate.
-                    if( .estimate.colname != "none" ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.withbounds.mat[ , .estimate.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                    }
-
-                  # Exclude covars that are too highly correlated with the upper bound.
-                  if( !( .upper.bound.colname %in% .covars.to.exclude ) ) {
-                      .covars.to.exclude <- c( .covars.to.exclude,
-                          names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
-                            #print( .covar.colname );
-                          .cor <- 
-                              cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            #print( .cor );
-                          if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
-                            TRUE
-                          } else {
-                            FALSE
-                          }
-                        } ) ) ) );
-                    }
-                  
-                  # Exclude covars that are too highly correlated with each other (not including bounds)
-                  .covars.to.consider <-
-                    setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
-                  ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
-                  .covars.to.consider <- rev( .covars.to.consider );
-                  .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
-                  names( .new.covars.to.exclude ) <- .covars.to.consider;
-                  for( .c.i in 1:length( .covars.to.consider ) ) {
-                    .covar.colname <- .covars.to.consider[ .c.i ];
-                    #print( .covar.colname );
-                    # Only consider those not already excluded.
-                    .cor <- 
-                      cor( .lasso.withbounds.mat[ , .covar.colname ], .lasso.withbounds.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
-                    #print( .cor );
-                        if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
-                          .new.covars.to.exclude[ .c.i ] <- TRUE;
-                        } else {
-                          .new.covars.to.exclude[ .c.i ] <- FALSE;
-                      }
-                   } # End foreach of the .covars.to.consider
-                  .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
-                  
-                  .retained.covars <-
-                      setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
-
-                  .covariates.lasso.withbounds <- intersect( .retained.covars, .covariates.lasso.withbounds );
-                  if( .estimate.colname == "none" ) {
-                      ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
-                        if( include.intercept ) {
-                            .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.lasso.withbounds ), collapse = "+" ) );
-                        } else {
-                            .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
-                            .formula.withbounds.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.lasso.withbounds.nointercept ), collapse = "+" ) );
-                            .formula.withbounds <- .formula.withbounds.nointercept;
-                        }
-                    } else {
-                        ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
-                      if( include.intercept ) {
-                          .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds, .estimate.colname ) ), collapse = "+" ) );
+                    
+                    ## lasso.withbounds:
+                    if( include.all.vars.in.lasso ) {
+                      if( .estimate.colname == "none" ) {
+                          .lasso.withbounds.mat <-
+                            as.matrix( regression.df.without.ptid.i[ , .covariates.lasso.withbounds ] );
                       } else {
-                          .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
-                          .formula.withbounds.nointercept <-
-                              paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) );
-                          .formula.withbounds <- .formula.withbounds.nointercept;
+                          .lasso.withbounds.mat <-
+                            as.matrix( regression.df.without.ptid.i[ , c( .covariates.lasso.withbounds, .estimate.colname ) ] );
                       }
-                    }
-                  ## NOTE: We now always include these helpful.additional.cols.with.interactions, even they would otherwise be excluded.
-                  .interactors <-
-                         intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
-                         #intersect( .retained.covars, helpful.additional.cols.with.interactions );
-                  # Add interactions among the interactors.
-                  if( length( .interactors ) > 1 ) {
-                      ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
-                      .interactions.among.interactors <- c();
-                      for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
-                          .interactor <- .interactors[ .interactor.i ];
-                          .remaining.interactors <-
-                              .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
-                          .interactions.among.interactors <-
-                              c( .interactions.among.interactors,
-                                paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
-                      } # End foreach .interactor.i
-                      .interactors <- c( .interactors, .interactions.among.interactors );
-                  } # End if there's more than one "interactor"
-                  .interactees <-
-                      setdiff( .retained.covars, .interactors );
-                  if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
-                      ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
-                      .interactions.formula.part.components <- c();
-                      for( .interactor.i in 1:length( .interactors ) ) {
-                          .interactor <- .interactors[ .interactor.i ];
-                          .interactions.formula.part.components <-
-                              c( .interactions.formula.part.components,
-                                paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
-                      } # End foreach .interactor.i
-                                                               
-                      .interactions.formula.part <-
-                          paste( .interactions.formula.part.components, collapse =" + " );
-                      .formula.withbounds <-
-                          paste( .formula.withbounds, .interactions.formula.part, sep = " + " );
-                  } # End if there's any "interactees"
-                  ## Also add interactions with the estimate colname and everything included so far.
-                  if( .estimate.colname != "none" ) {
-                      .everything.included.so.far.in.formula.withbounds <- 
-                          strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+                      mode( .lasso.withbounds.mat ) <- "numeric";
                       
-                      # Add interactions with the estimator.
-                      .new.interactions.with.estimator.in.formula.withbounds <- # exclude estimator, and "left-hand-side ~ 0"
-                          sapply( .everything.included.so.far.in.formula.withbounds[ 3:length( .everything.included.so.far.in.formula.withbounds ) ], function ( .existing.part ) {
-                              paste( .existing.part, .estimate.colname, sep = ":" )
-                          } );
-                      
-                      .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
-                  } # End if .estimate.colname != "none"
-
-                  .mf.withbounds <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df.without.ptid.i );
-                  .lasso.withbounds.mat <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds);
-                         
-                  .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
-                      return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
-                  } );
-                  .covars.to.exclude <- names( which( .covars.to.exclude ) );
-                         
-                  cors.with.the.outcome <-
-                      sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
-                          .cor <- 
-                              cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
-                            return( .cor );
+                      # exclude any rows with any NAs.
+                      .retained.rows <-
+                          which( apply( .lasso.withbounds.mat, 1, function( .row ) { !any( is.na( .row ) ) } ) );
+                      .lasso.withbounds.mat <-
+                          .lasso.withbounds.mat[ .retained.rows, , drop = FALSE ];
+                      .out <- regression.df.without.ptid.i[[ "days.since.infection" ]][ .retained.rows ];
+                      .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
+                          return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
                       } );
-                  sorted.cors.with.the.outcome <-
-                      cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
-                  # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
-                  if( .estimate.colname == "none" ) {
-                      .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
-                  } else {
-                      .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
-                  }
-                  .retained.covars <- colnames( .lasso.withbounds.mat );
-                  
-                  .needed.df <-
-                    ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
-                  if( .needed.df > 0 ) {
-                    # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
-                    # They are in order, so just chop them off the end.
-                    .retained.covars <-
-                      .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
-                  }
-                
+                      .covars.to.exclude <- names( which( .covars.to.exclude ) );
+    
+                      cors.with.the.outcome <-
+                        sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                              .cor <- 
+                                  cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                                return( .cor );
+                            } );
+                      sorted.cors.with.the.outcome <-
+                        cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                      # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                      if( .estimate.colname == "none" ) {
+                        .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                      } else {
+                        .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                      }
+                      
+                      # Exclude covars that are not sufficiently correlated with the outcome.
+                          .covars.to.exclude <- c( .covars.to.exclude,
+                              names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .lower.bound.colname, .upper.bound.colname, .estimate.colname ) ), function( .covar.colname ) {
+                                #print( .covar.colname );
+                              .cor <- 
+                                  cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                                #print( .cor );
+                              if( is.na( .cor ) || ( abs( .cor ) <= MINIMUM.CORRELATION.WITH.OUTCOME ) ) {
+                                TRUE
+                              } else {
+                                FALSE
+                              }
+                            } ) ) ) );
+                      
+                       # Exclude covars that are too highly correlated with the estimate.  Here we can exclude the upper or lower bound too if it is too highly correlated with the estimate.
+                        if( .estimate.colname != "none" ) {
+                          .covars.to.exclude <- c( .covars.to.exclude,
+                              names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                                #print( .covar.colname );
+                              .cor <- 
+                                  cor( .lasso.withbounds.mat[ , .estimate.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                                #print( .cor );
+                              if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                                TRUE
+                              } else {
+                                FALSE
+                              }
+                            } ) ) ) );
+                        }
+    
+                      # Exclude covars that are too highly correlated with the upper bound.
+                      if( !( .upper.bound.colname %in% .covars.to.exclude ) ) {
+                          .covars.to.exclude <- c( .covars.to.exclude,
+                              names( which( sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .upper.bound.colname ) ), function( .covar.colname ) {
+                                #print( .covar.colname );
+                              .cor <- 
+                                  cor( .lasso.withbounds.mat[ , .upper.bound.colname ], .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                                #print( .cor );
+                              if( is.na( .cor ) || ( abs( .cor ) >= COR.THRESHOLD ) ) {
+                                TRUE
+                              } else {
+                                FALSE
+                              }
+                            } ) ) ) );
+                        }
+                      
+                      # Exclude covars that are too highly correlated with each other (not including bounds)
+                      .covars.to.consider <-
+                        setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname, .lower.bound.colname, .upper.bound.colname ) );
+                      ## Process these in reverse order to ensure that we prioritize keeping those towards the top.
+                      .covars.to.consider <- rev( .covars.to.consider );
+                      .new.covars.to.exclude <- rep( FALSE, length( .covars.to.consider ) );
+                      names( .new.covars.to.exclude ) <- .covars.to.consider;
+                      for( .c.i in 1:length( .covars.to.consider ) ) {
+                        .covar.colname <- .covars.to.consider[ .c.i ];
+                        #print( .covar.colname );
+                        # Only consider those not already excluded.
+                        .cor <- 
+                          cor( .lasso.withbounds.mat[ , .covar.colname ], .lasso.withbounds.mat[ , names( which( !.new.covars.to.exclude ) ) ], use = "pairwise" );
+                        #print( .cor );
+                            if( ( length( .cor ) > 0 ) && any( .cor[ !is.na( .cor ) ] < 1 & .cor[ !is.na( .cor ) ] >= COR.THRESHOLD ) ) {
+                              .new.covars.to.exclude[ .c.i ] <- TRUE;
+                            } else {
+                              .new.covars.to.exclude[ .c.i ] <- FALSE;
+                          }
+                       } # End foreach of the .covars.to.consider
+                      .covars.to.exclude <- c( .covars.to.exclude, names( which( .new.covars.to.exclude ) ) );
+                      
+                      .retained.covars <-
+                          setdiff( colnames( .lasso.withbounds.mat ), .covars.to.exclude );
+    
+                      .covariates.lasso.withbounds <- intersect( .retained.covars, .covariates.lasso.withbounds );
+                      if( .estimate.colname == "none" ) {
+                          ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
+                            if( include.intercept ) {
+                                .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.lasso.withbounds ), collapse = "+" ) );
+                            } else {
+                                .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
+                                .formula.withbounds.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.lasso.withbounds.nointercept ), collapse = "+" ) );
+                                .formula.withbounds <- .formula.withbounds.nointercept;
+                            }
+                        } else {
+                            ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
+                          if( include.intercept ) {
+                              .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds, .estimate.colname ) ), collapse = "+" ) );
+                          } else {
+                              .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
+                              .formula.withbounds.nointercept <-
+                                  paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds.nointercept, .estimate.colname ) ), collapse = "+" ) );
+                              .formula.withbounds <- .formula.withbounds.nointercept;
+                          }
+                        }
+                      ## NOTE: We now always include these helpful.additional.cols.with.interactions, even they would otherwise be excluded.
+                      .interactors <-
+                             intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
+                             #intersect( .retained.covars, helpful.additional.cols.with.interactions );
+                      # Add interactions among the interactors.
+                      if( length( .interactors ) > 1 ) {
+                          ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                          .interactions.among.interactors <- c();
+                          for( .interactor.i in 1:( length( .interactors ) - 1 ) ) {
+                              .interactor <- .interactors[ .interactor.i ];
+                              .remaining.interactors <-
+                                  .interactors[ ( .interactor.i + 1 ):length( .interactors ) ];
+                              .interactions.among.interactors <-
+                                  c( .interactions.among.interactors,
+                                    paste( .interactor, .remaining.interactors, collapse = "+", sep = ":" ) );
+                          } # End foreach .interactor.i
+                          .interactors <- c( .interactors, .interactions.among.interactors );
+                      } # End if there's more than one "interactor"
+                      .interactees <-
+                          setdiff( .retained.covars, .interactors );
+                      if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
+                          ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
+                          .interactions.formula.part.components <- c();
+                          for( .interactor.i in 1:length( .interactors ) ) {
+                              .interactor <- .interactors[ .interactor.i ];
+                              .interactions.formula.part.components <-
+                                  c( .interactions.formula.part.components,
+                                    paste( .interactor, .interactees, collapse = "+", sep = ":" ) );
+                          } # End foreach .interactor.i
+                                                                   
+                          .interactions.formula.part <-
+                              paste( .interactions.formula.part.components, collapse =" + " );
+                          .formula.withbounds <-
+                              paste( .formula.withbounds, .interactions.formula.part, sep = " + " );
+                      } # End if there's any "interactees"
+                      ## Also add interactions with the estimate colname and everything included so far.
+                      if( .estimate.colname != "none" ) {
+                          .everything.included.so.far.in.formula.withbounds <- 
+                              strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+                          
+                          # Add interactions with the estimator.
+                          .new.interactions.with.estimator.in.formula.withbounds <- # exclude estimator, and "left-hand-side ~ 0"
+                              sapply( .everything.included.so.far.in.formula.withbounds[ 3:length( .everything.included.so.far.in.formula.withbounds ) ], function ( .existing.part ) {
+                                  paste( .existing.part, .estimate.colname, sep = ":" )
+                              } );
+                          
+                          .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
+                      } # End if .estimate.colname != "none"
+                    } else {
+                        ## Great, do nothing, just use .formula already defined.
+                    }
+                    ## NOTE: in the below, the .retained.covars for the !include.all.vars.in.lasso case are defined above, with the computation of the non-withbounds ("glm") results.
+                    if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) ) {
+                      .mf.withbounds <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df.without.ptid.i );
+                      .lasso.withbounds.mat <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds);
+                             
+                      .covars.to.exclude <- apply( .lasso.withbounds.mat, 2, function ( .col ) {
+                          return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( .col, na.rm = TRUE  ) == 0 ) );
+                      } );
+                      .covars.to.exclude <- names( which( .covars.to.exclude ) );
+                             
+                      cors.with.the.outcome <-
+                          sapply( setdiff( colnames( .lasso.withbounds.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
+                              .cor <- 
+                                  cor( .out, .lasso.withbounds.mat[ , .covar.colname ], use = "pairwise" );
+                                return( .cor );
+                          } );
+                      sorted.cors.with.the.outcome <-
+                          cors.with.the.outcome[ order( abs( cors.with.the.outcome ) ) ];
+                      # Sort the columns of .lasso.withbounds.mat by their correlation with the outcome. This is to ensure that more-relevant columns get selected when removing columns due to pairwise correlation among them.  We want to keep the best one.
+                      if( .estimate.colname == "none" ) {
+                          .lasso.withbounds.mat <- .lasso.withbounds.mat[ , rev( names( sorted.cors.with.the.outcome ) ), drop = FALSE ];
+                      } else {
+                          .lasso.withbounds.mat <- .lasso.withbounds.mat[ , c( .estimate.colname, rev( names( sorted.cors.with.the.outcome ) ) ), drop = FALSE ];
+                      }
+                      .retained.covars <- colnames( .lasso.withbounds.mat );
+                      
+                      .needed.df <-
+                        ( length( .retained.covars ) - ( nrow( .lasso.withbounds.mat ) - MINIMUM.DF ) );
+                      if( .needed.df > 0 ) {
+                        # Then remove some covars until there is at least MINIMUM.DF degrees of freedom.
+                        # They are in order, so just chop them off the end.
+                        .retained.covars <-
+                          .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
+                      }
+                  } # End if include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) )
+                    
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                     .lasso.withbounds.mat <-
                       .lasso.withbounds.mat[ , .retained.covars, drop = FALSE ];
@@ -1247,7 +1230,7 @@ evaluateTimings <- function (
                    },
                    finally = {}
                    );
-                  } # End if the lasso.withbounds estimate variable is usable
+                  }  else { stop( paste( "unusable estimator:", .estimate.colname ) ) } # End if the lasso.withbounds estimate variable is usable
 
                 } # End if use.lasso.validate
     
@@ -1634,22 +1617,22 @@ evaluateTimings <- function (
     if( force.recomputation || !file.exists( results.by.region.and.time.Rda.filename ) ) {
         results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
+
+        if( include.intercept ) {
+            writeResultsTables( results.by.region.and.time, "_evaluateTimings_include_intercept.tab", regions = regions, results.are.bounded = TRUE );
+        } else {
+            writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
+        }
+    
     } else {
         # loads results.by.region.and.time
         load( file = results.by.region.and.time.Rda.filename );
     }
 
-    if( include.intercept ) {
-        writeResultsTables( results.by.region.and.time, "_evaluateTimings_include_intercept.tab", regions = regions, results.are.bounded = TRUE );
-    } else {
-        writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
-    }
-    
     ## TODO
     ##  *) select a set of best predictions from isMultiple to use here (instead of gold.standard.varname) -- if there's any benefit to using gold.standard.varname.
     ##  *) check out results of the partitions of evaluateTimings.
 
-    #if( FALSE ) {
         get.rmses <- function ( evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ), the.bound = "sampledwitdth_uniform", zeroNAs = TRUE ) {
             if( zeroNAs ) {
                 rmse.stat <- "rmse.zeroNAs";
@@ -1873,9 +1856,6 @@ evaluateTimings <- function (
 # > cor( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
 # [1] -0.2758797
         
-        
-    #} # End if FALSE
-    
     if( FALSE ) {
       ## For partition size == 10
       ## NOTE that this part is presently broken. TODO: FIX IT.
