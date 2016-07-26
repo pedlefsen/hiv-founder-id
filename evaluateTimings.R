@@ -326,7 +326,7 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.per.person, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE ) {
+        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE, return.formulas = TRUE ) {
 
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( results.per.person );
@@ -484,13 +484,44 @@ evaluateTimings <- function (
             ## Note that there might be multiple rows per ppt in the regression.df and in this prediction output matrix; the values will be filled in using leave-one-ptid-out xv, ie in each iteration there might be multiple rows filled in, since multiple rows correspond to one held-out ptid.
           glm.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
           glm.withbounds.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+          if( return.formulas ) {
+                ## glm:
+                glm.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( glm.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( glm.formulas.per.person ) <-
+                    all.ptids;
+                ## glm.withbounds:
+                glm.withbounds.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( glm.withbounds.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( glm.withbounds.formulas.per.person ) <-
+                    all.ptids;
+          }
         }
         if( use.lasso.validate ) {
             ## These are again per-sample, see above Note.
-            lasso.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            lasso.validation.results.per.person <-
+                matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
             lasso.withbounds.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
-            # lasso.nointercept.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
-            # lasso.withbounds.nointercept.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            if( return.formulas ) {
+                ## lasso:
+                lasso.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( lasso.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( lasso.formulas.per.person ) <-
+                    all.ptids;
+                ## lasso.withbounds:
+                lasso.withbounds.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( lasso.withbounds.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( lasso.withbounds.formulas.per.person ) <-
+                    all.ptids;
+            }
             if( return.lasso.coefs ) {
                 ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the prediction output matrices).
                 # and these are per-ptid!
@@ -679,6 +710,10 @@ evaluateTimings <- function (
                      if( use.glm.validate ) {
                        .glm.result <- lm( .formula, data = regression.df.without.ptid.i );
                          
+                       if( return.formulas ) {
+                         glm.formulas.per.person[ .ptid.i, .col.i ] <- 
+                             .formula;
+                       }
                        for( .row.i in the.rows.for.ptid ) {
                          .pred.value.glm <- predict( .glm.result, regression.df[ .row.i, , drop = FALSE ] );
                          glm.validation.results.per.person[ .row.i, .col.i ] <- 
@@ -688,6 +723,10 @@ evaluateTimings <- function (
                        # glm.withbounds:
                        .glm.withbounds.result <-
                            lm( .formula.withbounds, data = regression.df.without.ptid.i );
+                       if( return.formulas ) {
+                         glm.withbounds.formulas.per.person[ .ptid.i, .col.i ] <- 
+                             .formula.withbounds;
+                       }
                        for( .row.i in the.rows.for.ptid ) {
                            .pred.value.glm.withbounds <-
                                predict( .glm.withbounds.result, regression.df[ .row.i, , drop = FALSE ] );
@@ -923,9 +962,13 @@ evaluateTimings <- function (
 
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
-                    .penalty.factor <-
-                        as.numeric( colnames( .lasso.mat ) != .estimate.colname )
+                      .penalty.factor <-
+                          as.numeric( colnames( .lasso.mat ) != .estimate.colname )
 
+                      if( return.formulas ) {
+                          lasso.formulas.per.person[ .ptid.i, .col.i ] <- 
+                              .formula;
+                      }
                       if( ncol( .lasso.mat ) == 1 ) {
                         # Can't do lasso with only one variable.
                         # This is using basic lm, not lasso.
@@ -1223,6 +1266,11 @@ evaluateTimings <- function (
                       .lasso.withbounds.mat[ , .retained.covars, drop = FALSE ];
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
+                    if( return.formulas ) {
+                        ## TODO: Update formula to account for .retained.covars, see above.
+                        lasso.withbounds.formulas.per.person[ .ptid.i, .col.i ] <- 
+                            .formula;
+                    }
                     tryCatch(
                     {
                       .cv.glmnet.fit.withbounds <-
@@ -1340,6 +1388,14 @@ evaluateTimings <- function (
       get.results.list.for.bounds.type <- function ( diffs.by.stat, diffs.by.stat.zeroNAs, bounds.type ) {
           .results <- 
               list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), bias.zeroNAs = lapply( diffs.by.stat.zeroNAs, mean, na.rm = T ), se.zeroNAs = lapply( diffs.by.stat.zeroNAs, sd, na.rm = T ), rmse.zeroNAs = lapply( diffs.by.stat.zeroNAs, rmse, na.rm = T ), n.zeroNAs = lapply( diffs.by.stat.zeroNAs, function( .vec ) { sum( !is.na( .vec ) ) } ) );
+          if( return.formulas ) {
+              if( use.glm.validate ) {
+                  .results <- c( .results, list( glm.formulas = list( glm = glm.formulas.per.person, glm.withbounds = glm.withbounds.formulas.per.person ) ) );
+              }
+              if( use.lasso.validate ) {
+                  .results <- c( .results, list( lasso.formulas = list( lasso = lasso.formulas.per.person, lasso.withbounds = lasso.withbounds.formulas.per.person ) ) );
+              }
+       }
        if( use.lasso.validate && return.lasso.coefs ) {
          #.results <- c( .results, list( lasso.coefs = list( lasso = lasso.validation.results.per.person.coefs, lasso.withbounds = lasso.withbounds.validation.results.per.person.coefs, lasso.nointercept = lasso.nointercept.validation.results.per.person.coefs, lasso.nointercept.withbounds = lasso.nointercept.withbounds.validation.results.per.person.coefs ) ) );
          .results <- c( .results, list( lasso.coefs = list( lasso = lasso.validation.results.per.person.coefs, lasso.withbounds = lasso.withbounds.validation.results.per.person.coefs ) ) );
