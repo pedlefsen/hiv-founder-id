@@ -65,29 +65,28 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
 #' @param partition.bootstrap.samples the number of bootstrap replicates to conduct; the idea is to get an estimate of the variation in estimates and results (errors) across these samples.
 #' @param partition.bootstrap.num.cores the number of cores to run the boostrap replicates on (defaults to all of the cores returned by parallel::detectCores()).
-#' @return NULL
+#' @return the filename of the Rda output. If you load( filename ), it will add "results.by.region.and.time" to your environment.
 #' @export
-
 evaluateTimings <- function (
-                             use.bounds = TRUE,
-                             use.infer = TRUE,
-                             use.anchre = TRUE,
-                             use.glm.validate = TRUE,
-                             use.lasso.validate = TRUE,
-                             include.intercept = FALSE,
-                             include.all.vars.in.lasso = TRUE,
-                             helpful.additional.cols = c( "lPVL" ),
-                             helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
-                             results.dirname = "raw_edited_20160216",
-                             force.recomputation = FALSE,
-                             partition.bootstrap.seed = 98103,
-                             partition.bootstrap.samples = 100,
-                             partition.bootstrap.num.cores = detectCores(),
-                             regions = c( "nflg", "v3" ),
-                             times = c( "1m", "6m" )
-                             #regions = c( "nflg", "v3", "rv217_v3" ),
-                             #times = c( "1m", "6m", "1m6m" )
-                            )
+  use.bounds = TRUE,
+  use.infer = TRUE,
+  use.anchre = TRUE,
+  use.glm.validate = TRUE,
+  use.lasso.validate = TRUE,
+  include.intercept = FALSE,
+  include.all.vars.in.lasso = TRUE,
+  helpful.additional.cols = c( "lPVL" ),
+  helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
+  results.dirname = "raw_edited_20160216",
+  force.recomputation = FALSE,
+  partition.bootstrap.seed = 98103,
+  partition.bootstrap.samples = 100,
+  partition.bootstrap.num.cores = detectCores(),
+  regions = c( "nflg", "v3" ),
+  times = c( "1m", "6m" )
+  #regions = c( "nflg", "v3", "rv217_v3" ),
+  #times = c( "1m", "6m", "1m6m" )
+)
 {
     config.string <- "";
     if( include.intercept ) {
@@ -99,12 +98,12 @@ evaluateTimings <- function (
     results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
     
-                        MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
-                        if( include.intercept ) {
-                            MINIMUM.DF <- MINIMUM.DF + 1;
-                        }
-
-                        MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
+    MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+    if( include.intercept ) {
+        MINIMUM.DF <- MINIMUM.DF + 1;
+    }
+    
+    MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
     
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
@@ -1662,239 +1661,17 @@ evaluateTimings <- function (
         } else {
             writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
         }
-    
-    } else {
-        # loads results.by.region.and.time
-        load( file = results.by.region.and.time.Rda.filename );
     }
 
     ## TODO
     ##  *) select a set of best predictions from isMultiple to use here (instead of gold.standard.varname) -- if there's any benefit to using gold.standard.varname.
     ##  *) check out results of the partitions of evaluateTimings.
 
-        get.rmses <- function ( evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ), the.bound = "sampledwitdth_uniform", zeroNAs = TRUE ) {
-            if( zeroNAs ) {
-                rmse.stat <- "rmse.zeroNAs";
-            } else {
-                rmse.stat <- "rmse";
-            }
-            if( is.null( the.bound ) || is.na( the.bound ) ) {
-                the.bound <- "unbounded";
-            }
-            if( length( train.times ) == 2 ) {
-                train.time <- "1m.6m";
-                if( the.bound != "unbounded" ) {
-                    the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
-                }
-            } else {
-                train.time <- train.times;
-                if( train.time == "6m" ) {
-                    if( the.bound != "unbounded" ) {
-                        the.bound <- "sampledwidth_uniform_hvtn502";
-                    }
-                    stopifnot( length( evaluate.times ) == 1 );
-                    stopifnot( evaluate.times == "6m" );
-                } else {
-                    if( the.bound != "unbounded" ) {
-                        the.bound <- "sampledwidth_uniform_mtn003";
-                    }
-                    stopifnot( length( evaluate.times ) == 1 );
-                    stopifnot( evaluate.times == "1m" );
-                }
-            }
-            if( length( evaluate.times ) == 2 ) {
-                # Leave the.bound alone.
-            } else if( length( train.times ) == 2 ) {
-                the.bound <- paste( the.bound, evaluate.times, sep = "." );
-            }
-            if( length( train.regions ) == 2 ) {
-                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
-              if( length( evaluate.regions ) == 2 ) {
-                  # Leave the.bound alone, then.
-              } else {
-                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
-              }
-            } else {
-              if( length( evaluate.regions ) == 2 ) {
-                  stop( "can't evaluate more regions than trained" );
-              } else if( evaluate.regions != train.regions ) {
-                  stop( "can't evaluate a different region than trained" );
-              }
-              .results.for.region <- results.by.region.and.time[[ train.regions ]];
-            }
-            .lst <-
-                sort( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ rmse.stat ]] ), decreasing = T );
-            ## TODO: REMOVE. Temporary.
-            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
-            return( .lst );
-        } # get.rmses (..)
+    loadTimingsData <- function () {
+        # loads results.by.region.and.time
+        load( results.by.region.and.time.Rda.filename, envir = parent.frame() );
+    }
 
-        # This returns biases in order of rmses.
-        get.biases <- function ( evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ), the.bound = "sampledwitdth_uniform", zeroNAs = TRUE ) {
-            if( zeroNAs ) {
-                bias.stat <- "bias.zeroNAs";
-                rmse.stat <- "rmse.zeroNAs";
-            } else {
-                bias.stat <- "bias";
-                rmse.stat <- "rmse";
-            }
-            if( is.null( the.bound ) || is.na( the.bound ) ) {
-                the.bound <- "unbounded";
-            }
-            if( length( train.times ) == 2 ) {
-                train.time <- "1m.6m";
-                if( the.bound != "unbounded" ) {
-                    the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
-                }
-            } else {
-                train.time <- train.times;
-                if( train.time == "6m" ) {
-                    if( the.bound != "unbounded" ) {
-                        the.bound <- "sampledwidth_uniform_hvtn502";
-                    }
-                    stopifnot( length( evaluate.times ) == 1 );
-                    stopifnot( evaluate.times == "6m" );
-                } else {
-                    if( the.bound != "unbounded" ) {
-                        the.bound <- "sampledwidth_uniform_mtn003";
-                    }
-                    stopifnot( length( evaluate.times ) == 1 );
-                    stopifnot( evaluate.times == "1m" );
-                }
-            }
-            if( length( evaluate.times ) == 2 ) {
-                # Leave the.bound alone.
-            } else if( length( train.times ) == 2 ) {
-                the.bound <- paste( the.bound, evaluate.times, sep = "." );
-            }
-            if( length( train.regions ) == 2 ) {
-                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
-              if( length( evaluate.regions ) == 2 ) {
-                  # Leave the.bound alone, then.
-              } else {
-                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
-              }
-            } else {
-              if( length( evaluate.regions ) == 2 ) {
-                  stop( "can't evaluate more regions than trained" );
-              } else if( evaluate.regions != train.regions ) {
-                  stop( "can't evaluate a different region than trained" );
-              }
-              .results.for.region <- results.by.region.and.time[[ train.regions ]];
-            }
-            .lst <- unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ "bias.stat" ]] )[ order( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ rmse.stat ]] ), decreasing = T ) ];
-            ## TODO: REMOVE. Temporary.
-            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
-            return( .lst );
-        } # get.biases (..)
-
-        get.bias.and.rmse <- function ( ... ) { cbind( bias = get.biases( ... ), rmse = get.rmses( ... ) ) }
-        
-        get.uses <- function ( .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
-            if( withbounds ) {
-                .withbounds.string <- "lasso.withbounds";
-            } else {
-                .withbounds.string <- "lasso";
-            }
-            if( length( regions ) == 2 ) {
-                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
-            } else {
-                .results.for.region <- results.by.region.and.time[[ regions ]];
-            }
-            if( length( times ) == 2 ) {
-                the.time <- "1m.6m";
-            } else {
-                the.time <- times;
-            }
-            .results.by.removed.ptid <-
-                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ "lasso.coefs" ]][[ .withbounds.string ]];
-            .uses <- lapply( 1:length( .results.by.removed.ptid ), function( .i ) { .dgCMatrix <- .results.by.removed.ptid[[.i]][[.varname]]; .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ); } );
-            table( names( which( unlist( .uses ) ) ) );
-        } # get.uses (..)
-
-        ## NOTE that include.intercept requires loading a separate set of data.
-        evaluate.specific.model <-
-          function ( model.vars, .include.intercept = include.intercept, step = FALSE, reload.data = ( .include.intercept != include.intercept ), train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
-            if( reload.data ) {
-              if( include.intercept ) {
-                  results.by.region.and.time.Rda.filename <-
-                      paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.include.intercept.Rda", sep = "" );
-              } else {
-                  results.by.region.and.time.Rda.filename <-
-                      paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.Rda", sep = "" );
-              }
-              load( results.by.region.and.time.Rda.filename );
-             } # End if( reload.data )
-
-            if( length( train.times ) == 2 ) {
-                train.time <- "1m.6m";
-            } else {
-                train.time <- train.times;
-            }
-            if( length( train.regions ) == 2 ) {
-                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
-            } else {
-                .results.for.region <- results.by.region.and.time[[ train.regions ]];
-            }
-            results.covars.per.person.df <-
-                data.frame( .results.for.region[[ train.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
-            ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
-            #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
-
-            regression.df <- cbind( data.frame( days.since.infection = .results.for.region[[ train.time ]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), .results.for.region[[ train.time ]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, .results.for.region[[ train.time ]][["bounds" ]] );
-
-            if( include.intercept ) {
-                .formula <- as.formula( paste( "days.since.infection ~ ", paste( model.vars, collapse = "+" ) ) );
-            } else {
-                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
-            }
-            .lm <-
-                suppressWarnings( lm( .formula, data = regression.df ) );
-            if( step ) {
-                .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
-                return( summary( .step.rv ) );            
-            }
-            return( summary( .lm ) );
-        } # evaluate.specific.model
-#        evaluate.specific.model( model.vars = c( "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ), step = TRUE );
-  #evaluate.specific.model( model.vars = c( "X6m.not.1m", "lPVL", "v3_not_nflg:lPVL","X6m.not.1m:v3_not_nflg:lPVL"  ), step = TRUE );
-  # Start:  AIC=555.72
-  # days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
-  #     X6m.not.1m:v3_not_nflg:lPVL
-  # 
-  #                               Df Sum of Sq   RSS    AIC
-  # <none>                                     17216 555.72
-  # - X6m.not.1m:lPVL:v3_not_nflg  1    4306.3 21523 577.83
-  # 
-  # Call:
-  # lm(formula = days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
-  #     X6m.not.1m:v3_not_nflg:lPVL, data = regression.df)
-  # 
-  # Residuals:
-  #     Min      1Q  Median      3Q     Max 
-  # -33.702  -4.799   2.636  10.244  31.015 
-  # 
-  # Coefficients:
-  #                             Estimate Std. Error t value Pr(>|t|)    
-  # X6m.not.1m                  145.9451     2.8690  50.870  < 2e-16 ***
-  # lPVL                          4.0772     0.1986  20.528  < 2e-16 ***
-  # lPVL:v3_not_nflg              1.3970     0.3222   4.336 3.36e-05 ***
-  # X6m.not.1m:lPVL:v3_not_nflg  -2.3826     0.4671  -5.100 1.53e-06 ***
-  # ---
-  # Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-  # 
-  # Residual standard error: 12.87 on 104 degrees of freedom
-  # Multiple R-squared:  0.9909,	Adjusted R-squared:  0.9906 
-  # F-statistic:  2834 on 4 and 104 DF,  p-value: < 2.2e-16
-
-        ## ERE I AM.STILL WORKING ON THAT . CHECK THIS. lPVL is up early down late, not unexpected!
-# > plot( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
-# > cor( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
-# [1] 0.2237065
-# > plot( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
-# > cor( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
-# [1] -0.2758797
-        
     if( FALSE ) {
       ## For partition size == 10
       ## NOTE that this part is presently broken. TODO: FIX IT.
@@ -1924,7 +1701,7 @@ evaluateTimings <- function (
       } );
     } # End if FALSE
     
-    return( invisible( NULL ) );
+    return( results.by.region.and.time.Rda.filename );
 } # evaluateTimings (..)
 
 ## Here is where the action is.

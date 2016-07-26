@@ -28,6 +28,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*.valid
 
 ### Read results tables.
 ## setting the.time to "1m.6m" will return pooled results over those times
+## rowname.pattern.map is a list of elements to be used in gsubs on the rownames of the results, iteratively in order.
 getFilteredResultsTables <- function (
     out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
@@ -100,7 +101,7 @@ getFilteredResultsTables <- function (
     return( repeatedRowsToColumns( results.filtered ) );
 } # getFilteredResultsTables (..)
 
-### Get uses of parameters over lasso runs.
+### Get uses of parameters aggregated over lasso runs. see also 
 ## out.file.prefix should be "isMultiple" or "Timings"/
 getFilteredLassoUsageTables <- function (
     out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
@@ -225,3 +226,216 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     
     return( repeatedRowsToColumns( results.filtered ) );
 } # getFilteredLassoUsageTables (..)
+
+        get.uses <- function ( results.by.region.and.time, .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( withbounds ) {
+                .withbounds.string <- "lasso.withbounds";
+            } else {
+                .withbounds.string <- "lasso";
+            }
+            if( length( regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ regions ]];
+            }
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
+            } else {
+                the.time <- times;
+            }
+            .results.by.removed.ptid <-
+                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ "lasso.coefs" ]][[ .withbounds.string ]];
+            .uses <- lapply( 1:length( .results.by.removed.ptid ), function( .i ) { .dgCMatrix <- .results.by.removed.ptid[[.i]][[.varname]]; .rv <- as.logical( .dgCMatrix ); names( .rv ) <- rownames( .dgCMatrix ); return( .rv ); } );
+            table( names( which( unlist( .uses ) ) ) );
+        } # get.uses (..)
+
+        get.rmses <- function ( results.by.region.and.time, evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ), the.bound = "sampledwitdth_uniform", zeroNAs = TRUE ) {
+            if( zeroNAs ) {
+                rmse.stat <- "rmse.zeroNAs";
+            } else {
+                rmse.stat <- "rmse";
+            }
+            if( is.null( the.bound ) || is.na( the.bound ) ) {
+                the.bound <- "unbounded";
+            }
+            if( length( train.times ) == 2 ) {
+                train.time <- "1m.6m";
+                if( the.bound != "unbounded" ) {
+                    the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
+                }
+            } else {
+                train.time <- train.times;
+                if( train.time == "6m" ) {
+                    if( the.bound != "unbounded" ) {
+                        the.bound <- "sampledwidth_uniform_hvtn502";
+                    }
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "6m" );
+                } else {
+                    if( the.bound != "unbounded" ) {
+                        the.bound <- "sampledwidth_uniform_mtn003";
+                    }
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "1m" );
+                }
+            }
+            if( length( evaluate.times ) == 2 ) {
+                # Leave the.bound alone.
+            } else if( length( train.times ) == 2 ) {
+                the.bound <- paste( the.bound, evaluate.times, sep = "." );
+            }
+            if( length( train.regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+              if( length( evaluate.regions ) == 2 ) {
+                  # Leave the.bound alone, then.
+              } else {
+                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
+              }
+            } else {
+              if( length( evaluate.regions ) == 2 ) {
+                  stop( "can't evaluate more regions than trained" );
+              } else if( evaluate.regions != train.regions ) {
+                  stop( "can't evaluate a different region than trained" );
+              }
+              .results.for.region <- results.by.region.and.time[[ train.regions ]];
+            }
+            .lst <-
+                sort( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ rmse.stat ]] ), decreasing = T );
+            ## TODO: REMOVE. Temporary.
+            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
+            return( .lst );
+        } # get.rmses (..)
+
+        # This returns biases in order of rmses.
+        get.biases <- function ( results.by.region.and.time, evaluate.regions = train.regions, evaluate.times = train.times, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ), the.bound = "sampledwitdth_uniform", zeroNAs = TRUE ) {
+            if( zeroNAs ) {
+                bias.stat <- "bias.zeroNAs";
+                rmse.stat <- "rmse.zeroNAs";
+            } else {
+                bias.stat <- "bias";
+                rmse.stat <- "rmse";
+            }
+            if( is.null( the.bound ) || is.na( the.bound ) ) {
+                the.bound <- "unbounded";
+            }
+            if( length( train.times ) == 2 ) {
+                train.time <- "1m.6m";
+                if( the.bound != "unbounded" ) {
+                    the.bound <- "sampledwidth_uniform_1mmtn003_6mhvtn502";
+                }
+            } else {
+                train.time <- train.times;
+                if( train.time == "6m" ) {
+                    if( the.bound != "unbounded" ) {
+                        the.bound <- "sampledwidth_uniform_hvtn502";
+                    }
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "6m" );
+                } else {
+                    if( the.bound != "unbounded" ) {
+                        the.bound <- "sampledwidth_uniform_mtn003";
+                    }
+                    stopifnot( length( evaluate.times ) == 1 );
+                    stopifnot( evaluate.times == "1m" );
+                }
+            }
+            if( length( evaluate.times ) == 2 ) {
+                # Leave the.bound alone.
+            } else if( length( train.times ) == 2 ) {
+                the.bound <- paste( the.bound, evaluate.times, sep = "." );
+            }
+            if( length( train.regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+              if( length( evaluate.regions ) == 2 ) {
+                  # Leave the.bound alone, then.
+              } else {
+                the.bound <- paste( the.bound, evaluate.regions, sep = "." );
+              }
+            } else {
+              if( length( evaluate.regions ) == 2 ) {
+                  stop( "can't evaluate more regions than trained" );
+              } else if( evaluate.regions != train.regions ) {
+                  stop( "can't evaluate a different region than trained" );
+              }
+              .results.for.region <- results.by.region.and.time[[ train.regions ]];
+            }
+            .lst <- unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ "bias.stat" ]] )[ order( unlist( .results.for.region[[ train.time ]][[ "evaluated.results" ]][[ the.bound ]][[ rmse.stat ]] ), decreasing = T ) ];
+            ## TODO: REMOVE. Temporary.
+            .lst <- .lst[ grep( "(one|six)month", names( .lst ), value = TRUE, invert = TRUE ) ];
+            return( .lst );
+        } # get.biases (..)
+
+        get.bias.and.rmse <- function ( ... ) { cbind( bias = get.biases( ... ), rmse = get.rmses( ... ) ) }
+        
+        evaluate.specific.timings.model <-
+          function ( results.by.region.and.time, model.vars, .include.intercept = FALSE, step = FALSE, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
+
+            if( length( train.times ) == 2 ) {
+                train.time <- "1m.6m";
+            } else {
+                train.time <- train.times;
+            }
+            if( length( train.regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ train.regions ]];
+            }
+            results.covars.per.person.df <-
+                data.frame( .results.for.region[[ train.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
+            ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
+            #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
+
+            regression.df <- cbind( data.frame( days.since.infection = .results.for.region[[ train.time ]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), .results.for.region[[ train.time ]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, .results.for.region[[ train.time ]][["bounds" ]] );
+
+            if( include.intercept ) {
+                .formula <- as.formula( paste( "days.since.infection ~ ", paste( model.vars, collapse = "+" ) ) );
+            } else {
+                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
+            }
+            .lm <-
+                suppressWarnings( lm( .formula, data = regression.df ) );
+            if( step ) {
+                .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
+                return( summary( .step.rv ) );            
+            }
+            return( summary( .lm ) );
+        } # evaluate.specific.timings.model
+#        evaluate.specific.timings.model( model.vars = c( "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ), step = TRUE );
+  #evaluate.specific.timings.model( model.vars = c( "X6m.not.1m", "lPVL", "v3_not_nflg:lPVL","X6m.not.1m:v3_not_nflg:lPVL"  ), step = TRUE );
+  # Start:  AIC=555.72
+  # days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
+  #     X6m.not.1m:v3_not_nflg:lPVL
+  # 
+  #                               Df Sum of Sq   RSS    AIC
+  # <none>                                     17216 555.72
+  # - X6m.not.1m:lPVL:v3_not_nflg  1    4306.3 21523 577.83
+  # 
+  # Call:
+  # lm(formula = days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
+  #     X6m.not.1m:v3_not_nflg:lPVL, data = regression.df)
+  # 
+  # Residuals:
+  #     Min      1Q  Median      3Q     Max 
+  # -33.702  -4.799   2.636  10.244  31.015 
+  # 
+  # Coefficients:
+  #                             Estimate Std. Error t value Pr(>|t|)    
+  # X6m.not.1m                  145.9451     2.8690  50.870  < 2e-16 ***
+  # lPVL                          4.0772     0.1986  20.528  < 2e-16 ***
+  # lPVL:v3_not_nflg              1.3970     0.3222   4.336 3.36e-05 ***
+  # X6m.not.1m:lPVL:v3_not_nflg  -2.3826     0.4671  -5.100 1.53e-06 ***
+  # ---
+  # Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+  # 
+  # Residual standard error: 12.87 on 104 degrees of freedom
+  # Multiple R-squared:  0.9909,	Adjusted R-squared:  0.9906 
+  # F-statistic:  2834 on 4 and 104 DF,  p-value: < 2.2e-16
+
+        ## ERE I AM.STILL WORKING ON THAT . CHECK THIS. lPVL is up early down late, not unexpected!
+# > plot( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
+# > cor( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
+# [1] 0.2237065
+# > plot( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
+# > cor( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
+# [1] -0.2758797
+        
