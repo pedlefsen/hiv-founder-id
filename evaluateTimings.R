@@ -99,6 +99,13 @@ evaluateTimings <- function (
     results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
     
+                        MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
+                        if( include.intercept ) {
+                            MINIMUM.DF <- MINIMUM.DF + 1;
+                        }
+
+                        MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
+    
     rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
     names( rv217.gold.standard.infection.dates ) <- as.character( rv217.gold.standard.infection.dates.in[,1] );
@@ -623,7 +630,7 @@ evaluateTimings <- function (
                          ## withbounds
                          .interactees.withbounds <-
                              setdiff( intersect( .retained.covars, .covariates.glm.withbounds ), .interactors );
-                         if( length( .interactees.withbounds ) > 0 ) {
+                         if( ( length( .interactors ) > 0 ) && ( length( .interactees.withbounds ) > 0 ) ) {
                              ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
                              .interactions.withbounds.formula.part.components <- c();
                              for( .interactor.i in 1:length( .interactors ) ) {
@@ -638,20 +645,32 @@ evaluateTimings <- function (
                              .formula.withbounds <-
                                  paste( .formula.withbounds, .interactions.withbounds.formula.part, sep = " + " );
                          } # End if there's any "interactees.withbounds"
-                         ## Also add interactions with the estimate colname and everything included so far.
-                         if( .estimate.colname != "none" ) {
+                     } # End if there are any interactors.
+                     
+                     ## Also add interactions with the estimate colname and everything included so far.
+                     if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula <- 
+                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions.
+                             .new.interactions.with.estimator.in.formula <-
+                                 sapply( setdiff( .everything.included.so.far.in.formula[ -1 ], .estimate.colname ), function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
+                             
                              .everything.included.so.far.in.formula.withbounds <- 
                                  strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
 
                              # Add interactions.
                              .new.interactions.with.estimator.in.formula.withbounds <-
-                                 sapply( .everything.included.so.far.in.formula.withbounds[ -1 ], function ( .existing.part ) {
+                                 sapply( setdiff( .everything.included.so.far.in.formula.withbounds[ -1 ], .estimate.colname ), function ( .existing.part ) {
                                      paste( .existing.part, .estimate.colname, sep = ":" )
                                  } );
 
                              .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
-                         } # End if .estimate.colname != "none"
-                     } # End if there are any interactors.
+                     } # End if .estimate.colname != "none"
                      
                      # To this point these are still strings:
                      #.formula <- as.formula( .formula );
@@ -712,12 +731,6 @@ evaluateTimings <- function (
                         .covars.to.exclude <- names( which( .covars.to.exclude ) );
                         
 # At least one DF is needed for the variance estimate (aka the error term), and one for leave-one-out xvalidation.
-                        MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
-                        if( include.intercept ) {
-                            MINIMUM.DF <- MINIMUM.DF + 1;
-                        }
-
-                        MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
                         cors.with.the.outcome <-
                             sapply( setdiff( colnames( .lasso.mat ), c( .covars.to.exclude, .estimate.colname ) ), function( .covar.colname ) {
                                 .cor <- 
@@ -817,7 +830,7 @@ evaluateTimings <- function (
                             }
                         }
                         
-                        ## NOTE: We now always include these helpful.additional.cols.with.interactions, even they would otherwise be excluded.
+                        ## NOTE: We now always include these helpful.additional.cols.with.interactions, even if they would otherwise be excluded.
                         .interactors <-
                             intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
 #intersect( .retained.covars, helpful.additional.cols.with.interactions );
@@ -913,59 +926,80 @@ evaluateTimings <- function (
     
                     .penalty.factor <-
                         as.numeric( colnames( .lasso.mat ) != .estimate.colname )
-                                
-                    tryCatch(
-                        {
-                            .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = include.intercept,
-                                                        penalty.factor = .penalty.factor, grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
-                            .lasso.validation.results.per.person.coefs.cell <-
-                                coef( .cv.glmnet.fit, s = "lambda.min" );
-                            if( return.lasso.coefs ) {
-                                .lasso.validation.results.per.person.coefs.row[[ .col.i ]] <-
-                                    .lasso.validation.results.per.person.coefs.cell;
-                            }
-                            .mf.ptid <- stats::model.frame( as.formula( .formula ), data = regression.df );
-                            
-                            .lasso.mat.ptid <-
-                                model.matrix(as.formula( .formula ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
-                            for( .row.i.j in 1:length(the.rows.for.ptid) ) {
-                                .row.i <- the.rows.for.ptid[ .row.i.j ];
-                                .newx <-
-                                    c( 1, .lasso.mat.ptid[ .row.i.j, rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1], drop = FALSE ] );
-                                names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1] );
-# Note that the intercept is always the first one, even when include.intercept == FALSE
-                                .pred.value.lasso <-
-                                    sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * .newx );
-                                lasso.validation.results.per.person[ .row.i, .col.i ] <- 
-                                    .pred.value.lasso;
-                            }
-                        },
-                    error = function( e )
-                    {
-                        if( .col.i == 1 ) {
-                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
-                            .formula <- as.formula( "days.since.infection ~ 1" );
-                        } else {
-                            warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
-                            if( include.intercept ) {
-                                .formula <- as.formula( paste( "days.since.infection ~ 1 + ", .estimate.colname ) );
-                            } else {
-                                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
-                            }
-                        }
-                        .lm <- lm( .formula, data = regression.df.without.ptid.i );
-                        if( return.lasso.coefs ) {
-                          ## It's nothing, no coefs selected, so leave it as NA.
-                        }
-                        for( .row.i in the.rows.for.ptid ) {
-                          .pred.value.lasso <-
-                              predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
-                          lasso.validation.results.per.person[ .row.i, .col.i ] <<- 
+
+                      if( ncol( .lasso.mat ) == 1 ) {
+                        # Can't do lasso with only one variable.
+                        # This is using basic lm, not lasso.
+                        .lasso.result <- lm( .formula, data = regression.df.without.ptid.i );
+                       for( .row.i in the.rows.for.ptid ) {
+                         # Reminder: this is using basic lm, not lasso.
+                         .pred.value.lasso <-
+                             predict( .lasso.result, regression.df[ .row.i, , drop = FALSE ] );
+                         lasso.validation.results.per.person[ .row.i, .col.i ] <- 
                              .pred.value.lasso;
+                       }
+                        if( return.lasso.coefs ) {
+                                        # Reminder: not really lasso.
+                            .lasso.validation.results.per.person.coefs.cell <-
+                                coef( .lasso.result );
+                            .lasso.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                                .lasso.validation.results.per.person.coefs.cell;
                         }
-                   },
-                   finally = {}
-                   );
+                        
+                      } else {
+                        tryCatch(
+                            {
+                                .cv.glmnet.fit <- cv.glmnet( .lasso.mat, .out, intercept = include.intercept,
+                                                            penalty.factor = .penalty.factor, grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.;
+                                .lasso.validation.results.per.person.coefs.cell <-
+                                    coef( .cv.glmnet.fit, s = "lambda.min" );
+                                if( return.lasso.coefs ) {
+                                    .lasso.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                                        .lasso.validation.results.per.person.coefs.cell;
+                                }
+                                .mf.ptid <- stats::model.frame( as.formula( .formula ), data = regression.df );
+                                
+                                .lasso.mat.ptid <-
+                                    model.matrix(as.formula( .formula ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
+                                for( .row.i.j in 1:length(the.rows.for.ptid) ) {
+                                    .row.i <- the.rows.for.ptid[ .row.i.j ];
+                                    .newx <-
+                                        c( 1, .lasso.mat.ptid[ .row.i.j, rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1], drop = FALSE ] );
+                                    names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1] );
+    # Note that the intercept is always the first one, even when include.intercept == FALSE
+                                    .pred.value.lasso <-
+                                        sum( as.matrix( .lasso.validation.results.per.person.coefs.cell ) * .newx );
+                                    lasso.validation.results.per.person[ .row.i, .col.i ] <- 
+                                        .pred.value.lasso;
+                                }
+                            },
+                        error = function( e )
+                        {
+                            if( .col.i == 1 ) {
+                                warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression with only an intrecept." ) );
+                                .formula <- as.formula( "days.since.infection ~ 1" );
+                            } else {
+                                warning( paste( "ptid", .ptid.i, "col", .col.i, "lasso failed with error", e, "\nReverting to simple regression vs", .estimate.colname ) );
+                                if( include.intercept ) {
+                                    .formula <- as.formula( paste( "days.since.infection ~ 1 + ", .estimate.colname ) );
+                                } else {
+                                    .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
+                                }
+                            }
+                            .lm <- lm( .formula, data = regression.df.without.ptid.i );
+                            if( return.lasso.coefs ) {
+                              ## It's nothing, no coefs selected, so leave it as NA.
+                            }
+                            for( .row.i in the.rows.for.ptid ) {
+                              .pred.value.lasso <-
+                                  predict( .lm, regression.df[ .row.i, , drop = FALSE ] );
+                              lasso.validation.results.per.person[ .row.i, .col.i ] <<- 
+                                 .pred.value.lasso;
+                            }
+                       },
+                       finally = {}
+                       );
+                    } # End if there's at least two columns, enough to do lasso on.
                   } # End if the lasso estimate variable is usable
                     
                     ## lasso.withbounds:
