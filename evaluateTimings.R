@@ -742,6 +742,37 @@ evaluateTimings <- function (
 
                              .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds, .new.interactions.with.estimator.in.formula.withbounds ), collapse = " + " );
                      } # End if .estimate.colname != "none"
+
+                     ## If the intercept isn't included, then also don't include any combo of the pseudo-intercepts denoting the time or region.
+                     if( !include.intercept ) {
+                         ## TODO: MOVE UP. MAGIC #s
+                         pseudo.intercepts <- c( "X6m.not.1m", "v3_not_nflg", "X6m.not.1m:v3_not_nflg", "v3_not_nflg:X6m.not.1m" );
+                         
+                         .everything.included.so.far.in.formula <- 
+                             strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+
+                                        # Remove the pseudointercepts.
+                         .everything.that.should.be.in.formula <-
+                             setdiff(
+                                     .everything.included.so.far.in.formula[ -1 ],
+                                     pseudo.intercepts
+                                     );
+                         
+                         .formula <- paste( c( .everything.included.so.far.in.formula[ 1 ], .everything.that.should.be.in.formula ), collapse = " + " );
+                         
+                         
+                         .everything.included.so.far.in.formula.withbounds <- 
+                             strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+
+                                        # Remove the pseudointercepts.
+                         .everything.that.should.be.in.formula.withbounds <-
+                             setdiff(
+                                     .everything.included.so.far.in.formula.withbounds[ -1 ],
+                                     pseudo.intercepts
+                                     );
+                         
+                         .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds[ 1 ], .everything.that.should.be.in.formula.withbounds ), collapse = " + " );
+                     } # End if !include.intercept
                      
                      # To this point these are still strings:
                      #.formula <- as.formula( .formula );
@@ -785,10 +816,10 @@ evaluateTimings <- function (
                     ## NOTE: in the below, the .retained.covars and .glm.result and .glm.withbounds.result are defined above, with the computation of the non-withbounds ("glm") results.
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
                       if( .estimate.colname == "none" ) {
-                          .step.result <- step( .glm.result, trace = FALSE );
+                          .step.result <- suppressWarnings( step( .glm.result, trace = FALSE ) );
                       } else {
                           # This forces keeping the .estimate.colname
-                          .step.result <- step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) );
+                          .step.result <- suppressWarnings( step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) ) );
                       }
                       if( return.formulas ) {
                           step.formulas.per.person[ .ptid.i, .col.i ] <- 
@@ -808,10 +839,12 @@ evaluateTimings <- function (
                     
                     ## step.withbounds:
                       if( .estimate.colname == "none" ) {
-                          .step.withbounds.result <- step( .glm.withbounds.result, trace = FALSE );
+                          .step.withbounds.result <-
+                              suppressWarnings( step( .glm.withbounds.result, trace = FALSE ) );
                       } else {
                           # This forces keeping the .estimate.colname
-                          .step.withbounds.result <- step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.withbounds.result$terms ) ) );
+                          .step.withbounds.result <-
+                              suppressWarnings( step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.withbounds.result$terms ) ) ) );
                       }
                       if( return.formulas ) {
                           step.formulas.per.person[ .ptid.i, .col.i ] <- 
@@ -1050,10 +1083,29 @@ evaluateTimings <- function (
                         .retained.covars[ 1:( length( .retained.covars ) - .needed.df ) ];
                     }
                   } # End if( include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) )
+                
+                  ## Ensure that the formula and the lasso mat are consistent.
+                    .everything.included.so.far.in.formula <- 
+                        strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+                                        # Remove the excluded columns from the formula.
+                    if( include.intercept ) {
+                        .formula <- paste( c( .everything.included.so.far.in.formula[ 1 ], .retained.covars ), collapse = " + " );
+                    } else {
+                        ## If the intercept isn't included, then also don't include any combo of the pseudo-intercepts denoting the time or region.
+                                        # Remove the pseudointercepts.
+                         .everything.that.should.be.in.formula <-
+                             setdiff(
+                                     .retained.covars,
+                                     pseudo.intercepts
+                                     );
+                         .formula <- paste( c( .everything.included.so.far.in.formula[ 1 ], .everything.that.should.be.in.formula ), collapse = " + " );
+                     }
 
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                    
-                      .lasso.mat <- .lasso.mat[ , .retained.covars, drop = FALSE ];
+
+                    .mf <- stats::model.frame( as.formula( .formula ), data = regression.df.without.ptid.i );
+                    .out <- .mf[ , "days.since.infection" ];
+                    .lasso.mat <- model.matrix(as.formula( .formula ), .mf);
 
                     # penalty.factor = 0 to force the .estimate.colname variable.
     
@@ -1095,7 +1147,8 @@ evaluateTimings <- function (
                                         .lasso.validation.results.per.person.coefs.cell;
                                 }
                                 .mf.ptid <- stats::model.frame( as.formula( .formula ), data = regression.df );
-                                
+                                # This reorders them, which fixes a bug in which columns get renamed automatically by model.matrix according to the order in which the columns appear.
+                                .mf.ptid <- .mf.ptid[ , colnames( .mf ) ];
                                 .lasso.mat.ptid <-
                                     model.matrix(as.formula( .formula ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
                                 for( .row.i.j in 1:length(the.rows.for.ptid) ) {
@@ -1356,11 +1409,28 @@ evaluateTimings <- function (
                       }
                   } # End if include.all.vars.in.lasso || ( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) )
                     
+                  ## Ensure that the formula and the lasso mat are consistent.
+                    .everything.included.so.far.in.formula.withbounds <- 
+                        strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+                    # Remove the excluded columns from the formula.
+                    if( include.intercept ) {
+                        .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds[ 1 ], .retained.covars ), collapse = " + " );
+                    } else {
+                        ## If the intercept isn't included, then also don't include any combo of the pseudo-intercepts denoting the time or region.
+                                        # Remove the pseudointercepts.
+                         .everything.that.should.be.in.formula.withbounds <-
+                             setdiff(
+                                     .retained.covars,
+                                     pseudo.intercepts
+                                     );
+                         .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds[ 1 ], .everything.that.should.be.in.formula.withbounds ), collapse = " + " );
+                     }
+
+                    .mf.withbounds <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df.without.ptid.i );
+                    .out <- .mf.withbounds[ , "days.since.infection" ];
+                    .lasso.withbounds.mat <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds);
+
                   if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
-                    .lasso.withbounds.mat <-
-                      .lasso.withbounds.mat[ , .retained.covars, drop = FALSE ];
-                    # penalty.factor = 0 to force the .estimate.colname variable.
-    
                     if( return.formulas ) {
                         ## TODO: Update formula to account for .retained.covars, see above.
                         lasso.withbounds.formulas.per.person[ .ptid.i, .col.i ] <- 
@@ -1368,6 +1438,8 @@ evaluateTimings <- function (
                     }
                     tryCatch(
                     {
+                    # penalty.factor = 0 to force the .estimate.colname variable.
+    
                       .cv.glmnet.fit.withbounds <-
                         cv.glmnet( .lasso.withbounds.mat, .out, intercept = include.intercept,
                                   penalty.factor = as.numeric( colnames( .lasso.withbounds.mat ) != .estimate.colname ), grouped = FALSE, nfold = length( .out ) ); # grouped = FALSE to avoid the warning.
