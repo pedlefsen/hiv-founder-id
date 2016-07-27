@@ -580,7 +580,7 @@ evaluateTimings <- function (
         for( .ptid.i in 1:length( all.ptids ) ) {
             the.ptid <- all.ptids[ .ptid.i ];
             the.rows.for.ptid <- which( ppt.names == the.ptid );
-            names( the.rows.for.ptid ) <- ppt.names[ the.rows.for.ptid ];
+            names( the.rows.for.ptid ) <- rownames( results.per.person )[ the.rows.for.ptid ];
             the.rows.excluding.ptid <- which( ppt.names != the.ptid );
             ## TODO: REMOVE
             print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( names( the.rows.for.ptid ), collapse = ", " ), ")" ) );
@@ -830,12 +830,15 @@ evaluateTimings <- function (
                       } else {
                           # This forces keeping the .estimate.colname
                           tryCatch( {
+                              .glm.result.na.omit <-
+                                  lm( .formula, data = na.omit( regression.df.without.ptid.i ) );
+
                               .step.result <-
-                                  suppressWarnings( step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) ) );
+                                  suppressWarnings( step( .glm.result.na.omit, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result.na.omit$terms ) ) ) );
                           }, error = function( e ) {
                                         # Sometimes for unknown reasons it fails with a bounded scope but not without one.
                               .step.result <-
-                                  suppressWarnings( step( .glm.result, trace = FALSE ) );
+                                  suppressWarnings( step( .glm.result.na.omit, trace = FALSE ) );
                           } );
                       }
                       if( return.formulas ) {
@@ -861,12 +864,15 @@ evaluateTimings <- function (
                       } else {
                           # This forces keeping the .estimate.colname and .upper.bound.colname
                           tryCatch( {
+                              .glm.withbounds.result.na.omit <-
+                                  lm( .formula.withbounds, data = na.omit( regression.df.without.ptid.i ) );
+
                               .step.withbounds.result <-
-                                  suppressWarnings( step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", paste( .estimate.colname, .upper.bound.colname, sep = "+" ) ), upper = ( .glm.withbounds.result$terms ) ) ) );
+                                  suppressWarnings( step( .glm.withbounds.result.na.omit, trace = FALSE, scope = c( lower = paste( "~", paste( .estimate.colname, .upper.bound.colname, sep = "+" ) ), upper = ( .glm.withbounds.result.na.omit$terms ) ) ) );
                           }, error = function( e ) {
                                         # Sometimes for unknown reasons it fails with a bounded scope but not without one.
                               .step.withbounds.result <-
-                                  suppressWarnings( step( .glm.withbounds.result, trace = FALSE ) );
+                                  suppressWarnings( step( .glm.withbounds.result.na.omit, trace = FALSE ) );
                           } );
                       }
                       if( return.formulas ) {
@@ -1475,11 +1481,13 @@ evaluateTimings <- function (
                             .lasso.withbounds.validation.results.per.person.coefs.cell;
                       }
 
-                      .mf.ptid <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df );
-                            
-                      .lasso.withbounds.mat.ptid <- model.matrix(as.formula( .formula.withbounds ), .mf.ptid[ names( the.rows.for.ptid ), , drop = FALSE ] );
-                      for( .row.i.j in 1:length(the.rows.for.ptid) ) {
-                          .row.i <- the.rows.for.ptid[ .row.i.j ];
+                      .mf.withbounds.ptid <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df );
+                      .the.actual.rows.for.ptid <-
+                          the.rows.for.ptid[ names( the.rows.for.ptid ) %in% rownames( .mf.withbounds.ptid ) ];
+
+                      .lasso.withbounds.mat.ptid <- model.matrix(as.formula( .formula.withbounds ), .mf.withbounds.ptid[ rownames( .mf.withbounds.ptid ) %in% names( .the.actual.rows.for.ptid ), , drop = FALSE ] );
+                      for( .row.i.j in 1:length(.the.actual.rows.for.ptid) ) {
+                          .row.i <- .the.actual.rows.for.ptid[ .row.i.j ];
                         .newx <-
                             c( 1, .lasso.withbounds.mat.ptid[ .row.i.j, rownames( .lasso.withbounds.validation.results.per.person.coefs.cell )[ -1 ], drop = FALSE ] );
                           names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.withbounds.validation.results.per.person.coefs.cell ) )[-1] );
@@ -1499,7 +1507,7 @@ evaluateTimings <- function (
                         } else {
                             .formula <- as.formula( paste( "days.since.infection ~ 0 + ", .estimate.colname ) );
                         }
-                        for( .row.i in the.rows.for.ptid ) {
+                        for( .row.i in .the.actual.rows.for.ptid ) {
                           .pred.value.lasso.withbounds <-
                               predict( lm( .formula, data = regression.df.without.ptid.i ), regression.df[ .row.i, , drop = FALSE ] );
                           lasso.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
@@ -1935,10 +1943,10 @@ evaluateTimings <- function (
         results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
 
-        if( include.intercept ) {
-            writeResultsTables( results.by.region.and.time, "_evaluateTimings_include_intercept.tab", regions = regions, results.are.bounded = TRUE );
-        } else {
+        if( config.string == "" ) {
             writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
+        } else {
+            writeResultsTables( results.by.region.and.time, paste( "_evaluateTimings.", config.string, ".tab", sep = "" ), regions = regions, results.are.bounded = TRUE );
         }
     }
 
