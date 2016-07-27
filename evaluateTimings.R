@@ -19,6 +19,31 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 
+########################################################
+## Other fns
+evaluateTimings.compute.config.string <- function ( 
+  include.intercept = FALSE,
+  include.all.vars.in.lasso = TRUE,
+  helpful.additional.cols = c( "lPVL" ),
+  helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" )
+    ) {
+    config.string <- "";
+    if( include.intercept ) {
+        config.string <- "include.intercept";
+    }
+    if( length( helpful.additional.cols ) > 0 ) {
+        config.string <- paste( config.string, "_covs.", paste( helpful.additional.cols, collapse = "." ), sep = "" );
+    }
+    if( length( helpful.additional.cols.with.interactions ) > 0 ) {
+        config.string <- paste( config.string, "_interactingCovs.", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" );
+    }
+    if( !include.all.vars.in.lasso ) {
+        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
+    }
+    return( config.string );
+} # evaluateTimings.compute.config.string (..)
+########################################################
+
 #' Evaluate timings estimates and produce results tables.
 #'
 #' This function runs the BakeOff results analysis for the timings results.
@@ -90,21 +115,21 @@ evaluateTimings <- function (
   #times = c( "1m", "6m", "1m6m" )
 )
 {
-    config.string <- "";
-    if( include.intercept ) {
-        config.string <- "include.intercept";
-    }
-    if( length( helpful.additional.cols ) > 0 ) {
-        config.string <- paste( config.string, "_covs", paste( helpful.additional.cols, collapse = "." ), sep = "" );
-    }
-    if( length( helpful.additional.cols.with.interactions ) > 0 ) {
-        config.string <- paste( config.string, "_interactingCovs", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" );
-    }
-    if( !include.all.vars.in.lasso ) {
-        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
-    }
+    config.string <- evaluateTimings.compute.config.string(
+        include.intercept = include.intercept,
+        include.all.vars.in.lasso = include.all.vars.in.lasso,
+        helpful.additional.cols = helpful.additional.cols,
+        helpful.additional.cols.with.interactions = helpful.additional.cols.with.interactions
+    );
+    
     results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
+    
+    if( config.string == "" ) {
+        evaluateTimings.tab.file.suffix <- "_evaluateTimings.tab";
+    } else {
+        evaluateTimings.tab.file.suffix <- paste( "_evaluateTimings.", config.string, ".tab", sep = "" );
+    }
     
     MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
     if( include.intercept ) {
@@ -1943,11 +1968,7 @@ evaluateTimings <- function (
         results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
 
-        if( config.string == "" ) {
-            writeResultsTables( results.by.region.and.time, "_evaluateTimings.tab", regions = regions, results.are.bounded = TRUE );
-        } else {
-            writeResultsTables( results.by.region.and.time, paste( "_evaluateTimings.", config.string, ".tab", sep = "" ), regions = regions, results.are.bounded = TRUE );
-        }
+        writeResultsTables( results.by.region.and.time, evaluateTimings.tab.file.suffix, regions = regions, results.are.bounded = TRUE );
     }
 
     ## TODO
@@ -1998,3 +2019,4 @@ evaluateTimings <- function (
 
 ## Here is where the action is.
 evaluateTimings();
+
