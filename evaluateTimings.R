@@ -55,6 +55,7 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param use.infer compute results for the PREAST approach.
 #' @param use.anchre compute results for the anchre approach.
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor, maybe with helpful.additional.cols or with the bounds.
+#' @param use.step.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a step-selected subset of other predictors, maybe with the bounds.
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
 #' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
 #' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
@@ -72,6 +73,7 @@ evaluateTimings <- function (
   use.infer = TRUE,
   use.anchre = TRUE,
   use.glm.validate = TRUE,
+  use.step.validate = TRUE,
   use.lasso.validate = TRUE,
   include.intercept = FALSE,
   include.all.vars.in.lasso = TRUE,
@@ -92,8 +94,14 @@ evaluateTimings <- function (
     if( include.intercept ) {
         config.string <- "include.intercept";
     }
+    if( length( helpful.additional.cols ) > 0 ) {
+        config.string <- paste( config.string, "_covs", paste( helpful.additional.cols, collapse = "." ), sep = "" );
+    }
+    if( length( helpful.additional.cols.with.interactions ) > 0 ) {
+        config.string <- paste( config.string, "_interactingCovs", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" );
+    }
     if( !include.all.vars.in.lasso ) {
-        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "." );
+        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
     }
     results.by.region.and.time.Rda.filename <-
         paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
@@ -326,7 +334,7 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.per.person, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.lasso.coefs = TRUE, return.formulas = TRUE ) {
+        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.step.coefs = TRUE, return.lasso.coefs = TRUE, return.formulas = TRUE ) {
 
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( results.per.person );
@@ -374,7 +382,7 @@ evaluateTimings <- function (
 #            results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
 #        }
        
-      if( use.glm.validate || use.lasso.validate ) {
+      if( use.glm.validate || use.step.validate || use.lasso.validate ) {
         results.covars.per.person.with.extra.cols <-
             cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );
         .keep.cols <-
@@ -429,7 +437,7 @@ evaluateTimings <- function (
           keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, all.additional.cols, estimate.cols ) );
         } else {
           keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, estimate.cols ) );
-      }
+        }
         
         # Don't evaluate estimators that have no variation at
         # all. Note that technically we could/should do this after holding
@@ -501,6 +509,40 @@ evaluateTimings <- function (
                     all.ptids;
           }
         }
+        if( use.step.validate ) {
+            ## These are again per-sample, see above Note.
+            step.validation.results.per.person <-
+                matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            step.withbounds.validation.results.per.person <- matrix( NA, nrow = nrow( results.covars.per.person.df ), ncol = length( estimate.cols ) );
+            if( return.formulas ) {
+                ## step:
+                step.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( step.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( step.formulas.per.person ) <-
+                    all.ptids;
+                ## step.withbounds:
+                step.withbounds.formulas.per.person <-
+                    matrix( NA, nrow = length( all.ptids ), ncol = length( estimate.cols ) );
+                colnames( step.withbounds.formulas.per.person ) <-
+                    estimate.cols;
+                rownames( step.withbounds.formulas.per.person ) <-
+                    all.ptids;
+            }
+            if( return.step.coefs ) {
+                ## This is really a 3D array, but I'm just lazily representing it directly this way.  Note this is by removed ppt, not by regression row (there might be multiple rows per ppt in the regression.df and the prediction output matrices).
+                # and these are per-ptid!
+                step.validation.results.per.person.coefs <-
+                    as.list( rep( NA, length( all.ptids ) ) );
+                names( step.validation.results.per.person.coefs ) <-
+                    all.ptids;
+                step.withbounds.validation.results.per.person.coefs <-
+                    as.list( rep( NA, length( all.ptids ) ) );
+                names( step.withbounds.validation.results.per.person.coefs ) <-
+                    all.ptids;
+            }
+        }
         if( use.lasso.validate ) {
             ## These are again per-sample, see above Note.
             lasso.validation.results.per.person <-
@@ -541,6 +583,16 @@ evaluateTimings <- function (
             the.rows.excluding.ptid <- which( ppt.names != the.ptid );
             ## TODO: REMOVE
             print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( the.rows.for.ptid, collapse = ", " ), ")" ) );
+            if( use.step.validate && return.step.coefs ) {
+                .step.validation.results.per.person.coefs.row <-
+                    as.list( rep( NA, length( estimate.cols ) ) );
+                names( .step.validation.results.per.person.coefs.row ) <-
+                    estimate.cols;
+                .step.withbounds.validation.results.per.person.coefs.row <-
+                    as.list( rep( NA, length( estimate.cols ) ) );
+                names( .step.withbounds.validation.results.per.person.coefs.row ) <-
+                    estimate.cols;
+            }
             if( use.lasso.validate && return.lasso.coefs ) {
                 .lasso.validation.results.per.person.coefs.row <-
                     as.list( rep( NA, length( estimate.cols ) ) );
@@ -558,7 +610,7 @@ evaluateTimings <- function (
                 .estimate.colname <- estimate.cols[ .col.i ];
                 ## TODO: REMOVE
                 #print( .estimate.colname );
-                if( use.glm.validate || ( use.lasso.validate && !include.all.vars.in.lasso ) ) {
+                if( use.glm.validate || use.step.validate || ( use.lasso.validate && !include.all.vars.in.lasso ) ) {
                   # covariates for glm
                   .covariates.glm <-
                     c( helpful.additional.cols, helpful.additional.cols.with.interactions );
@@ -651,7 +703,7 @@ evaluateTimings <- function (
 
                              # Add interactions.
                              .new.interactions.with.estimator.in.formula <-
-                                 sapply( .everything.included.so.far.in.formula[ -1 ], function ( .existing.part ) {
+                                 sapply( setdiff( .everything.included.so.far.in.formula[ -1 ], .estimate.colname ), function ( .existing.part ) {
                                      paste( .existing.part, .estimate.colname, sep = ":" )
                                  } );
                              .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
@@ -679,17 +731,6 @@ evaluateTimings <- function (
                      
                      ## Also add interactions with the estimate colname and everything included so far.
                      if( .estimate.colname != "none" ) {
-                             .everything.included.so.far.in.formula <- 
-                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
-
-                             # Add interactions.
-                             .new.interactions.with.estimator.in.formula <-
-                                 sapply( setdiff( .everything.included.so.far.in.formula[ -1 ], .estimate.colname ), function ( .existing.part ) {
-                                     paste( .existing.part, .estimate.colname, sep = ":" )
-                                 } );
-
-                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
-                             
                              .everything.included.so.far.in.formula.withbounds <- 
                                  strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
 
@@ -706,7 +747,7 @@ evaluateTimings <- function (
                      #.formula <- as.formula( .formula );
                      #.formula.withbounds <- as.formula( .formula.withbounds );
 
-                     # The condition below is required now that we also compute the above for the case with use.lasso.validate && !include.all.vars.in.lasso
+                     # The condition below is required now that we also compute the above for the cases with use.step.validate and ( use.lasso.validate && !include.all.vars.in.lasso )
                      if( use.glm.validate ) {
                        .glm.result <- lm( .formula, data = regression.df.without.ptid.i );
                          
@@ -736,7 +777,61 @@ evaluateTimings <- function (
                      } # End if use.glm.validate
                  } # End if the estimate can be used
                 } # End if use.glm.validate || ( use.lasso.validate && !include.all.vars.in.lasso )
-    
+
+
+                if( use.step.validate ) {
+                    ## step (not withbounds)
+                    ## Use .formula already defined.
+                    ## NOTE: in the below, the .retained.covars and .glm.result and .glm.withbounds.result are defined above, with the computation of the non-withbounds ("glm") results.
+                  if( ( .estimate.colname == "none" ) || ( .estimate.colname %in% .retained.covars ) ) {
+                      if( .estimate.colname == "none" ) {
+                          .step.result <- step( .glm.result, trace = FALSE );
+                      } else {
+                          # This forces keeping the .estimate.colname
+                          .step.result <- step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) );
+                      }
+                      if( return.formulas ) {
+                          step.formulas.per.person[ .ptid.i, .col.i ] <- 
+                              as.character( ( ( .step.result )$call )[ 2 ] );
+                      }
+                      
+                      .pred.value.step <-
+                          predict( .step.result, regression.df[ .row.i, , drop = FALSE ] );
+                      step.validation.results.per.person[ .row.i, .col.i ] <- 
+                          .pred.value.step;
+                      if( return.step.coefs ) {
+                          .step.validation.results.per.person.coefs.cell <-
+                              coef( .step.result );
+                          .step.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                              .step.validation.results.per.person.coefs.cell;
+                      }
+                    
+                    ## step.withbounds:
+                      if( .estimate.colname == "none" ) {
+                          .step.withbounds.result <- step( .glm.withbounds.result, trace = FALSE );
+                      } else {
+                          # This forces keeping the .estimate.colname
+                          .step.withbounds.result <- step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.withbounds.result$terms ) ) );
+                      }
+                      if( return.formulas ) {
+                          step.formulas.per.person[ .ptid.i, .col.i ] <- 
+                              as.character( ( ( .step.withbounds.result )$call )[ 2 ] );
+                      }
+                      
+                      .pred.value.step.withbounds <-
+                          predict( .step.withbounds.result, regression.df[ .row.i, , drop = FALSE ] );
+                      step.withbounds.validation.results.per.person[ .row.i, .col.i ] <- 
+                          .pred.value.step.withbounds;
+                      if( return.step.coefs ) {
+                          .step.withbounds.validation.results.per.person.coefs.cell <-
+                              coef( .step.withbounds.result );
+                          .step.withbounds.validation.results.per.person.coefs.row[[ .col.i ]] <-
+                              .step.withbounds.validation.results.per.person.coefs.cell;
+                      }
+                  }  else { stop( paste( "unusable estimator:", .estimate.colname ) ) } # End if the step estimate variable is usable
+
+                } # End if use.step.validate
+                
                 if( use.lasso.validate ) {
                     ## lasso (not withbounds)
                     if( include.all.vars.in.lasso ) {
@@ -1319,14 +1414,20 @@ evaluateTimings <- function (
                   }  else { stop( paste( "unusable estimator:", .estimate.colname ) ) } # End if the lasso.withbounds estimate variable is usable
 
                 } # End if use.lasso.validate
-    
+
             } # End foreach .col.i
+            if( use.step.validate && return.step.coefs ) {
+                step.validation.results.per.person.coefs[[ .ptid.i ]] <- 
+                    .step.validation.results.per.person.coefs.row;
+                step.withbounds.validation.results.per.person.coefs[[ .ptid.i ]] <- 
+                    .step.withbounds.validation.results.per.person.coefs.row;
+            } # End if use.step.validate && return.step.coefs
             if( use.lasso.validate && return.lasso.coefs ) {
                 lasso.validation.results.per.person.coefs[[ .ptid.i ]] <- 
                     .lasso.validation.results.per.person.coefs.row;
                 lasso.withbounds.validation.results.per.person.coefs[[ .ptid.i ]] <- 
                     .lasso.withbounds.validation.results.per.person.coefs.row;
-            } # End if use.lasso.validate
+            } # End if use.lasso.validate && return.lasso.coefs
         } # End foreach .ptid.i
         if( use.glm.validate ) {
           ## glm:
@@ -1346,6 +1447,24 @@ evaluateTimings <- function (
                 cbind( results.per.person,
                       glm.withbounds.validation.results.per.person );
         }
+        if( use.step.validate ) {
+          ## step:
+          colnames( step.validation.results.per.person ) <-
+            paste( "step.validation.results", estimate.cols, sep = "." );
+          rownames( step.validation.results.per.person ) <-
+            rownames( regression.df );
+          results.per.person <-
+            cbind( results.per.person,
+                  step.validation.results.per.person );
+          ## step.withbounds:
+          colnames( step.withbounds.validation.results.per.person ) <-
+            paste( "step.withbounds.validation.results", estimate.cols, sep = "." );
+          rownames( step.withbounds.validation.results.per.person ) <-
+            rownames( regression.df );
+          results.per.person <-
+            cbind( results.per.person,
+                  step.withbounds.validation.results.per.person );
+        }
         if( use.lasso.validate ) {
           ## lasso:
           colnames( lasso.validation.results.per.person ) <-
@@ -1364,7 +1483,7 @@ evaluateTimings <- function (
             cbind( results.per.person,
                   lasso.withbounds.validation.results.per.person );
         }
-      } # End if use.glm.validate || use.lasso.validate
+      } # End if use.glm.validate || use.step.validate || use.lasso.validate
       
       ## For fairness in evaluating when some methods
       ## completely fail to give a result, (so it's NA
@@ -1392,9 +1511,16 @@ evaluateTimings <- function (
               if( use.glm.validate ) {
                   .results <- c( .results, list( glm.formulas = list( glm = glm.formulas.per.person, glm.withbounds = glm.withbounds.formulas.per.person ) ) );
               }
+              if( use.step.validate ) {
+                  .results <- c( .results, list( step.formulas = list( step = step.formulas.per.person, step.withbounds = step.withbounds.formulas.per.person ) ) );
+              }
               if( use.lasso.validate ) {
                   .results <- c( .results, list( lasso.formulas = list( lasso = lasso.formulas.per.person, lasso.withbounds = lasso.withbounds.formulas.per.person ) ) );
               }
+       }
+       if( use.step.validate && return.step.coefs ) {
+         #.results <- c( .results, list( step.coefs = list( step = step.validation.results.per.person.coefs, step.withbounds = step.withbounds.validation.results.per.person.coefs, step.nointercept = step.nointercept.validation.results.per.person.coefs, step.nointercept.withbounds = step.nointercept.withbounds.validation.results.per.person.coefs ) ) );
+         .results <- c( .results, list( step.coefs = list( step = step.validation.results.per.person.coefs, step.withbounds = step.withbounds.validation.results.per.person.coefs ) ) );
        }
        if( use.lasso.validate && return.lasso.coefs ) {
          #.results <- c( .results, list( lasso.coefs = list( lasso = lasso.validation.results.per.person.coefs, lasso.withbounds = lasso.withbounds.validation.results.per.person.coefs, lasso.nointercept = lasso.nointercept.validation.results.per.person.coefs, lasso.nointercept.withbounds = lasso.nointercept.withbounds.validation.results.per.person.coefs ) ) );
@@ -1722,7 +1848,12 @@ evaluateTimings <- function (
     ## TODO
     ##  *) select a set of best predictions from isMultiple to use here (instead of gold.standard.varname) -- if there's any benefit to using gold.standard.varname.
     ##  *) check out results of the partitions of evaluateTimings.
-
+    ### ######
+    ### *) (exclude lPVL) try looking at diversity again -- look when lPVL is not there.
+    ## *) try gold.is.multiple again.
+    ## *) check if cv.glmnet does automatic rescaling
+    ## *) try running the code developed for the TB data.
+    
     loadTimingsData <- function () {
         # loads results.by.region.and.time
         load( results.by.region.and.time.Rda.filename, envir = parent.frame() );

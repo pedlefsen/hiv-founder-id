@@ -299,6 +299,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
            # Add the evaluated.results:
            .evaluated.results <-
                evaluate.results.per.person.fn( .rv.for.time[[ "results.per.person" ]], .rv.for.time[[ gold.standard.varname ]], .rv.for.time[[ "results.covars.per.person.with.extra.cols" ]], the.time = the.time, .rv.for.time[[ "bounds" ]] );
+            #evaluate.results.per.person.fn( results.per.person=.rv.for.time[[ "results.per.person" ]], days.since.infection=.rv.for.time[[ gold.standard.varname ]], results.covars.per.person.with.extra.cols=.rv.for.time[[ "results.covars.per.person.with.extra.cols" ]], the.time = the.time, the.artificial.bounds = .rv.for.time[[ "bounds" ]] );
            .rv.for.time <- c( .rv.for.time, 
                              list( evaluated.results = .evaluated.results ) )
            return( .rv.for.time );

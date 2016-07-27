@@ -37,6 +37,12 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                 if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
                                                 }
+                                                if( "glm.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "glm.formulas" ];
+                                                }
+                                                if( "lasso.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.formulas" ];
+                                                }
                                                 sapply( results.for.bounds.type, function( results.list ) { results.list } );
                       } );
                     names( ..rv ) <- ..relevant.bounds;
@@ -102,6 +108,12 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                 }
                                                 if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
+                                                }
+                                                if( "glm.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "glm.formulas" ];
+                                                }
+                                                if( "lasso.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.formulas" ];
                                                 }
                                 sapply( results.for.bounds.type, function( results.list ) { results.list } );
                               } );
