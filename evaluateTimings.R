@@ -580,9 +580,10 @@ evaluateTimings <- function (
         for( .ptid.i in 1:length( all.ptids ) ) {
             the.ptid <- all.ptids[ .ptid.i ];
             the.rows.for.ptid <- which( ppt.names == the.ptid );
+            names( the.rows.for.ptid ) <- ppt.names[ the.rows.for.ptid ];
             the.rows.excluding.ptid <- which( ppt.names != the.ptid );
             ## TODO: REMOVE
-            print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( the.rows.for.ptid, collapse = ", " ), ")" ) );
+            print( paste( "PTID", .ptid.i, "removed:", the.ptid, "rows:(", paste( names( the.rows.for.ptid ), collapse = ", " ), ")" ) );
             if( use.step.validate && return.step.coefs ) {
                 .step.validation.results.per.person.coefs.row <-
                     as.list( rep( NA, length( estimate.cols ) ) );
@@ -605,11 +606,20 @@ evaluateTimings <- function (
             }
             regression.df.without.ptid.i <-
                 regression.df[ the.rows.excluding.ptid, , drop = FALSE ];
+            ## But now also exclude columns for which ptid has only NA values, as these can't be used for predicting ptid's excluded days.since.infection.
+            ptid.has.nonmissing.data.by.col <-
+                apply( regression.df[ the.rows.for.ptid, , drop = FALSE ], 2, function( .col ) { !all( is.na( .col ) ) } );
+            regression.df.without.ptid.i <-
+                regression.df.without.ptid.i[ , ptid.has.nonmissing.data.by.col, drop = FALSE ];
             for( .col.i in 1:length( estimate.cols ) ) {
                 
                 .estimate.colname <- estimate.cols[ .col.i ];
+                if( ( .estimate.colname != "none" ) && ( ptid.has.nonmissing.data.by.col[ .estimate.colname ] == FALSE ) ) {
+                    # This estimator is missing for this participant.
+                    next;
+                }
                 ## TODO: REMOVE
-                #print( .estimate.colname );
+                print( .estimate.colname );
                 if( use.glm.validate || use.step.validate || ( use.lasso.validate && !include.all.vars.in.lasso ) ) {
                   # covariates for glm
                   .covariates.glm <-
@@ -819,7 +829,14 @@ evaluateTimings <- function (
                           .step.result <- suppressWarnings( step( .glm.result, trace = FALSE ) );
                       } else {
                           # This forces keeping the .estimate.colname
-                          .step.result <- suppressWarnings( step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) ) );
+                          tryCatch( {
+                              .step.result <-
+                                  suppressWarnings( step( .glm.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.result$terms ) ) ) );
+                          }, error = function( e ) {
+                                        # Sometimes for unknown reasons it fails with a bounded scope but not without one.
+                              .step.result <-
+                                  suppressWarnings( step( .glm.result, trace = FALSE ) );
+                          } );
                       }
                       if( return.formulas ) {
                           step.formulas.per.person[ .ptid.i, .col.i ] <- 
@@ -842,9 +859,15 @@ evaluateTimings <- function (
                           .step.withbounds.result <-
                               suppressWarnings( step( .glm.withbounds.result, trace = FALSE ) );
                       } else {
-                          # This forces keeping the .estimate.colname
-                          .step.withbounds.result <-
-                              suppressWarnings( step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", .estimate.colname ), upper = ( .glm.withbounds.result$terms ) ) ) );
+                          # This forces keeping the .estimate.colname and .upper.bound.colname
+                          tryCatch( {
+                              .step.withbounds.result <-
+                                  suppressWarnings( step( .glm.withbounds.result, trace = FALSE, scope = c( lower = paste( "~", paste( .estimate.colname, .upper.bound.colname, sep = "+" ) ), upper = ( .glm.withbounds.result$terms ) ) ) );
+                          }, error = function( e ) {
+                                        # Sometimes for unknown reasons it fails with a bounded scope but not without one.
+                              .step.withbounds.result <-
+                                  suppressWarnings( step( .glm.withbounds.result, trace = FALSE ) );
+                          } );
                       }
                       if( return.formulas ) {
                           step.formulas.per.person[ .ptid.i, .col.i ] <- 
@@ -864,7 +887,7 @@ evaluateTimings <- function (
                   }  else { stop( paste( "unusable estimator:", .estimate.colname ) ) } # End if the step estimate variable is usable
 
                 } # End if use.step.validate
-                
+
                 if( use.lasso.validate ) {
                     ## lasso (not withbounds)
                     if( include.all.vars.in.lasso ) {
@@ -1149,10 +1172,12 @@ evaluateTimings <- function (
                                 .mf.ptid <- stats::model.frame( as.formula( .formula ), data = regression.df );
                                 # This reorders them, which fixes a bug in which columns get renamed automatically by model.matrix according to the order in which the columns appear.
                                 .mf.ptid <- .mf.ptid[ , colnames( .mf ) ];
+                                .the.actual.rows.for.ptid <-
+                                    the.rows.for.ptid[ names( the.rows.for.ptid ) %in% rownames( .mf.ptid ) ];
                                 .lasso.mat.ptid <-
-                                    model.matrix(as.formula( .formula ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
-                                for( .row.i.j in 1:length(the.rows.for.ptid) ) {
-                                    .row.i <- the.rows.for.ptid[ .row.i.j ];
+                                    model.matrix(as.formula( .formula ), .mf.ptid[ names( .the.actual.rows.for.ptid ), , drop = FALSE ] );
+                                for( .row.i.j in 1:length(.the.actual.rows.for.ptid) ) {
+                                    .row.i <- .the.actual.rows.for.ptid[ .row.i.j ];
                                     .newx <-
                                         c( 1, .lasso.mat.ptid[ .row.i.j, rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1], drop = FALSE ] );
                                     names( .newx ) <- c( "(Intercept)", rownames( as.matrix( .lasso.validation.results.per.person.coefs.cell ) )[-1] );
@@ -1452,7 +1477,7 @@ evaluateTimings <- function (
 
                       .mf.ptid <- stats::model.frame( as.formula( .formula.withbounds ), data = regression.df );
                             
-                      .lasso.withbounds.mat.ptid <- model.matrix(as.formula( .formula.withbounds ), .mf.ptid[ the.rows.for.ptid, , drop = FALSE ] );
+                      .lasso.withbounds.mat.ptid <- model.matrix(as.formula( .formula.withbounds ), .mf.ptid[ names( the.rows.for.ptid ), , drop = FALSE ] );
                       for( .row.i.j in 1:length(the.rows.for.ptid) ) {
                           .row.i <- the.rows.for.ptid[ .row.i.j ];
                         .newx <-
