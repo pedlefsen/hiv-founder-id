@@ -32,10 +32,10 @@ evaluateTimings.compute.config.string <- function (
         config.string <- "include.intercept";
     }
     if( length( helpful.additional.cols ) > 0 ) {
-        config.string <- paste( config.string, "_covs.", paste( helpful.additional.cols, collapse = "." ), sep = "" );
+        config.string <- paste( config.string, paste( "covs.", paste( helpful.additional.cols, collapse = "." ), sep = "" ), sep = "_" );
     }
     if( length( helpful.additional.cols.with.interactions ) > 0 ) {
-        config.string <- paste( config.string, "_interactingCovs.", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" );
+        config.string <- paste( config.string, paste( "interactingCovs.", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" ), sep = "_" );
     }
     if( !include.all.vars.in.lasso ) {
         config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
@@ -2018,5 +2018,5 @@ evaluateTimings <- function (
 } # evaluateTimings (..)
 
 ## Here is where the action is.
-evaluateTimings();
+#evaluateTimings();
 
