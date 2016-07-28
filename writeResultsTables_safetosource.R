@@ -20,8 +20,11 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
     # Make a table out of it. (one per study).  See below for making tables from results.across.regions.by.time.
     results.table.by.region.and.time.and.bounds.type <-
         lapply( regions, function( the.region ) {
+            #print( the.region );
             .rv <- 
                 lapply( names( results.by.region.and.time[[ the.region ]] ), function( the.time ) {
+                                #print( the.time );
+
                   # Results are bounded for the timings but not the is.single results.
                   if( results.are.bounded ) {
                     # the "bounds" here actually also may include "glm.fit.statistics", which is not really a bound.
@@ -37,8 +40,14 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                 if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
                                                 }
+                                                if( "step.coefs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "step.coefs" ];
+                                                }
                                                 if( "glm.formulas" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "glm.formulas" ];
+                                                }
+                                                if( "step.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "step.formulas" ];
                                                 }
                                                 if( "lasso.formulas" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.formulas" ];
@@ -62,11 +71,14 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
     
     ## Write these out.
     .result.ignored <- sapply( regions, function ( the.region ) {
+            #print( the.region );
         ..result.ignored <- 
         sapply( names( results.by.region.and.time[[ the.region ]] ), function ( the.time ) {
+            #print( the.time );
           .bounds.types <- names( results.table.by.region.and.time.and.bounds.type[[ the.region ]][[ the.time ]] );
           ...result.ignored <- 
               sapply( .bounds.types, function ( the.bounds.type ) {
+                  #print( the.bounds.type );
                   out.dir <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", sep = "" );
                   dir.create( out.dir, recursive = TRUE, showWarnings = FALSE );
               out.file <- paste( out.dir, the.bounds.type, out.tab.file.suffix, sep = "" );
@@ -106,11 +118,17 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                                                   stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
                                                 }
+                                                if( "step.coefs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "step.coefs" ];
+                                                }
                                                 if( "lasso.coefs" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.coefs" ];
                                                 }
                                                 if( "glm.formulas" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "glm.formulas" ];
+                                                }
+                                                if( "step.formulas" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "step.formulas" ];
                                                 }
                                                 if( "lasso.formulas" %in% names( results.for.bounds.type ) ) {
                                                   results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "lasso.formulas" ];
