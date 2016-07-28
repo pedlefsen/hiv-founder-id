@@ -25,8 +25,9 @@ evaluateTimings.compute.config.string <- function (
   include.intercept = FALSE,
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = c( "lPVL" ),
-  helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" )
-    ) {
+  helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
+  use.gold.is.multiple = FALSE
+) {
     config.string <- "";
     if( include.intercept ) {
         config.string <- "include.intercept";
@@ -53,7 +54,14 @@ evaluateTimings.compute.config.string <- function (
         if( config.string == "" ) {
             config.string <- "lassoFromNonlasso";
         } else {
-            config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
+            config.string <- paste( config.string, "lassoFromNonlasso", sep = "_" );
+        }
+    }
+    if( use.gold.is.multiple ) {
+        if( config.string == "" ) {
+            config.string <- "";
+        } else {
+            config.string <- paste( config.string, "with.gold.is.multiple", sep = "_" );
         }
     }
     return( config.string );
@@ -98,6 +106,7 @@ evaluateTimings.compute.config.string <- function (
 #' @param use.glm.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor, maybe with helpful.additional.cols or with the bounds.
 #' @param use.step.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a step-selected subset of other predictors, maybe with the bounds.
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
+#' @param use.gold.is.multiple include gold.is.multiple and interactions between gold.is.multiple and helpful.additional.cols (but not with helpful.additional.cols.with.interactions).
 #' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
 #' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
 #' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
@@ -116,6 +125,7 @@ evaluateTimings <- function (
   use.glm.validate = TRUE,
   use.step.validate = TRUE,
   use.lasso.validate = TRUE,
+  use.gold.is.multiple = FALSE,
   include.intercept = FALSE,
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = c( "lPVL" ),
@@ -135,7 +145,8 @@ evaluateTimings <- function (
         include.intercept = include.intercept,
         include.all.vars.in.lasso = include.all.vars.in.lasso,
         helpful.additional.cols = helpful.additional.cols,
-        helpful.additional.cols.with.interactions = helpful.additional.cols.with.interactions
+        helpful.additional.cols.with.interactions = helpful.additional.cols.with.interactions,
+        use.gold.is.multiple = use.gold.is.multiple
     );
     
     results.by.region.and.time.Rda.filename <-
@@ -162,15 +173,15 @@ evaluateTimings <- function (
     caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
     names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
-    ## TODO: REMOVE. Experimenting to evaluate the value of knowing whether there are multiple founders.
-    # rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/rv217/RV217_gold_standards.csv", sep = "" ) );
-    # rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
-    # names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
-    # 
-    # caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
-    # caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
-    # names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
-
+    if( use.gold.is.multiple ) {
+      rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/rv217/RV217_gold_standards.csv", sep = "" ) );
+      rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
+      names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
+      
+      caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
+      caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
+      names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
+    }
     rv217.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv" );
     caprisa002.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv" );
     
@@ -415,14 +426,6 @@ evaluateTimings <- function (
          days.est.cols <- grep( "\\.mtn|\\.hvtn", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        }
 
-### TODO: PUT THAT BACK.  TESTING.
-       # Do not allow use of information about the time of sampling unless include.intercept is TRUE
-#        if( !include.intercept && ( "6m.not.1m" %in% colnames( results.covars.per.person.with.extra.cols ) ) ) {
-#          .forbidden.column.i <- which( "6m.not.1m" == colnames( results.covars.per.person.with.extra.cols ) );
-#          results.covars.per.person.with.extra.cols <-
-#            results.covars.per.person.with.extra.cols[ , -.forbidden.column.i, drop = FALSE ];
-#        }
-       
       if( use.glm.validate || use.step.validate || use.lasso.validate ) {
         results.covars.per.person.with.extra.cols <-
             cbind( results.per.person[ , days.est.cols, drop = FALSE ], results.covars.per.person.with.extra.cols );
@@ -446,10 +449,6 @@ evaluateTimings <- function (
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
 
-        ## Try removing some variables that are rarely selected or are too correlated (eg diversity is highly correlated with sd.entropy, max.hd, insites.is.one.founder, insites.founders) [SEE BELOW WHERE WE ADD TO THIS PROGRAMMATICALLY]
-        #.donotkeep.cols <- c( "multifounder.Synonymous.PFitter.is.poisson", "Synonymous.PFitter.is.poisson", "multifounder.PFitter.is.poisson", "PFitter.is.poisson", "multifounder.Synonymous.PFitter.is.starlike", "Synonymous.PFitter.is.starlike", "multifounder.PFitter.is.starlike", "PFitter.is.starlike", "inf.sites", "mean.entropy", "PFitter.mean.hd", "inf.to.priv.ratio", "StarPhy.founders", "multifounder.DS.Starphy.R", "PFitter.chi.sq.stat", "Synonymous.DS.StarPhy.R", "StarPhy.is.one.founder", "multifounder.DS.Starphy.fits", "multifounder.Synonymous.DS.StarPhy.fits", "Synonymous.DS.StarPhy.fits", "DS.Starphy.fits", "DS.Starphy.is.starlike", "sd.entropy", "PFitter.max.hd", "InSites.is.one.founder", "InSites.founders" );
-        ## TODO: REMOVE . TESTING
-        #.donotkeep.cols <- c( .donotkeep.cols, "gold.is.multiple" );
         .donotkeep.cols <- c( grep( "DS\\.Star[pP]y\\.(fits|founders|is.starlike)", .keep.cols, value = TRUE ) );
         .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "multifounder.DS.Starphy.fits" );
         .keep.cols <- setdiff( .keep.cols, .donotkeep.cols );
@@ -479,6 +478,9 @@ evaluateTimings <- function (
         } else {
           keep.cols <- unique( c( helpful.additional.cols, helpful.additional.cols.with.interactions, estimate.cols ) );
         }
+        if( use.gold.is.multiple ) {
+            keep.cols <- c( "gold.is.multiple", keep.cols );
+        }
         
         # Don't evaluate estimators that have no variation at
         # all. Note that technically we could/should do this after holding
@@ -505,14 +507,6 @@ evaluateTimings <- function (
         ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
         #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
 
-        ## TODO: REMOVE. TESTING inclusion of interactions with gold.is.multiple.
-        # ..df <- sapply( 1:nrow( results.covars.per.person.df ), function( .ppt.i ) { ( results.covars.per.person.df[ .ppt.i, "gold.is.multiple" ] * results.covars.per.person.df[ .ppt.i, setdiff( all.additional.cols, "gold.is.multiple" ) ] ) } );
-        # gold.is.multiple.interactions.df <- t( ..df );
-        # colnames( gold.is.multiple.interactions.df ) <- paste( "gold.is.multiple", colnames( gold.is.multiple.interactions.df ), sep = ".." );
-        # results.covars.per.person.df <- cbind( results.covars.per.person.df, gold.is.multiple.interactions.df );
-        # keep.cols <- c( keep.cols, colnames( gold.is.multiple.interactions.df ) );
-        # all.additional.cols <- c( all.additional.cols, colnames( gold.is.multiple.interactions.df ) );
-        
         regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
         ## Ok build a regression model, including only the helpful.additional.cols and helpful.additional.cols.with.interactions (and interactions among them), and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
@@ -668,6 +662,10 @@ evaluateTimings <- function (
                   # covariates for glm.withbounds
                   .covariates.glm.withbounds <-
                     c( helpful.additional.cols, helpful.additional.cols.with.interactions, .upper.bound.colname );
+                  if( use.gold.is.multiple ) {
+                      .covariates.glm <- c( "gold.is.multiple", .covariates.glm );
+                      .covariates.glm.withbounds <- c( "gold.is.multiple", .covariates.glm.withbounds );
+                  }
 
                   .covars.to.exclude <- apply( regression.df.without.ptid.i, 2, function ( .col ) {
                       return( ( sum( !is.na( .col ) ) <= 1 ) || ( var( as.numeric( .col ), na.rm = TRUE ) == 0 ) );
@@ -692,6 +690,9 @@ evaluateTimings <- function (
                          } # End foreach .interactor.i
                          .interactors <- c( .interactors, .interactions.among.interactors );
                      } # End if there's more than one "interactor"
+                     if( use.gold.is.multiple ) {
+                         .interactors <- c( "gold.is.multiple", .interactors );
+                     }
                      
                      if( .estimate.colname == "none" ) {
                         .cv.glm <- intersect( .retained.covars, .covariates.glm );
@@ -1084,6 +1085,10 @@ evaluateTimings <- function (
                             } # End foreach .interactor.i
                             .interactors <- c( .interactors, .interactions.among.interactors );
                         } # End if there's more than one "interactor"
+                        if( use.gold.is.multiple ) {
+                            .interactors <- c( "gold.is.multiple", .interactors );
+                        }
+                     
                         .interactees <-
                             setdiff( .retained.covars, .interactors );
                         if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
@@ -1411,6 +1416,10 @@ evaluateTimings <- function (
                           } # End foreach .interactor.i
                           .interactors <- c( .interactors, .interactions.among.interactors );
                       } # End if there's more than one "interactor"
+                      if( use.gold.is.multiple ) {
+                          .interactors <- c( "gold.is.multiple", .interactors );
+                      }
+                     
                       .interactees <-
                           setdiff( .retained.covars, .interactors );
                       if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
@@ -1815,17 +1824,18 @@ evaluateTimings <- function (
         results.covars.per.person.with.extra.cols <-
           summarizeCovariatesOnePerParticipant( results.with.lPVL );
 
-        # #### TODO: REMOVE. TESTING VALUE OF KNOWING IS.MULTIPLE
-        # if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
-        #     gold.is.multiple <- rv217.gold.is.multiple[ rownames( results.covars.per.person.with.extra.cols ) ];
-        # } else {
-        #     stopifnot( the.region == "v3" );
-        #     gold.is.multiple <- caprisa002.gold.is.multiple[ rownames( results.covars.per.person.with.extra.cols ) ];
-        # }
-        # ## Add gold.is.multiple
-        # results.covars.per.person.with.extra.cols <- cbind( results.covars.per.person.with.extra.cols, gold.is.multiple );
-        # colnames( results.covars.per.person.with.extra.cols )[ ncol( results.covars.per.person.with.extra.cols ) ] <-
-        #   "gold.is.multiple";
+        if( use.gold.is.multiple ) {
+          if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
+              gold.is.multiple <- rv217.gold.is.multiple[ rownames( results.covars.per.person.with.extra.cols ) ];
+          } else {
+              stopifnot( the.region == "v3" );
+              gold.is.multiple <- caprisa002.gold.is.multiple[ rownames( results.covars.per.person.with.extra.cols ) ];
+          }
+          ## Add gold.is.multiple
+          results.covars.per.person.with.extra.cols <- cbind( results.covars.per.person.with.extra.cols, gold.is.multiple );
+          colnames( results.covars.per.person.with.extra.cols )[ ncol( results.covars.per.person.with.extra.cols ) ] <-
+            "gold.is.multiple";
+        } # End if use.gold.is.multiple
         
         days.colnames <- c( grep( "time", colnames( results.in ), value = T ), grep( "days", colnames( results.in ), value = T ) );
         
