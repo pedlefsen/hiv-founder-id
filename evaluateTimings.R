@@ -32,13 +32,29 @@ evaluateTimings.compute.config.string <- function (
         config.string <- "include.intercept";
     }
     if( length( helpful.additional.cols ) > 0 ) {
-        config.string <- paste( config.string, paste( "covs.", paste( helpful.additional.cols, collapse = "." ), sep = "" ), sep = "_" );
+        .new.config.string.part <-
+            paste( "covs.", paste( helpful.additional.cols, collapse = "." ), sep = "" );
+        if( config.string == "" ) {
+            config.string <- .new.config.string.part;
+        } else {
+            config.string <- paste( config.string, .new.config.string.part, sep = "_" );
+        }
     }
     if( length( helpful.additional.cols.with.interactions ) > 0 ) {
-        config.string <- paste( config.string, paste( "interactingCovs.", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" ), sep = "_" );
+        .new.config.string.part <-
+            paste( "interactingCovs.", paste( helpful.additional.cols.with.interactions, collapse = "." ), sep = "" );
+        if( config.string == "" ) {
+            config.string <- .new.config.string.part;
+        } else {
+            config.string <- paste( config.string, .new.config.string.part, sep = "_" );
+        }
     }
     if( !include.all.vars.in.lasso ) {
-        config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
+        if( config.string == "" ) {
+            config.string <- "lassoFromNonlasso";
+        } else {
+            config.string <- paste( config.sring, "lassoFromNonlasso", sep = "_" );
+        }
     }
     return( config.string );
 } # evaluateTimings.compute.config.string (..)
@@ -128,7 +144,7 @@ evaluateTimings <- function (
     if( config.string == "" ) {
         evaluateTimings.tab.file.suffix <- "_evaluateTimings.tab";
     } else {
-        evaluateTimings.tab.file.suffix <- paste( "_evaluateTimings.", config.string, ".tab", sep = "" );
+        evaluateTimings.tab.file.suffix <- paste( "_evaluateTimings_", config.string, ".tab", sep = "" );
     }
     
     MINIMUM.DF <- 2; # how much more should nrow( .lasso.mat ) be than ncol( .lasso.mat ) at minimum?
