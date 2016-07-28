@@ -227,6 +227,28 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     return( repeatedRowsToColumns( results.filtered ) );
 } # getFilteredLassoUsageTables (..)
 
+        get.formulas <- function ( results.by.region.and.time, .varname = "none", model.type = "glm", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( withbounds ) {
+                .withbounds.string <- paste( model.type, "withbounds", sep = "." );
+            } else {
+                .withbounds.string <- model.type;
+            }
+            if( length( regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ regions ]];
+            }
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
+            } else {
+                the.time <- times;
+            }
+            .results.by.removed.ptid <-
+                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ paste( model.type, "formulas", sep = "." ) ]][[ .withbounds.string ]];
+            .formulas <- .results.by.removed.ptid[ , .varname, drop = FALSE ];
+            table( .formulas );
+        } # get.formulas (..)
+
         get.uses <- function ( results.by.region.and.time, .varname = "none", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
             if( withbounds ) {
                 .withbounds.string <- "lasso.withbounds";
@@ -370,6 +392,15 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
         evaluate.specific.timings.model <-
           function ( results.by.region.and.time, model.vars, .include.intercept = FALSE, step = FALSE, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
 
+            if( include.intercept ) {
+                .formula <- as.formula( paste( "days.since.infection ~ ", paste( model.vars, collapse = "+" ) ) );
+            } else {
+                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
+            }
+            evaluate.specific.timings.model.formula( results.by.region.and.time, .formula, step = step, train.regions = train.regions, train.times = train.times );
+        } # evaluate.specific.timings.model (..)
+        evaluate.specific.timings.model.formula <-
+          function ( results.by.region.and.time, .formula, step = FALSE, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
             if( length( train.times ) == 2 ) {
                 train.time <- "1m.6m";
             } else {
@@ -387,11 +418,6 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
 
             regression.df <- cbind( data.frame( days.since.infection = .results.for.region[[ train.time ]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), .results.for.region[[ train.time ]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, .results.for.region[[ train.time ]][["bounds" ]] );
 
-            if( include.intercept ) {
-                .formula <- as.formula( paste( "days.since.infection ~ ", paste( model.vars, collapse = "+" ) ) );
-            } else {
-                .formula <- as.formula( paste( "days.since.infection ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
-            }
             .lm <-
                 suppressWarnings( lm( .formula, data = regression.df ) );
             if( step ) {
@@ -399,7 +425,9 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
                 return( summary( .step.rv ) );            
             }
             return( summary( .lm ) );
-        } # evaluate.specific.timings.model
+        } # evaluate.specific.timings.model.formula (..)
+## evaluate.specific.timings.model.formula( results.by.region.and.time,  names( which.max( get.formulas( results.by.region.and.time, .varname = "PFitter.mut.rate.coef" ) ) ) )
+
 #        evaluate.specific.timings.model( model.vars = c( "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ), step = TRUE );
   #evaluate.specific.timings.model( model.vars = c( "X6m.not.1m", "lPVL", "v3_not_nflg:lPVL","X6m.not.1m:v3_not_nflg:lPVL"  ), step = TRUE );
   # Start:  AIC=555.72

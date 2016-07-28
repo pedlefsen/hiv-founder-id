@@ -917,7 +917,7 @@ evaluateTimings <- function (
                           } );
                       }
                       if( return.formulas ) {
-                          step.formulas.per.person[ .ptid.i, .col.i ] <- 
+                          step.withbounds.formulas.per.person[ .ptid.i, .col.i ] <- 
                               as.character( ( ( .step.withbounds.result )$call )[ 2 ] );
                       }
                       
