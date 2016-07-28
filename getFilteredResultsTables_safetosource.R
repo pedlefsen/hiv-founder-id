@@ -1,4 +1,4 @@
-repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso).*.validation.results." ) {
+repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso|step).*.validation.results." ) {
     rownames.sans.patterns <- gsub( paste( "^(.*?)", pattern, "(.*)$", sep = "" ), "\\1\\2", rownames( the.matrix ) )
     pattern.matches.by.row <- gsub( paste( "^.*?(", pattern, ").*$", sep = "" ), "\\1", rownames( the.matrix ) );
     pattern.matches.by.row[ rownames.sans.patterns == pattern.matches.by.row ] <- "";
