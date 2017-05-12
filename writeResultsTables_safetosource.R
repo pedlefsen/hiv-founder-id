@@ -1,4 +1,4 @@
-writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE ) {
+writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE, results.dirname = "raw_edited_20160216" ) {
     ## Note that there are now special entries in results.by.region.and.time that are not regions (under "results.across.regions.by.time") -- these are comparisons across the two (main) regions.
 
   if( results.are.bounded ) {

@@ -1994,7 +1994,7 @@ evaluateTimings <- function (
         results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
 
-        writeResultsTables( results.by.region.and.time, evaluateTimings.tab.file.suffix, regions = regions, results.are.bounded = TRUE );
+        writeResultsTables( results.by.region.and.time, evaluateTimings.tab.file.suffix, regions = regions, results.are.bounded = TRUE, results.dirname = results.dirname );
     }
 
     ## TODO
