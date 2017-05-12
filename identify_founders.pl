@@ -669,6 +669,8 @@ sub identify_founders {
       $final_input_fasta_file_short_names_by_original_short_name_stripped{ $original_short_name_nosuffix_stripped } = [ $fasta_file_short_nosuffix ];
     }
 
+#### NOTE: running insites on multi-timepoint input files is ok but might need more thought.  For purposes of evaluating founder multiplicity, looking at just the first time point makes a lot of sense.
+
     my $morgane_calls_one_cluster = 1;
     my $diversity_threshold_exceeded = 0;
     my $in_sites_ratio_threshold_exceeded = 0;
