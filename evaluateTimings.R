@@ -121,15 +121,15 @@ evaluateTimings.compute.config.string <- function (
 evaluateTimings <- function (
   use.bounds = TRUE,
   use.infer = TRUE,
-  use.anchre = TRUE,
+  use.anchre = FALSE,
   use.glm.validate = TRUE,
-  use.step.validate = TRUE,
-  use.lasso.validate = TRUE,
+  use.step.validate = FALSE,
+  use.lasso.validate = FALSE,
   use.gold.is.multiple = FALSE,
   include.intercept = FALSE,
   include.all.vars.in.lasso = TRUE,
-  helpful.additional.cols = c( "lPVL" ),
-  helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
+  helpful.additional.cols = c(), #c( "lPVL" ),
+  helpful.additional.cols.with.interactions = c(), #c( "v3_not_nflg", "X6m.not.1m" ),
   results.dirname = "raw_edited_20160216",
   force.recomputation = FALSE,
   partition.bootstrap.seed = 98103,
@@ -783,10 +783,21 @@ evaluateTimings <- function (
                      
                      ## Also add interactions with the estimate colname and everything included so far.
                      if( .estimate.colname != "none" ) {
+                             .everything.included.so.far.in.formula <- 
+                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+
+                             # Add interactions with the bound.
+                             .new.interactions.with.estimator.in.formula <-
+                                 sapply( setdiff( .everything.included.so.far.in.formula[ -1 ], .estimate.colname ), function ( .existing.part ) {
+                                     paste( .existing.part, .estimate.colname, sep = ":" )
+                                 } );
+
+                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
+                             
                              .everything.included.so.far.in.formula.withbounds <- 
                                  strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
 
-                             # Add interactions.
+                             # Add interactions with the bound.
                              .new.interactions.with.estimator.in.formula.withbounds <-
                                  sapply( setdiff( .everything.included.so.far.in.formula.withbounds[ -1 ], .estimate.colname ), function ( .existing.part ) {
                                      paste( .existing.part, .estimate.colname, sep = ":" )

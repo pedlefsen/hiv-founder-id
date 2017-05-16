@@ -227,7 +227,7 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     return( repeatedRowsToColumns( results.filtered ) );
 } # getFilteredLassoUsageTables (..)
 
-        get.formulas <- function ( results.by.region.and.time, .varname = "none", model.type = "glm", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+        get.formulas <- function ( results.by.region.and.time, .varname = "none", model.type = "glm", withbounds = TRUE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ), the.bounds.type = "unbounded" ) {
             if( withbounds ) {
                 .withbounds.string <- paste( model.type, "withbounds", sep = "." );
             } else {
@@ -244,7 +244,7 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
                 the.time <- times;
             }
             .results.by.removed.ptid <-
-                .results.for.region[[ the.time ]][[ "evaluated.results" ]][["unbounded"]][[ paste( model.type, "formulas", sep = "." ) ]][[ .withbounds.string ]];
+                .results.for.region[[ the.time ]][[ "evaluated.results" ]][[the.bounds.type]][[ paste( model.type, "formulas", sep = "." ) ]][[ .withbounds.string ]];
             .formulas <- .results.by.removed.ptid[ , .varname, drop = FALSE ];
             table( .formulas );
         } # get.formulas (..)
@@ -400,31 +400,31 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
             evaluate.specific.timings.model.formula( results.by.region.and.time, .formula, step = step, train.regions = train.regions, train.times = train.times );
         } # evaluate.specific.timings.model (..)
         evaluate.specific.timings.model.formula <-
-          function ( results.by.region.and.time, .formula, step = FALSE, train.regions = c( "nflg", "v3" ), train.times = c( "1m", "6m" ) ) {
-            if( length( train.times ) == 2 ) {
-                train.time <- "1m.6m";
+          function ( results.by.region.and.time, .formula, step = FALSE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
             } else {
-                train.time <- train.times;
+                the.time <- times;
             }
-            if( length( train.regions ) == 2 ) {
+            if( length( regions ) == 2 ) {
                 .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
             } else {
-                .results.for.region <- results.by.region.and.time[[ train.regions ]];
+                .results.for.region <- results.by.region.and.time[[ regions ]];
             }
             results.covars.per.person.df <-
-                data.frame( .results.for.region[[ train.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
+                data.frame( .results.for.region[[ the.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
             ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
             #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
 
-            regression.df <- cbind( data.frame( days.since.infection = .results.for.region[[ train.time ]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), .results.for.region[[ train.time ]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, .results.for.region[[ train.time ]][["bounds" ]] );
+            regression.df <- cbind( data.frame( days.since.infection = .results.for.region[[ the.time ]][["days.since.infection" ]][ rownames( results.covars.per.person.df ) ] ), .results.for.region[[ the.time ]][["results.per.person"]][ rownames( results.covars.per.person.df ), , drop = FALSE ], results.covars.per.person.df, .results.for.region[[ the.time ]][[ "bounds" ]] );
 
             .lm <-
                 suppressWarnings( lm( .formula, data = regression.df ) );
             if( step ) {
                 .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
-                return( summary( .step.rv ) );            
+                return( .step.rv );            
             }
-            return( summary( .lm ) );
+            return( .lm );
         } # evaluate.specific.timings.model.formula (..)
 ## evaluate.specific.timings.model.formula( results.by.region.and.time,  names( which.max( get.formulas( results.by.region.and.time, .varname = "PFitter.mut.rate.coef" ) ) ) )
 
