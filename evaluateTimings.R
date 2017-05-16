@@ -390,7 +390,7 @@ evaluateTimings <- function (
     } # compute.diffs.by.stat ( results.per.person, days.since.infection )
 
     bound.and.evaluate.results.per.ppt <-
-        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.step.coefs = TRUE, return.lasso.coefs = TRUE, return.formulas = TRUE ) {
+        function ( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds = NA, ppt.suffix.pattern = "\\..+", return.step.coefs = TRUE, return.lasso.coefs = TRUE, return.formulas = TRUE, return.results.per.person = TRUE ) {
 
        ## Special: the ppt names might have suffices in results.per.person; if so, strip off the suffix for purposes of matching ppts to the covars, etc.
        ppt.names <- rownames( results.per.person );
@@ -1663,9 +1663,16 @@ evaluateTimings <- function (
       diffs.by.stat.zeroNAs <- compute.diffs.by.stat( results.per.person.zeroNAs, days.since.infection );
       diffs.by.stat <- compute.diffs.by.stat( results.per.person, days.since.infection );
 
-      get.results.list.for.bounds.type <- function ( diffs.by.stat, diffs.by.stat.zeroNAs, bounds.type ) {
+      # Note this accesses *.formulas.per.person and days.since.infection from enclosing environment.
+      get.results.list.for.bounds.type <- function ( results.per.person, results.per.person.zeroNAs, bounds.type ) {
+          diffs.by.stat <- compute.diffs.by.stat( results.per.person, days.since.infection );
+          diffs.by.stat.zeroNAs <- compute.diffs.by.stat( results.per.person.zeroNAs, days.since.infection );
+
           .results <- 
               list( bias = lapply( diffs.by.stat, mean, na.rm = T ), se = lapply( diffs.by.stat, sd, na.rm = T ), rmse = lapply( diffs.by.stat, rmse, na.rm = T ), n = lapply( diffs.by.stat, function( .vec ) { sum( !is.na( .vec ) ) } ), bias.zeroNAs = lapply( diffs.by.stat.zeroNAs, mean, na.rm = T ), se.zeroNAs = lapply( diffs.by.stat.zeroNAs, sd, na.rm = T ), rmse.zeroNAs = lapply( diffs.by.stat.zeroNAs, rmse, na.rm = T ), n.zeroNAs = lapply( diffs.by.stat.zeroNAs, function( .vec ) { sum( !is.na( .vec ) ) } ) );
+          if( return.results.per.person ) {
+              .results <- c( .results, list( results.per.person = results.per.person, results.per.person.zeroNAs = results.per.person.zeroNAs ) );
+          }
           if( return.formulas ) {
               if( use.glm.validate ) {
                   .results <- c( .results, list( glm.formulas = list( glm = glm.formulas.per.person, glm.withbounds = glm.withbounds.formulas.per.person ) ) );
@@ -1706,8 +1713,8 @@ evaluateTimings <- function (
        } # End if there are suffices, also include results by suffix.
 
         return( results.list );
-      } # get.results.list.for.bounds.type ( diffs.by.stat, diffs.by.stat.zeroNAs );
-      results.list <- get.results.list.for.bounds.type( diffs.by.stat, diffs.by.stat.zeroNAs, "unbounded" );
+      } # get.results.list.for.bounds.type ( results.per.person, results.per.person.zeroNAs, bounds.type );
+      results.list <- get.results.list.for.bounds.type( results.per.person, results.per.person.zeroNAs, "unbounded" );
        
        #if( use.glm.validate ) {
        #  results.list <- c( results.list, list( glm.fit.statistics = glm.fit.statistics ) );
@@ -1768,7 +1775,6 @@ evaluateTimings <- function (
     
         bounded.results.by.bounds.type <- lapply( .artificial.bounds.to.use, function ( .bounds.type ) {
             .results.per.person <- results.per.person.bounded[[ .bounds.type ]];
-            .diffs.by.stat <- compute.diffs.by.stat( .results.per.person, days.since.infection );
             .results.per.person.zeroNAs <-
                 apply( .results.per.person, 1:2, function( .value ) {
                     if( is.na( .value ) ) {
@@ -1778,9 +1784,8 @@ evaluateTimings <- function (
                     }
                 } );
 
-            .diffs.by.stat.zeroNAs <- compute.diffs.by.stat( .results.per.person.zeroNAs, days.since.infection );
             .results.list <-
-                get.results.list.for.bounds.type( .diffs.by.stat, .diffs.by.stat.zeroNAs, .bounds.type );
+                get.results.list.for.bounds.type( .results.per.person, .results.per.person.zeroNAs, .bounds.type );
 
           return( .results.list );
         } );
