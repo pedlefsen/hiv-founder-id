@@ -658,7 +658,7 @@ evaluateTimings <- function (
                     next;
                 }
                 ## TODO: REMOVE
-                print( .estimate.colname );
+                #print( .estimate.colname );
                 if( use.glm.validate || use.step.validate || ( use.lasso.validate && !include.all.vars.in.lasso ) ) {
                   # covariates for glm
                   .covariates.glm <-
