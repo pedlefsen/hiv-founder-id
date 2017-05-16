@@ -141,6 +141,10 @@ evaluateTimings <- function (
   #times = c( "1m", "6m", "1m6m" )
 )
 {
+    ## For debugging: start from .results.for.region in evaluate.specific.timings.model.formula from  ~/src/from-git/hiv-founder-id/getFilteredResultsTables_safetosource.R
+#     results.per.person = .results.for.region[[ the.time ]][["results.per.person" ]]; days.since.infection = .results.for.region[[ the.time ]][["days.since.infection" ]]; results.covars.per.person.with.extra.cols = .results.for.region[[ the.time ]][["results.covars.per.person.with.extra.cols" ]]; the.artificial.bounds = .results.for.region[[ the.time ]][["bounds" ]]
+#     use.bounds = TRUE;  use.infer = TRUE; use.anchre = FALSE; use.glm.validate = TRUE; use.step.validate = FALSE; use.lasso.validate = FALSE; results.dirname = "raw_edited_20160216"; force.recomputation = FALSE; partition.bootstrap.seed = 98103; partition.bootstrap.samples = 100; partition.bootstrap.num.cores = detectCores();
+    
     config.string <- evaluateTimings.compute.config.string(
         include.intercept = include.intercept,
         include.all.vars.in.lasso = include.all.vars.in.lasso,
@@ -701,8 +705,8 @@ evaluateTimings <- function (
                       }
                       ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
                         if( include.intercept ) {
-                            .formula <- paste( "days.since.infection ~", paste( .cv.glm, collapse = "+" ) );
-                            .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) );
+                            .formula <- paste( "days.since.infection ~ 1 + ", paste( .cv.glm, collapse = "+" ) );
+                            .formula.withbounds <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, .covariates.glm.withbounds ), collapse = "+" ) );
                         } else {
                             .cv.glm.nointercept <- intersect( .retained.covars, .covariates.glm );
                             if( length( .cv.glm.nointercept ) == 0 ) {
@@ -718,8 +722,8 @@ evaluateTimings <- function (
                     } else {
                         ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
                       if( include.intercept ) {
-                          .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) );
-                          .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) );
+                          .formula <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, c( .covariates.glm, .estimate.colname ) ), collapse = "+" ) );
+                          .formula.withbounds <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, c( .covariates.glm.withbounds, .estimate.colname ) ), collapse = "+" ) );
                       } else {
                           .covariates.glm.nointercept <- .covariates.glm;
                           .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.glm.nointercept, .estimate.colname ) ), collapse = "+" ) );
@@ -730,10 +734,9 @@ evaluateTimings <- function (
                           .formula.withbounds <- .formula.withbounds.nointercept;
                       }
                     }
-                     if( length( .interactors ) > 0 ) {
                          .interactees <-
                              setdiff( intersect( .retained.covars, .covariates.glm ), .interactors );
-                         if( length( .interactees ) > 0 ) {
+                         if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
                              ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
                              .interactions.formula.part.components <- c();
                              for( .interactor.i in 1:length( .interactors ) ) {
@@ -748,6 +751,7 @@ evaluateTimings <- function (
                              .formula <-
                                  paste( .formula, .interactions.formula.part, sep = " + " );
                          } # End if there's any "interactees"
+                     
                          ## Also add interactions with the estimate colname and everything included so far.
                          if( .estimate.colname != "none" ) {
                              .everything.included.so.far.in.formula <- 
@@ -779,21 +783,10 @@ evaluateTimings <- function (
                              .formula.withbounds <-
                                  paste( .formula.withbounds, .interactions.withbounds.formula.part, sep = " + " );
                          } # End if there's any "interactees.withbounds"
-                     } # End if there are any interactors.
+
                      
                      ## Also add interactions with the estimate colname and everything included so far.
                      if( .estimate.colname != "none" ) {
-                             .everything.included.so.far.in.formula <- 
-                                 strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
-
-                             # Add interactions with the bound.
-                             .new.interactions.with.estimator.in.formula <-
-                                 sapply( setdiff( .everything.included.so.far.in.formula[ -1 ], .estimate.colname ), function ( .existing.part ) {
-                                     paste( .existing.part, .estimate.colname, sep = ":" )
-                                 } );
-
-                             .formula <- paste( c( .everything.included.so.far.in.formula, .new.interactions.with.estimator.in.formula ), collapse = " + " );
-                             
                              .everything.included.so.far.in.formula.withbounds <- 
                                  strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
 
@@ -1057,7 +1050,7 @@ evaluateTimings <- function (
                             }
                             ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
                             if( include.intercept ) {
-                                .formula <- paste( "days.since.infection ~", paste( .cv.lasso, collapse = "+" ) );
+                                .formula <- paste( "days.since.infection ~ 1 + ", paste( .cv.lasso, collapse = "+" ) );
                             } else {
                                 .cv.lasso.nointercept <- intersect( .retained.covars, .covariates.lasso );
                                 if( length( .cv.lasso.nointercept ) == 0 ) {
@@ -1070,7 +1063,7 @@ evaluateTimings <- function (
                         } else {
                             ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
                             if( include.intercept ) {
-                                .formula <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso, .estimate.colname ) ), collapse = "+" ) );
+                                .formula <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, c( .covariates.lasso, .estimate.colname ) ), collapse = "+" ) );
                             } else {
                                 .covariates.lasso.nointercept <- .covariates.lasso;
                                 .formula.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, c( .covariates.lasso.nointercept, .estimate.colname ) ), collapse = "+" ) );
@@ -1082,7 +1075,7 @@ evaluateTimings <- function (
                         .interactors <-
                             intersect( colnames( .lasso.mat ), helpful.additional.cols.with.interactions );
 #intersect( .retained.covars, helpful.additional.cols.with.interactions );
-# Add interactions among the interactors.
+                        # Add interactions among the interactors.
                         if( length( .interactors ) > 1 ) {
                             ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
                             .interactions.among.interactors <- c();
@@ -1392,7 +1385,7 @@ evaluateTimings <- function (
                       if( .estimate.colname == "none" ) {
                           ## SEE NOTE BELOW ABOUT USE OF AN INTERCEPT. WHEN we're using "none", then we always do use an intercept (only for the non-bounded result).
                             if( include.intercept ) {
-                                .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, .covariates.lasso.withbounds ), collapse = "+" ) );
+                                .formula.withbounds <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, .covariates.lasso.withbounds ), collapse = "+" ) );
                             } else {
                                 .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
                                 .formula.withbounds.nointercept <- paste( "days.since.infection ~ 0 + ", paste( intersect( .retained.covars, .covariates.lasso.withbounds.nointercept ), collapse = "+" ) );
@@ -1401,7 +1394,7 @@ evaluateTimings <- function (
                         } else {
                             ## NOTE WE MUST BE CAREFUL ABOUT USING AN INTERCEPT, BECAUSE THEN WE JUST CHEAT BY PREDICTING EVERYTHING IS CENTERED AT the tight true bounds on the days.since.infection in our training data (when looking at one time at a time, and now with 6m.not.1m this should be true for both times as well.).
                           if( include.intercept ) {
-                              .formula.withbounds <- paste( "days.since.infection ~", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds, .estimate.colname ) ), collapse = "+" ) );
+                              .formula.withbounds <- paste( "days.since.infection ~ 1 + ", paste( intersect( .retained.covars, c( .covariates.lasso.withbounds, .estimate.colname ) ), collapse = "+" ) );
                           } else {
                               .covariates.lasso.withbounds.nointercept <- .covariates.lasso.withbounds;
                               .formula.withbounds.nointercept <-
@@ -1433,7 +1426,7 @@ evaluateTimings <- function (
                      
                       .interactees <-
                           setdiff( .retained.covars, .interactors );
-                      if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ) {
+                      if( ( length( .interactors ) > 0 ) && ( length( .interactees ) > 0 ) ){ 
                           ## NOTE that for now it is up to the caller to ensure that the df is not too high in this case.
                           .interactions.formula.part.components <- c();
                           for( .interactor.i in 1:length( .interactors ) ) {
