@@ -33,6 +33,12 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                       lapply( getEvaluatedResults( results.by.region.and.time, the.region, the.time, ..relevant.bounds ), function( results.for.bounds.type ) {
                         ## TODO: REMOVE
                         ## Special workaround for bug fixed 19 March 2016
+                                                if( "results.per.person" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "results.per.person" ];
+                                                }
+                                                if( "results.per.person.zeroNAs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "results.per.person.zeroNAs" ];
+                                                }
                                                 if( class( results.for.bounds.type ) == "matrix" ) {
                                                   stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
@@ -114,6 +120,12 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
                               lapply( getEvaluatedResultsAcrossRegions( results.by.region.and.time, from.region, to.region, the.time, ..relevant.bounds ), function( results.for.bounds.type ) {
                         ## TODO: REMOVE
                         ## Special workaround for bug fixed 19 March 2016
+                                                if( "results.per.person" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "results.per.person" ];
+                                                }
+                                                if( "results.per.person.zeroNAs" %in% names( results.for.bounds.type ) ) {
+                                                  results.for.bounds.type <- results.for.bounds.type[ names( results.for.bounds.type ) != "results.per.person.zeroNAs" ];
+                                                }
                                                 if( class( results.for.bounds.type ) == "matrix" ) {
                                                   stopifnot( ncol( results.for.bounds.type ) == 1 );
                                                   results.for.bounds.type <- list( AUC = results.for.bounds.type[ , 1 ] );
