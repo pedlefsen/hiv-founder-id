@@ -59,7 +59,7 @@ evaluateTimings.compute.config.string <- function (
     }
     if( use.gold.is.multiple ) {
         if( config.string == "" ) {
-            config.string <- "";
+            config.string <- "with.gold.is.multiple";
         } else {
             config.string <- paste( config.string, "with.gold.is.multiple", sep = "_" );
         }
