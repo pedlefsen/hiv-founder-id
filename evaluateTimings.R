@@ -26,11 +26,15 @@ evaluateTimings.compute.config.string <- function (
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = c( "lPVL" ),
   helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
-  use.gold.is.multiple = FALSE
+  use.gold.is.multiple = FALSE,
+  mutation.rate.calibration = FALSE
 ) {
     config.string <- "";
     if( include.intercept ) {
         config.string <- "include.intercept";
+        stopifnot( !mutation.rate.calibration );
+    } else if( mutation.rate.calibration ) {
+        config.string <- "mutation.rate.calibration";
     }
     if( length( helpful.additional.cols ) > 0 ) {
         .new.config.string.part <-
@@ -108,6 +112,7 @@ evaluateTimings.compute.config.string <- function (
 #' @param use.lasso.validate evaluate predicted values from leave-one-out cross-validation, using a model with one predictor and a lasso-selected subset of other predictors, maybe with the bounds.
 #' @param use.gold.is.multiple include gold.is.multiple and interactions between gold.is.multiple and helpful.additional.cols (but not with helpful.additional.cols.with.interactions).
 #' @param include.intercept if TRUE, include an intercept term, and for time-pooled analyses also include a term to shift the intercept for 6m.not.1m samples. Note that this analysis is affected by the low variance in the true dates in the training data, which for 1m samples has SD around 5 and for 6m samples has an SD around 10, so even the "none" results do pretty well, and it is difficult to improve the estimators beyond this.
+#' @param mutation.rate.calibration if TRUE, do not include anything that is not in interaction with (whatever the variable is), and no intercept (note this requires include.intercept == FALSE).
 #' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
 #' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
 #' @param helpful.additional.cols.with.interactions extra cols to be included in the glm both as-is and interacting with each other and with members of the helpful.additional.cols set.
@@ -127,6 +132,7 @@ evaluateTimings <- function (
   use.lasso.validate = FALSE,
   use.gold.is.multiple = FALSE,
   include.intercept = FALSE,
+  mutation.rate.calibration = FALSE,
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = c(), #c( "lPVL" ),
   helpful.additional.cols.with.interactions = c(), #c( "v3_not_nflg", "X6m.not.1m" ),
@@ -144,13 +150,18 @@ evaluateTimings <- function (
     ## For debugging: start from .results.for.region in evaluate.specific.timings.model.formula from  ~/src/from-git/hiv-founder-id/getFilteredResultsTables_safetosource.R
 #     results.per.person = .results.for.region[[ the.time ]][["results.per.person" ]]; days.since.infection = .results.for.region[[ the.time ]][["days.since.infection" ]]; results.covars.per.person.with.extra.cols = .results.for.region[[ the.time ]][["results.covars.per.person.with.extra.cols" ]]; the.artificial.bounds = .results.for.region[[ the.time ]][["bounds" ]]
 #     use.bounds = TRUE;  use.infer = TRUE; use.anchre = FALSE; use.glm.validate = TRUE; use.step.validate = FALSE; use.lasso.validate = FALSE; results.dirname = "raw_edited_20160216"; force.recomputation = FALSE; partition.bootstrap.seed = 98103; partition.bootstrap.samples = 100; partition.bootstrap.num.cores = detectCores();
+
+    if( mutation.rate.calibration ) {
+        stopifnot( !( include.intercept ) );
+    }
     
     config.string <- evaluateTimings.compute.config.string(
         include.intercept = include.intercept,
         include.all.vars.in.lasso = include.all.vars.in.lasso,
         helpful.additional.cols = helpful.additional.cols,
         helpful.additional.cols.with.interactions = helpful.additional.cols.with.interactions,
-        use.gold.is.multiple = use.gold.is.multiple
+        use.gold.is.multiple = use.gold.is.multiple,
+        mutation.rate.calibration = mutation.rate.calibration
     );
     
     results.by.region.and.time.Rda.filename <-
@@ -829,6 +840,28 @@ evaluateTimings <- function (
                          
                          .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds[ 1 ], .everything.that.should.be.in.formula.withbounds ), collapse = " + " );
                      } # End if !include.intercept
+
+                     ## If the intercept isn't included, then also don't include any combo of the pseudo-intercepts denoting the time or region.
+                     if( mutation.rate.calibration && ( .estimate.colname != "none" ) ) {
+                         
+                         .everything.included.so.far.in.formula <- 
+                             strsplit( .formula, split = "\\s*\\+\\s*" )[[1]];
+
+                                        # Remove anything not including the estimate.colname
+                         .everything.that.should.be.in.formula <-
+                             grep( .estimate.colname, .everything.included.so.far.in.formula[ -1 ], value = TRUE );
+                         
+                         .formula <- paste( c( .everything.included.so.far.in.formula[ 1 ], .everything.that.should.be.in.formula ), collapse = " + " );
+                         
+                         .everything.included.so.far.in.formula.withbounds <- 
+                             strsplit( .formula.withbounds, split = "\\s*\\+\\s*" )[[1]];
+
+                                        # Remove anything not including the estimate.colname
+                         .everything.that.should.be.in.formula.withbounds <-
+                             grep( .estimate.colname, .everything.included.so.far.in.formula.withbounds[ -1 ], value = TRUE );
+                         
+                         .formula.withbounds <- paste( c( .everything.included.so.far.in.formula.withbounds[ 1 ], .everything.that.should.be.in.formula.withbounds ), collapse = " + " );
+                     } # End if mutation.rate.calibration && ( estimate.colname != "none" )
                      
                      # To this point these are still strings:
                      #.formula <- as.formula( .formula );
@@ -864,7 +897,6 @@ evaluateTimings <- function (
                      } # End if use.glm.validate
                  } # End if the estimate can be used
                 } # End if use.glm.validate || ( use.lasso.validate && !include.all.vars.in.lasso )
-
 
                 if( use.step.validate ) {
                     ## step (not withbounds)
