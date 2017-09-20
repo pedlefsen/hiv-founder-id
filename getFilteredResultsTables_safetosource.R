@@ -426,44 +426,40 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
             }
             return( .lm );
         } # evaluate.specific.timings.model.formula (..)
-## evaluate.specific.timings.model.formula( results.by.region.and.time,  names( which.max( get.formulas( results.by.region.and.time, .varname = "PFitter.mut.rate.coef" ) ) ) )
-
-#        evaluate.specific.timings.model( model.vars = c( "COB.sampledwidth.uniform.1mmtn003.6mhvtn502.time.est", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ), step = TRUE );
-  #evaluate.specific.timings.model( model.vars = c( "X6m.not.1m", "lPVL", "v3_not_nflg:lPVL","X6m.not.1m:v3_not_nflg:lPVL"  ), step = TRUE );
-  # Start:  AIC=555.72
-  # days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
-  #     X6m.not.1m:v3_not_nflg:lPVL
-  # 
-  #                               Df Sum of Sq   RSS    AIC
-  # <none>                                     17216 555.72
-  # - X6m.not.1m:lPVL:v3_not_nflg  1    4306.3 21523 577.83
-  # 
-  # Call:
-  # lm(formula = days.since.infection ~ 0 + X6m.not.1m + lPVL + v3_not_nflg:lPVL + 
-  #     X6m.not.1m:v3_not_nflg:lPVL, data = regression.df)
-  # 
-  # Residuals:
-  #     Min      1Q  Median      3Q     Max 
-  # -33.702  -4.799   2.636  10.244  31.015 
-  # 
-  # Coefficients:
-  #                             Estimate Std. Error t value Pr(>|t|)    
-  # X6m.not.1m                  145.9451     2.8690  50.870  < 2e-16 ***
-  # lPVL                          4.0772     0.1986  20.528  < 2e-16 ***
-  # lPVL:v3_not_nflg              1.3970     0.3222   4.336 3.36e-05 ***
-  # X6m.not.1m:lPVL:v3_not_nflg  -2.3826     0.4671  -5.100 1.53e-06 ***
-  # ---
-  # Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-  # 
-  # Residual standard error: 12.87 on 104 degrees of freedom
-  # Multiple R-squared:  0.9909,	Adjusted R-squared:  0.9906 
-  # F-statistic:  2834 on 4 and 104 DF,  p-value: < 2.2e-16
-
-        ## ERE I AM.STILL WORKING ON THAT . CHECK THIS. lPVL is up early down late, not unexpected!
-# > plot( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
-# > cor( regression.df$days.since.infection[ regression.df$days.since.infection < 100 ], regression.df$lPVL[ regression.df$days.since.infection < 100 ] )
-# [1] 0.2237065
-# > plot( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
-# > cor( regression.df$days.since.infection[ regression.df$days.since.infection > 100 ], regression.df$lPVL[ regression.df$days.since.infection > 100 ] )
-# [1] -0.2758797
         
+    evaluate.specific.isMultiple.model <-
+        function ( results.by.region.and.time, model.vars, include.intercept = TRUE, step = FALSE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+        if( include.intercept ) {
+            .formula <- as.formula( paste( "is.one.founder ~ ", paste( model.vars, collapse = "+" ) ) );
+        } else {
+            .formula <- as.formula( paste( "is.one.founder ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
+        }
+        evaluate.specific.isMultiple.model.formula( results.by.region.and.time, .formula, step = step, regions = regions, times = times );
+        } # evaluate.specific.isMultiple.model (..)
+
+        evaluate.specific.isMultiple.model.formula <-
+          function ( results.by.region.and.time, .formula, step = FALSE, regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {
+            if( length( times ) == 2 ) {
+                the.time <- "1m.6m";
+            } else {
+                the.time <- times;
+            }
+            if( length( regions ) == 2 ) {
+                .results.for.region <- results.by.region.and.time[[3]][[1]][[1]];
+            } else {
+                .results.for.region <- results.by.region.and.time[[ regions ]];
+            }
+            results.covars.per.person.df <-
+                data.frame( .results.for.region[[ the.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
+            ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
+            #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
+
+        regression.df <- cbind( data.frame( is.one.founder = results.by.region.and.time[[3]][[1]][[1]][[1]][["gold.is.one.founder.per.person" ]][ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, results.by.region.and.time[[3]][[1]][[1]][[1]][["bounds" ]] );
+        .lm <-
+            suppressWarnings( glm( .formula, family = "binomial", data = regression.df ) );
+        if( step ) {
+            .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
+            return( .step.rv );            
+        }
+       return( .lm );
+        } # evaluate.specific.isMultiple.model.formula (..)

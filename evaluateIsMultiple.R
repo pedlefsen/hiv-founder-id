@@ -45,7 +45,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.glm = TRUE,
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
-                             helpful.additional.cols = c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "DS.Starphy.R", "inf.sites.clusters", "v3_not_nflg", "lPVL" ),
+                             helpful.additional.cols = c( "diversity", "priv.sites", "multifounder.Synonymous.DS.Starphy.R", "DS.Starphy.R", "inf.sites.clusters", "lPVL" ),
                              results.dirname = "raw_edited_20160216",
                              force.recomputation = FALSE,
                              partition.bootstrap.seed = 98103,
@@ -707,7 +707,7 @@ evaluateIsMultiple <- function (
         } # get.uses (..)
 
         ## Overall performance, when training everything together (but note never use of 6m.not.1m)
-        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded"]][[1]] ) )
+#        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded"]][[1]] ) )
 #                                    lasso.validation.results.PFitter.is.poisson 
 #                                                              0.9095098 
 #                         lasso.validation.results.PFitter.mut.rate.coef 
@@ -733,7 +733,7 @@ evaluateIsMultiple <- function (
 # lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                              0.9455383 
         ## 1m evaluated on v3 data from caprisa002, when training everything together (but note never use of 6m.not.1m)
-        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.v3"]][[1]] ) )
+#        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.v3"]][[1]] ) )
 #              glm.validation.results.multifounder.PFitter.mut.rate.coef 
 #                                                              0.9333333 
 #                           glm.validation.results.PFitter.mut.rate.coef 
@@ -762,7 +762,7 @@ evaluateIsMultiple <- function (
 #                                                              1.0000000 
 # lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                              1.0000000 
-        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.nflg"]][[1]] ) )
+#        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.1m.nflg"]][[1]] ) )
 #   glm.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                              0.9115385 
 #                           lasso.validation.results.PFitter.is.starlike 
@@ -787,7 +787,7 @@ evaluateIsMultiple <- function (
 #                                                              0.9730769 
 # lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                              0.9730769 
-        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.v3"]][[1]] ) )
+#        sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.v3"]][[1]] ) )
 #              lasso.validation.results.Synonymous.PFitter.mut.rate.coef 
 #                                                             0.93055556 
 #            lasso.validation.results.multifounder.PFitter.mut.rate.coef 
@@ -814,13 +814,13 @@ evaluateIsMultiple <- function (
 #                                                             0.97222222 
 # lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                             0.98611111
-         sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.nflg"]][[1]] ) )        
+#         sort( unlist( results.by.region.and.time[[3]][[1]][[1]][[1]][[5]][["unbounded.6m.nflg"]][[1]] ) )        
 #                glm.validation.results.Synonymous.PFitter.mut.rate.coef 
 #                                                              0.9375000 
 # OF NOTE ALSO:
 # lasso.validation.results.multifounder.Synonymous.PFitter.mut.rate.coef 
 #                                                              0.8666667 
-        get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" )
+#        get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" )
 #                                           (Intercept) 
 #                                            57 
 # multifounder.Synonymous.PFitter.mut.rate.coef 
@@ -845,7 +845,7 @@ evaluateIsMultiple <- function (
 #                                            56 
 
 ### TODO: Describe that model, what does it do to make such good decisions, and why does it go wrong for the nflg.6m results, whereas this one does well: (note I've verified that the named coefs are the same in these two lists (above and below here):
-        get.uses( "Synonymous.PFitter.mut.rate.coef" )
+#        get.uses( "Synonymous.PFitter.mut.rate.coef" )
 #                                   (Intercept) 
 #                                            57 
 #              Synonymous.PFitter.mut.rate.coef 
@@ -868,7 +868,7 @@ evaluateIsMultiple <- function (
 #                                            56 
 #                                          lPVL 
 #                                            56 
-        setdiff( names( get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" ) ), "multifounder.Synonymous.PFitter.mut.rate.coef" )
+#        setdiff( names( get.uses( "multifounder.Synonymous.PFitter.mut.rate.coef" ) ), "multifounder.Synonymous.PFitter.mut.rate.coef" )
 #  [1] "(Intercept)"                                  
 #  [2] "diversity"                                    
 #  [3] "priv.sites"                                   
@@ -879,28 +879,7 @@ evaluateIsMultiple <- function (
 #  [8] "sampledwidth_uniform_1mmtn003_6mhvtn502.upper"
 #  [9] "v3_not_nflg"                                  
 # [10] "lPVL"
-    evaluate.specific.model <-
-        function ( model.vars, include.intercept = TRUE, step = FALSE ) {
-        results.covars.per.person.with.extra.cols <-
-            results.by.region.and.time[[3]][[1]][[1]][[1]][["results.covars.per.person.with.extra.cols"]];
-       results.covars.per.person.df <-
-           data.frame( results.covars.per.person.with.extra.cols );
-
-        regression.df <- cbind( data.frame( is.one.founder = results.by.region.and.time[[3]][[1]][[1]][[1]][["gold.is.one.founder.per.person" ]][ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, results.by.region.and.time[[3]][[1]][[1]][[1]][["bounds" ]] );
-        if( include.intercept ) {
-            .formula <- as.formula( paste( "is.one.founder ~ ", paste( model.vars, collapse = "+" ) ) );
-        } else {
-            .formula <- as.formula( paste( "is.one.founder ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
-        }
-        .lm <-
-            suppressWarnings( glm( .formula, family = "binomial", data = regression.df ) );
-        if( step ) {
-            .step.rv <- step( .lm ); # Stepwise regression, both forward and backward.
-            return( summary( .step.rv ) );            
-        }
-       return( summary( .lm ) );
-   } # evaluate.specific.model
-        evaluate.specific.model( model.vars = c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "priv.sites", "multifounder.Synonymous.DS.StarPhy.R", "DS.Starphy.R", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "inf.sites.clusters", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "v3_not_nflg", "lPVL" ) );
+#        evaluate.specific.isMultiple.model( model.vars = c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "priv.sites", "multifounder.Synonymous.DS.StarPhy.R", "DS.Starphy.R", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "inf.sites.clusters", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "v3_not_nflg", "lPVL" ) );
 #         Call:
 # glm(formula = .formula, family = "binomial", data = regression.df)
 # 
@@ -944,7 +923,7 @@ evaluateIsMultiple <- function (
 # AIC: 48.948
 # 
 # Number of Fisher Scoring iterations: 9
-        evaluate.specific.model( model.vars, step = TRUE )
+#        evaluate.specific.isMultiple.model( model.vars, step = TRUE )
 # Step:  AIC=44.79
 # is.one.founder ~ multifounder.Synonymous.PFitter.mut.rate.coef + 
 #     diversity + DS.Starphy.R + sampledwidth_uniform_1mmtn003_6mhvtn502.lower + 
@@ -1034,7 +1013,7 @@ evaluateIsMultiple <- function (
 # AIC: 57.513
 # 
 # Number of Fisher Scoring iterations: 7
-evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "lPVL" ) )
+#evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.lower", "lPVL" ) )
 # 
 # Call:
 # glm(formula = .formula, family = "binomial", data = regression.df)
@@ -1069,7 +1048,7 @@ evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "di
 # AIC: 52.271
 # 
 # Number of Fisher Scoring iterations: 8
-evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ) )
+#evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "diversity", "v3_not_nflg", "sampledwidth_uniform_1mmtn003_6mhvtn502.upper", "lPVL" ) )
 #### Conclusion: upper is better than lower!!
 # Call:
 # glm(formula = .formula, family = "binomial", data = regression.df)
@@ -1108,6 +1087,6 @@ evaluate.specific.model( c( "multifounder.Synonymous.PFitter.mut.rate.coef", "di
     } # END IF FALSE
     
     # Return the file name.
-    return( output.table.path );
+    return( is.multiple.results.by.region.and.time.Rda.filename );
 } # evaluateIsMultiple (... )
 
