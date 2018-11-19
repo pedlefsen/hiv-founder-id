@@ -1,0 +1,32 @@
+---
+title: Document Tracking Tests Under Active Development
+output: 
+  html_document:
+    toc: false
+    theme: cerulean
+---
+
+## Overview
+
+This document is used to develop tests for the hiv-founder-id pipeline.
+
+The basic testing procedure is:
+
+1) Use a bash chunk to call the pipeline line with a call to perl specifying all the options, including the output directory. Testing output goes in tests/tmp/test_x folders
+2) Check for the existence of the correct files and folders in tests/tmp/test_x against tests/ref_results/test_x.
+3) If any files are missing, or if there are extra files, print out the names of the offending files.
+4) Ensure that all the files are 'identical' - there might be timestamps etc that need to be ignored.
+5) If any files are not identical, print out the names of the files that are not identical.
+6) If the primery result file identify_founders.tab have mismatches, print out the column names that mismatch, as well as the values in the two files.
+
+## The tests
+
+### test_001
+
+Run identify-founders.pl with the ld_seqs.fasta file and the absolute minimum options specified.
+
+```{bash}
+perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta 
+
+```
+
