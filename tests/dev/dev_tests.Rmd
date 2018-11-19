@@ -6,6 +6,10 @@ output:
     theme: cerulean
 ---
 
+```{r setup-and-config, include = FALSE}
+pipeline_dir <- '/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id'
+```
+
 ## Overview
 
 This document is used to develop tests for the hiv-founder-id pipeline.
@@ -23,10 +27,25 @@ The basic testing procedure is:
 
 ### test_001
 
+```{r, include = FALSE}
+c_test_name <- 'test_001'
+```
+
 Run identify-founders.pl with the ld_seqs.fasta file and the absolute minimum options specified.
 
 ```{bash}
+cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
+rm -r tests/tmp/test_001
 perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta 
-
 ```
+
+#### Checking file existence
+
+```{r}
+c_result <- list()
+
+c_result[['output_dir_created']] <-
+dir.exists(paste(pipeline_dir, '/tests/tmp/', c_test_name, sep = ''))
+```
+
 
