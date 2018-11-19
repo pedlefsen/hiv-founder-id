@@ -1,0 +1,2 @@
+hd_seqs.fasta: R package hypermutR: ?hypermutR::hd_seqs
+ld_seqs.fasta: R package hypermutR: ?hypermutR::ld_seqs
