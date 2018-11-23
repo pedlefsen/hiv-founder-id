@@ -26,6 +26,8 @@ The basic testing procedure is:
 5) If any files are not identical, print out the names of the files that are not identical.
 6) If the primery result file `identify_founders.tab` have mismatches, print out the column names that mismatch, as well as the values in the two files.
 
+**It seems like the commands cannot be run with system from within R, so populate command scripts in the commands folder and then just run them manually**
+
 ## The tests
 
 ### test_001
@@ -44,6 +46,8 @@ ref_folder <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/
                     '/', c_test_name, sep = '')
 result_folder <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/tmp',
                        '/', c_test_name, sep = '')
+command_file <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/commands',
+                      '/', c_test_name, '.sh', sep = '')
 
 ref_file_names <- list.files(ref_folder)
 result_file_names <- list.files(result_folder)
@@ -53,20 +57,24 @@ Run identify-founders.pl with the `ld_seqs.fasta` file and the absolute minimum 
 
 #### Output from running the pipeline
 
-```{r, include = FALSE}
+```{r}
 command <- paste('
 cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
 rm -r tests/tmp/', c_test_name, '
 perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, ' 
 ', sep = '')
-text_output <- system(command = command, intern = TRUE)
+
+
+#write(command, command_file)
+
+
+#text_output <- system(command = paste('bash ', command_file, sep = ''), intern = TRUE)
 ```
 
 ```{r}
 cat('\n\n')
 cat(command)
 cat('\n\n')
-print(text_output)
 ```
 
 #### Check file existence
