@@ -7,6 +7,7 @@ output:
 ---
 
 ```{r setup-and-config, include = FALSE}
+library(tools)
 library(knitr)
 pipeline_dir <- '/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id'
 knitr::opts_chunk$set(eval = FALSE)
@@ -19,7 +20,7 @@ This document is used to develop tests for the hiv-founder-id pipeline.
 The basic testing procedure is:
 
 1) Use a bash chunk to call the pipeline line with a call to perl specifying all the options, including the output directory. Testing output goes in `tests/tmp/test_x` folders
-2) Check for the existence of the correct files and folders in `tests/tmp/test_x` against `tests/ref_results/test_x`.
+2) Check for the existence of the correct files and folders in `tests/tmp/test_x` against `tests/refs/test_x`.
 3) If any files are missing, or if there are extra files, print out the names of the offending files.
 4) Ensure that all the files are 'identical' - there might be timestamps etc that need to be ignored.
 5) If any files are not identical, print out the names of the files that are not identical.
@@ -38,9 +39,8 @@ ref_folder <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/
 result_folder <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/tmp',
                        '/', c_test_name, sep = '')
 
-ref_result_file_names <- list.files( ref_folder )
-result_file_names <- list.files( result_folder )
-
+ref_file_names <- list.files(ref_folder)
+result_file_names <- list.files(result_folder)
 ```
 
 Run identify-founders.pl with the `ld_seqs.fasta` file and the absolute minimum options specified.
@@ -51,34 +51,52 @@ rm -r tests/tmp/test_001
 perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta 
 ```
 
-#### Checking file existence
+#### Check file existence
 
 ```{r}
 c_result <- rbind(c_result,
   data.frame(name = 'output_folder_exists',
              result = dir.exists(paste(pipeline_dir, '/tests/tmp/', c_test_name, sep = '')),
-             obs_value = NA_character_,
-             expected_value = NA_character_,
+             obs = NA_character_,
+             expected = NA_character_,
              note = 'We expect the output folder to exists after calling the pipeline',
              stringsAsFactors = FALSE)
   )
 ```
 
 ```{r}
-for (c_file in ref_result_file_names){
+for (c_file in ref_file_names){
   c_result <- rbind(c_result,
     data.frame(name = paste(c_file, '_exists', sep = ''),
                result = c_file %in% result_file_names,
-               obs_value = NA_character_,
-               expected_value = NA_character_,
+               obs = NA_character_,
+               expected = NA_character_,
                note = 'We expect all the required files to have been created',
                stringsAsFactors = FALSE)
     )
 }
 ```
 
+#### Check files identical
 
+```{r}
+for (c_file in ref_file_names){
+  ref_md5 <- md5sum(paste(ref_folder, '/', c_file, sep = ''))
+  result_md5 <- md5sum(paste(result_folder, '/', c_file, sep = ''))
 
+  names(ref_md5) <- NULL
+  names(result_md5) <- NULL
+
+  c_result <- rbind(c_result,
+    data.frame(name = paste(c_file, '_matches_ref', sep = ''),
+               result = c_file %in% result_file_names,
+               obs = result_md5,
+               expected = ref_md5,
+               note = 'Produced files are expected to be identical to the reference files',
+               stringsAsFactors = FALSE)
+    )
+}
+```
 
 #### result
 
