@@ -58,18 +58,26 @@ Run identify-founders.pl with the `ld_seqs.fasta` file and the absolute minimum 
 #### Output from running the pipeline
 
 ```{r}
-command <- paste('
-cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
+command <- paste(' cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
 rm -r tests/tmp/', c_test_name, '
-perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, ' 
-', sep = '')
-
+perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, 
+sep = '')
 
 #write(command, command_file)
 
+file_command <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
+file_command <- paste(file_command[,1], collapse = '\n', sep = '\n')
 
 #text_output <- system(command = paste('bash ', command_file, sep = ''), intern = TRUE)
+commands_match <- command == command_file
 ```
+
+```{r, eval = !commands_match}
+for (i in 1:20){
+  cat('\n\nCOMMAND IN COMMAND FILE DOES NOT MATCH COMMAND STORED IN TEST SPEC\n\n')
+}
+```
+
 
 ```{r}
 cat('\n\n')
