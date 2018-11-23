@@ -7,7 +7,9 @@ output:
 ---
 
 ```{r setup-and-config, include = FALSE}
+library(knitr)
 pipeline_dir <- '/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id'
+knitr::opts_chunk$set(eval = FALSE)
 ```
 
 ## Overview
@@ -42,10 +44,21 @@ perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta
 #### Checking file existence
 
 ```{r}
-c_result <- list()
+c_result <- NULL
 
-c_result[['output_dir_created']] <-
-dir.exists(paste(pipeline_dir, '/tests/tmp/', c_test_name, sep = ''))
+c_result <- rbind(c_result,
+data.frame(name = 'output_folder_exists',
+           result = dir.exists(paste(pipeline_dir, '/tests/tmp/', c_test_name, sep = '')),
+           obs_value = NA_character_,
+           expected_value = NA_character_,
+           note = 'We expect the output folder to exists after calling the pipeline',
+           stringsAsFactors = FALSE))
+```
+
+#### result
+
+```{r}
+kable(c_result)
 ```
 
 
