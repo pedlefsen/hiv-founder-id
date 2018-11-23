@@ -10,7 +10,7 @@ output:
 library(tools)
 library(knitr)
 pipeline_dir <- '/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id'
-knitr::opts_chunk$set(eval = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ## Overview
@@ -32,6 +32,12 @@ The basic testing procedure is:
 
 ```{r, include = FALSE}
 c_test_name <- 'test_001'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPRFHT'
+test_description <- 'Entropy only on ld_seqs.fasta'
+```
+
+```{r, include = FALSE}
 c_result <- NULL
 
 ref_folder <- paste('/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/ref_results',
@@ -45,10 +51,22 @@ result_file_names <- list.files(result_folder)
 
 Run identify-founders.pl with the `ld_seqs.fasta` file and the absolute minimum options specified.
 
-```{bash}
+#### Output from running the pipeline
+
+```{r, include = FALSE}
+command <- paste('
 cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
-rm -r tests/tmp/test_001
-perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta 
+rm -r tests/tmp/', c_test_name, '
+perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, ' 
+', sep = '')
+text_output <- system(command = command, intern = TRUE)
+```
+
+```{r}
+cat('\n\n')
+cat(command)
+cat('\n\n')
+print(text_output)
 ```
 
 #### Check file existence
