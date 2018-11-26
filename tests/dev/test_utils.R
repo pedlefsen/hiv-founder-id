@@ -19,6 +19,12 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
   ref_file_names <- list.files(ref_folder)
   result_file_names <- list.files(result_folder)
 
+  last_run <- min(file.info(dir(result_folder, full.names = TRUE))$ctime)
+  time_since_last_run <- as.numeric(difftime(Sys.Date(), last_run, units = 'hours'), units = 'hours')
+  if (time_since_last_run > 20){
+    return('Time since last run is more than 20 hours, rerun tests')
+  }
+
   command <- paste('cd ', pipeline_dir, '
 rm -r tests/tmp/', c_test_name, '
 perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, 
