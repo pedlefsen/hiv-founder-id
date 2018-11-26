@@ -1,3 +1,17 @@
+Create test_specs file
+
+Modify dev document to reflect the fact that it is an overall testing document and not specifically a test document. - this involves renaming and moving a couple of folders
+
+Modify test document to read from the test_specs file
+
+Add a script that builds the command scripts from the test_specs file:
+
+* Must **always** eat a pipeline_dir argument
+* Call it test_pipeline.R and make a proper parseargs interface for it
+* Expand it to include the build script for the knitr document
+
+Remove all the hard coded stuff for my computer
+
 Write installation instructions:
   - git clone
   - phyml:
@@ -5,7 +19,3 @@ Write installation instructions:
     - patch
     - build
     - symlink
-
-Remove all the hard coded stuff for my computer
-
-Figure out how to get the report tables to sensible widths
