@@ -26,8 +26,8 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
   }
 
   command <- paste('cd ', pipeline_dir, '
-rm -r tests/tmp/', c_test_name, '
-perl identify_founders.pl ', command_flags, ' -o tests/tmp/', c_test_name, ' tests/data/', fasta_file, 
+rm -r ', pipeline_dir, '/tests/tmp/', c_test_name, '
+perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', c_test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
   sep = '')
 
   if (write_new_command){

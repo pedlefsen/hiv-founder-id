@@ -1,3 +1,3 @@
 cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
-rm -r tests/tmp/test_001
-perl identify_founders.pl -CPRFHT -o tests/tmp/test_001 tests/data/ld_seqs.fasta
+rm -r /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/tmp/test_001
+perl /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/identify_founders.pl -CPRFHT -o /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/tmp/test_001 /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/data/ld_seqs.fasta
