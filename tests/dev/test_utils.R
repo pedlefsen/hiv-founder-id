@@ -99,6 +99,10 @@ Command 2:
       )
   }
 
+  c_result$name <- gsub("(.{15})", "\\1 ", c_result$name)
+  c_result$obs <- gsub("(.{17})", "\\1 ", c_result$obs)
+  c_result$expected <- gsub("(.{17})", "\\1 ", c_result$expected)
+
   return(list(test_name = c_test_name,
               fasta_file = fasta_file,
               command_flags = command_flags,

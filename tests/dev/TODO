@@ -1,0 +1,11 @@
+Write installation instructions:
+  - git clone
+  - phyml:
+    - source dl
+    - patch
+    - build
+    - symlink
+
+Remove all the hard coded stuff for my computer
+
+Figure out how to get the report tables to sensible widths
