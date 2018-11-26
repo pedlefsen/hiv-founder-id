@@ -20,10 +20,19 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
   result_file_names <- list.files(result_folder)
 
   last_run <- min(file.info(dir(result_folder, full.names = TRUE))$ctime)
-  time_since_last_run <- as.numeric(difftime(Sys.Date(), last_run, units = 'hours'), units = 'hours')
+  time_since_last_run <- as.numeric(difftime(Sys.time(), last_run), units = 'hours')
   if (time_since_last_run > 20){
     return('Time since last run is more than 20 hours, rerun tests')
   }
+  c_result <- rbind(c_result,
+    data.frame(name = 'time_since_last_run',
+               result = TRUE,
+               obs = time_since_last_run,
+               expected = '< 20',
+               note = 'Tests must be run daily',
+               stringsAsFactors = FALSE)
+    )
+
 
   command <- paste('cd ', pipeline_dir, '
 rm -r ', pipeline_dir, '/tests/tmp/', c_test_name, '
