@@ -1,5 +1,5 @@
 ---
-title: Document Tracking Tests Under Active Development
+title: Testing the pipeline
 output: 
   html_document:
     toc: false
@@ -17,18 +17,25 @@ source('test_utils.R')
 
 ## Overview
 
-This document is used to develop tests for the hiv-founder-id pipeline.
+This document runs and reports on tests for the overall pipeline.
 
-The basic testing procedure is:
+Tests are specified by listing:
 
-1) Use a bash chunk to call the pipeline line with a call to perl specifying all the options, including the output directory. Testing output goes in `tests/tmp/test_x` folders
+* `c_test_name`: The name of the test -> `test_xxx` where xxx is a zero-padded integer.
+* `fasta_file`: The name of the input file. This file must exists in the `tests/data` folder
+* `command_flags`: The command flags passed to `identify-founders.pl`. Example: -CPR
+* `test_description`: A very brief description of the test. Basically just an interpretation of the command flags.
+
+These test specifications live in a csv file called `test_specs.csv` in the tests folder.
+
+There is some weird thing that prevents the pipeline from running correctly when called with a `system` call by `R`. The workaround is to write a bash script into the tests/commands folder that runs the pipeline. These scripts are produced in an automated fashion. If you run the `test_pipeline.R` script in the tests folder with the flag `--build-command-scripts` then these scripts will be produced. There is a `run_all.sh` script in the commands folder that can be used to run all the tests.
+
 2) Check for the existence of the correct files and folders in `tests/tmp/test_x` against `tests/refs/test_x`.
 3) If any files are missing, or if there are extra files, print out the names of the offending files.
 4) Ensure that all the files are 'identical' - there might be timestamps etc that need to be ignored.
 5) If any files are not identical, print out the names of the files that are not identical.
 6) If the primery result file `identify_founders.tab` have mismatches, print out the column names that mismatch, as well as the values in the two files.
 
-**It seems like the commands cannot be run with system from within R, so populate command scripts in the commands folder and then just run them manually**
 
 ## The tests
 
