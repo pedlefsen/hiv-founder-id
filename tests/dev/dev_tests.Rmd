@@ -58,6 +58,36 @@ if (class(test_result) == 'character'){
 }
 ```
 
+### test_002
+
+```{r, include = FALSE}
+c_test_name <- 'test_002'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-PRFHT'
+test_description <- 'Entropy, PhyML and Insites on ld_seqs.fasta'
+```
+
+```{r}
+test_result <-
+  conduct_test(c_test_name = c_test_name,
+               fasta_file = fasta_file,
+               command_flags = command_flags,
+               test_description = test_description,
+               pipeline_dir = pipeline_dir)
+
+if (class(test_result) == 'character'){
+  for (i in 1:20){
+    cat(paste('\n\n', test_result, '\n\n', sep = ''))
+  }
+} else {
+  kable(test_result$test_result)
+}
+```
+
+
+
+
+
 ```{r, eval = FALSE}
 
 test_result <-
