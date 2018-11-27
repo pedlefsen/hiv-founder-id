@@ -3,13 +3,27 @@
 #' Given the input parameters for a command, generate the command character vectors that will eventually get written into the command script.
 #' @export
 
-generate_command <- function(c_test_name, fasta_file, command_flags, 
+generate_command <- function(test_name, fasta_file, command_flags, 
                              test_description, pipeline_dir){
   command <- paste('cd ', pipeline_dir, '
-rm -r ', pipeline_dir, '/tests/tmp/', c_test_name, '
-perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', c_test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
+rm -r ', pipeline_dir, '/tests/tmp/', test_name, '
+perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
   sep = '')
   return(command)
+}
+
+#' Read command file
+#'
+#' Given the name of the test and the base folder, read the command script into
+#' a character vector.  
+#' @export
+
+read_command_script <- function(pipeline_dir, test_name){
+  command_file <- paste(pipeline_dir, '/tests/commands',
+                        '/', test_name, '.sh', sep = '')
+  command_from_file <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
+  command_from_file <- paste(command_from_file[,1], collapse = '\n', sep = '\n')
+  return(command_from_file)
 }
 
 #' Conducts a test on the hiv-founder-pipeline
@@ -47,7 +61,7 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
                stringsAsFactors = FALSE)
     )
 
-  command <- generate_command(c_test_name = c_test_name, 
+  command <- generate_command(test_name = c_test_name, 
                               fasta_file = fasta_file,
                               command_flags = command_flags,
                               test_description = test_description,
@@ -58,21 +72,23 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
     stop('New command written, now rerun bash scripts')
   }
 
-  file_command <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
-  file_command <- paste(file_command[,1], collapse = '\n', sep = '\n')
+#  command_from_file <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
+#  command_from_file <- paste(command_from_file[,1], collapse = '\n', sep = '\n')
+  command_from_file <- read_command_script(pipeline_dir = pipeline_dir,
+                                           test_name = c_test_name)
 
-  commands_match <- command == file_command
+  commands_match <- command == command_from_file
   if (!commands_match){
     print(command)
     print('-----')
-    print(file_command)
+    print(command_from_file)
     print('-----')
     return(paste('Commands do not match:
 Command 1:
 ', command, '
 -------------
 Command 2:
-', file_command, '
+', command_from_file, '
 ', sep = ''))
   }
 
