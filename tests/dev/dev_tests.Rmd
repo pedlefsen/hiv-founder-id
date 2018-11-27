@@ -62,9 +62,19 @@ Next, the results produced in the `tests/tmp` folder is checked:
 
 ### Two modes of testing
 
+Testing can be performed in one of two ways:
 
+* Bulk testing
+* Individual testing
+
+Bulk testing loads the test spec file and checks all the tests listed therein.
+
+Individual testing takes a single specification and runs all the checks
+associated with that specification producing detailed output for each check.
 
 ## Bulk testing
+
+TODO.
 
 ## Individual tests
 

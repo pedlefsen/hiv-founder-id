@@ -1,3 +1,17 @@
+#' Generate command
+#'
+#' Given the input parameters for a command, generate the command character vectors that will eventually get written into the command script.
+#' @export
+
+generate_command <- function(c_test_name, fasta_file, command_flags, 
+                             test_description, pipeline_dir){
+  command <- paste('cd ', pipeline_dir, '
+rm -r ', pipeline_dir, '/tests/tmp/', c_test_name, '
+perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', c_test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
+  sep = '')
+  return(command)
+}
+
 #' Conducts a test on the hiv-founder-pipeline
 #'
 #' Given a test name and specification, check that the command to run the test
@@ -33,11 +47,11 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
                stringsAsFactors = FALSE)
     )
 
-
-  command <- paste('cd ', pipeline_dir, '
-rm -r ', pipeline_dir, '/tests/tmp/', c_test_name, '
-perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', c_test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
-  sep = '')
+  command <- generate_command(c_test_name = c_test_name, 
+                              fasta_file = fasta_file,
+                              command_flags = command_flags,
+                              test_description = test_description,
+                              pipeline_dir = pipeline_dir)
 
   if (write_new_command){
     write(command, command_file)
