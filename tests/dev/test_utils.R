@@ -72,24 +72,12 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
     stop('New command written, now rerun bash scripts')
   }
 
-#  command_from_file <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
-#  command_from_file <- paste(command_from_file[,1], collapse = '\n', sep = '\n')
   command_from_file <- read_command_script(pipeline_dir = pipeline_dir,
                                            test_name = c_test_name)
 
   commands_match <- command == command_from_file
   if (!commands_match){
-    print(command)
-    print('-----')
-    print(command_from_file)
-    print('-----')
-    return(paste('Commands do not match:
-Command 1:
-', command, '
--------------
-Command 2:
-', command_from_file, '
-', sep = ''))
+    stop('Constructed command and command from command script do not match')
   }
 
   c_result <- rbind(c_result,
