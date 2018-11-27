@@ -1,3 +1,16 @@
+#' Read test specification file
+#'
+#' Reads the test specification file and optionally filters it according to the given test_name
+#' @export
+
+read_test_spec_file <- function(pipeline_dir, test_name = NULL){
+  spec_file <- read.csv(paste(pipeline_dir, '/tests/test_specs.csv', sep = ''))
+  if (!is.null(test_name)){
+    return(spec_file[spec_file$test_name == test_name, ])
+  }
+  return(spec_file)
+}
+
 #' Generate command
 #'
 #' Given the input parameters for a command, generate the command character vectors that will eventually get written into the command script.
