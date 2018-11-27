@@ -87,6 +87,31 @@ write_command_script <- function(pipeline_dir, test_name, command){
   write(command, command_file)
 }
 
+#' Generate command scripts from test_spec file
+#'
+#' Reads the test_spec file and generates a command script for each test in the commands folder
+#' @export
+
+write_all_commands_from_spec <- function(pipeline_dir){
+  test_specs <- read_test_spec_file(pipeline_dir = pipeline_dir)
+  for (indx in 1:nrow(test_specs)){
+    c_test_name <- test_specs[indx, 'test_name']
+    c_fasta_file <- test_specs[indx, 'fasta_file']
+    c_command_flags <- test_specs[indx, 'command_flags']
+    c_test_description <- test_specs[indx, 'test_description']
+
+    generated_command <- generate_command(test_name = c_test_name,
+                                          fasta_file = c_fasta_file,
+                                          command_flags = c_command_flags,
+                                          test_description = c_test_description,
+                                          pipeline_dir = pipeline_dir)
+
+    write_command_script(pipeline_dir = pipeline_dir,
+                         test_name = c_test_name,
+                         command = generated_command)
+  }
+}
+
 #' Conducts a test on the hiv-founder-pipeline
 #'
 #' Given a test name and specification, check that the command to run the test
