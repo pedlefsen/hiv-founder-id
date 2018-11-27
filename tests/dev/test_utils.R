@@ -76,6 +76,17 @@ compare_command_scripts_and_spec_file <- function(pipeline_dir){
   return(bad_command_scripts)
 }
 
+#' Write a command script
+#'
+#' Given a command (character vector of the commands, as produced by generate_command), write a bash script into the commands folder.
+#' @export
+
+write_command_script <- function(pipeline_dir, test_name, command){
+  command_file <- paste(pipeline_dir, '/tests/commands',
+                        '/', test_name, '.sh', sep = '')
+  write(command, command_file)
+}
+
 #' Conducts a test on the hiv-founder-pipeline
 #'
 #' Given a test name and specification, check that the command to run the test
@@ -118,7 +129,7 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
                               pipeline_dir = pipeline_dir)
 
   if (write_new_command){
-    write(command, command_file)
+    write_command_script(pipeline_dir, c_test_name, command)
     stop('New command written, now rerun bash scripts')
   }
 
