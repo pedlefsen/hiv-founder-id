@@ -4,7 +4,8 @@
 #' @export
 
 read_test_spec_file <- function(pipeline_dir, test_name = NULL){
-  spec_file <- read.csv(paste(pipeline_dir, '/tests/test_specs.csv', sep = ''))
+  spec_file <- read.csv(paste(pipeline_dir, '/tests/test_specs.csv', sep = ''),
+                        stringsAsFactors = FALSE)
   if (!is.null(test_name)){
     return(spec_file[spec_file$test_name == test_name, ])
   }
@@ -37,6 +38,42 @@ read_command_script <- function(pipeline_dir, test_name){
   command_from_file <- read.delim(command_file, header = F, stringsAsFactors = FALSE)
   command_from_file <- paste(command_from_file[,1], collapse = '\n', sep = '\n')
   return(command_from_file)
+}
+
+#' Compares the command scripts to the test spec file
+#'
+#' Read through the test spec file and generate the related command for each
+#' test. This is compared to the command scripts in the commands folder and any
+#' scripts that do not match the generated command are returned.
+#'
+#' @export
+
+compare_command_scripts_and_spec_file <- function(pipeline_dir){
+  test_specs <- read_test_spec_file(pipeline_dir = pipeline_dir)
+  bad_command_scripts <- NULL
+
+  for (indx in 1:nrow(test_specs)){
+    c_test_name <- test_specs[indx, 'test_name']
+    c_fasta_file <- test_specs[indx, 'fasta_file']
+    c_command_flags <- test_specs[indx, 'command_flags']
+    c_test_description <- test_specs[indx, 'test_description']
+
+    generated_command <- generate_command(test_name = c_test_name,
+                                          fasta_file = c_fasta_file,
+                                          command_flags = c_command_flags,
+                                          test_description = c_test_description,
+                                          pipeline_dir = pipeline_dir)
+
+    command_from_file <-
+    read_command_script(pipeline_dir = pipeline_dir,
+                        test_name = c_test_name)
+
+    if (generated_command != command_from_file){
+      bad_command_scripts <- c(bad_command_scripts, c_test_name)
+    }
+  }
+
+  return(bad_command_scripts)
 }
 
 #' Conducts a test on the hiv-founder-pipeline
