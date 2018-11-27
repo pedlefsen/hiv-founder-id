@@ -10,6 +10,8 @@ Add a script that builds the command scripts from the test_specs file:
 * Call it test_pipeline.R and make a proper parseargs interface for it
 * Expand it to include the build script for the knitr document
 
+Add script that checks specifications in dev_tests.Rmd against test_specs.csv
+
 Remove all the hard coded stuff for my computer
 
 Write installation instructions:

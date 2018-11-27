@@ -1,5 +1,5 @@
 ---
-title: Testing the pipeline
+title: Testing the hiv-founder-id-pipeline
 output: 
   html_document:
     toc: false
@@ -17,7 +17,9 @@ source('test_utils.R')
 
 ## Overview
 
-This document runs and reports on tests for the overall pipeline.
+This document runs all the tests for the hiv-founder pipeline and presents the results.
+
+### Specifying tests
 
 Tests are specified by listing:
 
@@ -26,18 +28,45 @@ Tests are specified by listing:
 * `command_flags`: The command flags passed to `identify-founders.pl`. Example: -CPR
 * `test_description`: A very brief description of the test. Basically just an interpretation of the command flags.
 
-These test specifications live in a csv file called `test_specs.csv` in the tests folder.
+These test specifications live in a csv file called `test_specs.csv` in the
+tests folder. The last portion of this document also contains these
+specifications and the two documents are checked against each other
+automatically.
 
-There is some weird thing that prevents the pipeline from running correctly when called with a `system` call by `R`. The workaround is to write a bash script into the tests/commands folder that runs the pipeline. These scripts are produced in an automated fashion. If you run the `test_pipeline.R` script in the tests folder with the flag `--build-command-scripts` then these scripts will be produced. There is a `run_all.sh` script in the commands folder that can be used to run all the tests.
+### Running a test
 
-2) Check for the existence of the correct files and folders in `tests/tmp/test_x` against `tests/refs/test_x`.
-3) If any files are missing, or if there are extra files, print out the names of the offending files.
-4) Ensure that all the files are 'identical' - there might be timestamps etc that need to be ignored.
-5) If any files are not identical, print out the names of the files that are not identical.
-6) If the primery result file `identify_founders.tab` have mismatches, print out the column names that mismatch, as well as the values in the two files.
+There is some weird thing that prevents the pipeline from running correctly
+when called with a `system` call by `R`. The workaround is to write a bash
+script into the tests/commands folder that runs the pipeline. These scripts are
+produced in an automated fashion. If you run the `test_pipeline.R` script in
+the tests folder with the flag `--build-command-scripts` then these scripts
+will be produced. There is a `run_all.sh` script in the commands folder that
+can be used to run all the tests.
+
+### Steps in performing a test
+
+Using the `run_all.sh` script, the user should run all the command files related to the tests. This will execute all the command scripts in the commands folder, running the pipeline for each test. The output from these runs will be collected in `tests/tmp/test_xxx`. This step cannot be merged into an automated testing approach because the pipeline does not play nice with R's `system` command.
+
+Next, the results produced in the `tests/tmp` folder is checked:
+
+* The existance of the folder `tests/tmp/test_xxx` is checked.
+* The dates of the files in this folder are inspected to ensure that the pipeline was run recently.
+* A check is performed to ensure that all the files in `tests/ref/test_xxx` are present in `tests/tmp/test_xxx`.
+* A check is performed to ensure that all the files in the `ref` and `tmp` are identical using md5 sums.
+* The results of all checks are collected into a `data.frame` with the following columns:
+  - `name`: The name of the check that was performed
+  - `result`: TRUE/FALSE indicating whether or not the check passed
+  - `obs`: The observed value related to the check
+  - `expected`: The expected calue related to the check
+  - `note`: A brief description of the test
+
+### Two modes of testing
 
 
-## The tests
+
+## Bulk testing
+
+## Individual tests
 
 ### test_001
 
