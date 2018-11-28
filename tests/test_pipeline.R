@@ -2,6 +2,7 @@
 
 suppressPackageStartupMessages(library("optparse"))
 suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(rmarkdown))
 
 option_list <- list(
 
@@ -35,7 +36,12 @@ make_option('--build_command_scripts',
 make_option('--check_freshness',
             action = 'store_true',
             default = FALSE,
-            help = 'Computes the number of hours that has elapsed since the last time each test specified in the test_spec file was run')
+            help = 'Computes the number of hours that has elapsed since the last time each test specified in the test_spec file was run'),
+
+make_option('--build_test_doc',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Builds the knitr document that presents the test results')
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -115,3 +121,13 @@ Checking that all the commands were recently executed
   last_run_times <- all_last_run_times(pipeline_dir)
   print(kable(last_run_times))
 }
+
+if (opt$build_test_doc){
+  cat('
+Building knitr document
+')
+  render(paste(pipeline_dir, '/tests/dev/dev_tests.Rmd', sep = ''), 
+         output_dir = paste(pipeline_dir, '/tests/dev'))
+}
+
+
