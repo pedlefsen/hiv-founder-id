@@ -103,3 +103,9 @@ Additionally, scripts were produced for the following tests:
   print(scripts_produced)
 }
 
+if (opt$check_freshness){
+  cat('
+Checking that all the commands were recently executed
+')
+
+}

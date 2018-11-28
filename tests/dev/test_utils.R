@@ -144,6 +144,19 @@ write_all_commands_from_spec <- function(pipeline_dir){
   return(test_scripts_produced)
 }
 
+#' Retrieves the time since the last run of the command scripts
+#'
+#' Inspects the timestamps on the output from the command scripts and computes the number of hours since the last time the commands were run.
+#' @export
+
+last_run_time <- function(pipeline_dir, test_name){
+  result_folder <- paste(pipeline_dir, '/tests/tmp',
+                         '/', test_name, sep = '')
+  last_run <- min(file.info(dir(result_folder, full.names = TRUE))$ctime)
+  time_since_last_run <- as.numeric(difftime(Sys.time(), last_run), units = 'hours')
+  return(time_since_last_run)
+}
+
 #' Conducts a test on the hiv-founder-pipeline
 #'
 #' Given a test name and specification, check that the command to run the test
@@ -165,8 +178,8 @@ conduct_test <- function(c_test_name, fasta_file, command_flags, test_descriptio
   ref_file_names <- list.files(ref_folder)
   result_file_names <- list.files(result_folder)
 
-  last_run <- min(file.info(dir(result_folder, full.names = TRUE))$ctime)
-  time_since_last_run <- as.numeric(difftime(Sys.time(), last_run), units = 'hours')
+  time_since_last_run <- last_run_time(pipeline_dir = pipeline_dir,
+                                       test_name = c_test_name)
   if (time_since_last_run > 20){
     return('Time since last run is more than 20 hours, rerun tests')
   }
