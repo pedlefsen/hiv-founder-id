@@ -1,6 +1,7 @@
 #!/usr/bin/Rscript
 
 suppressPackageStartupMessages(library("optparse"))
+suppressPackageStartupMessages(library(knitr))
 
 option_list <- list(
 
@@ -44,12 +45,21 @@ if (!dir.exists(pipeline_dir)){
 
 test_utils_file_name <- paste(pipeline_dir, '/tests/dev/test_utils.R', sep = '')
 if (!file.exists(test_utils_file_name)){
-  stop(paste('ERROR: ', test_utils_file_name, ' does not exists', sep = ''))
+  stop(paste('ERROR: The test utilities script, "', test_utils_file_name, '", does not exists', sep = ''))
 }
 source(test_utils_file_name)
 
+test_spec_file_name <- paste(pipeline_dir, '/tests/test_specs.csv', sep = '')
+if (!file.exists(test_spec_file_name)){
+  stop(paste('ERROR: The test utilities script, "', test_spec_file_name, '", does not exists', sep = ''))
+}
+
 if (opt$print_spec){
-  print('this is a printout of the spec')
+  cat('
+Test Specification File:
+========================')
+  test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir)
+  kable(test_spec)
 }
 
 
