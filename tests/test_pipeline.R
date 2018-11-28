@@ -94,10 +94,12 @@ if (opt$build_command_scripts){
   cat('
 Rebuilding all the scripts in the commands folder
 =================================================
-Scripts were produced for the following tests:
+The run_all.sh script was produced.
+Additionally, scripts were produced for the following tests:
 
 ')
   scripts_produced <- write_all_commands_from_spec(pipeline_dir)
+  write_run_all_command_script(pipeline_dir)
   print(scripts_produced)
 }
 
