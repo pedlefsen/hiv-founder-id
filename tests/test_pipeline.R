@@ -25,8 +25,12 @@ make_option('--run_all_test_command_scripts',
 make_option('--verbose',
             action = 'store_true',
             default = FALSE,
-            help = 'Generate verbose output')
+            help = 'Generate verbose output'),
 
+make_option('--build_command_scripts',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Repopulate the commands folder based on the contents of the test_spec.csv file')
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -66,7 +70,7 @@ if (opt$run_all_test_command_scripts){
 Due to a weird interaction between R, bash and the pipeline, this script cannot execute the appropriate calls. Copy and paste the following command into a terminal to perform all the runs.
 WARNING: This may take a long time.
 
-cd ', pipeline_dir, '/tests/commands; ./run_all.sh
+cd ', pipeline_dir, '/tests/commands; bash run_all.sh
 
 ', sep = ''))
 }
@@ -86,4 +90,14 @@ If tilde expansion is not the case, you should almost certainly rebuild the comm
   }
 }
 
+if (opt$build_command_scripts){
+  cat('
+Rebuilding all the scripts in the commands folder
+=================================================
+Scripts were produced for the following tests:
+
+')
+  scripts_produced <- write_all_commands_from_spec(pipeline_dir)
+  print(scripts_produced)
+}
 

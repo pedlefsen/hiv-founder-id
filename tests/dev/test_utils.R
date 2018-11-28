@@ -108,6 +108,7 @@ write_command_script <- function(pipeline_dir, test_name, command){
 
 write_all_commands_from_spec <- function(pipeline_dir){
   test_specs <- read_test_spec_file(pipeline_dir = pipeline_dir)
+  test_scripts_produced <- NULL
   for (indx in 1:nrow(test_specs)){
     c_test_name <- test_specs[indx, 'test_name']
     c_fasta_file <- test_specs[indx, 'fasta_file']
@@ -123,7 +124,9 @@ write_all_commands_from_spec <- function(pipeline_dir){
     write_command_script(pipeline_dir = pipeline_dir,
                          test_name = c_test_name,
                          command = generated_command)
+    test_scripts_produced <- c(test_scripts_produced, c_test_name)
   }
+  return(test_scripts_produced)
 }
 
 #' Conducts a test on the hiv-founder-pipeline
