@@ -30,7 +30,12 @@ make_option('--verbose',
 make_option('--build_command_scripts',
             action = 'store_true',
             default = FALSE,
-            help = 'Repopulate the commands folder based on the contents of the test_spec.csv file')
+            help = 'Repopulate the commands folder based on the contents of the test_spec.csv file'),
+
+make_option('--check_freshness',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Computes the number of hours that has elapsed since the last time each test specified in the test_spec file was run')
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -107,5 +112,6 @@ if (opt$check_freshness){
   cat('
 Checking that all the commands were recently executed
 ')
-
+  last_run_times <- all_last_run_times(pipeline_dir)
+  print(kable(last_run_times))
 }
