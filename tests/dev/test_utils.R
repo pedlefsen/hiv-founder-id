@@ -101,6 +101,21 @@ write_command_script <- function(pipeline_dir, test_name, command){
   write(command, command_file)
 }
 
+#' Write a script that will run all the command scripts
+#'
+#' Produces a scripts in the commands folder that will run all the command scripts if it is called with bash.
+#' @export
+
+write_run_all_command_script <- function(pipeline_dir){
+  command_file <- paste(pipeline_dir, '/tests/commands',
+                        '/run_all.sh', sep = '')
+  command <- 'for f in test_*.sh; do
+  echo "$f"
+  bash "$f" -H
+done'
+  write(command, command_file)
+}
+
 #' Generate command scripts from test_spec file
 #'
 #' Reads the test_spec file and generates a command script for each test in the commands folder
