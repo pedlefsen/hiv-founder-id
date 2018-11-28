@@ -17,12 +17,15 @@ option_list <- list(
 #                         "yield 'max_seq' pair-end reads in the dataset.",
 #                         sep = "")),
 
-make_option("--pipeline-dir", help = "Path to the root of the pipeline folder"),
+make_option("--pipeline_dir", help = "Path to the root of the pipeline folder"),
 
-make_option('--print-spec',
+make_option('--print_spec',
             action = 'store_true',
-            help = 'Prints out a list of all the tests in the spec file')
+            help = 'Prints out a list of all the tests in the spec file'),
 
+make_option('--compare_spec_to_command_scripts',
+            action = 'store_true',
+            help = 'Compares the command scripts in the commands folder to the test specifications in the test_spec.csv file')
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -33,4 +36,14 @@ opt <- parse_args(OptionParser(option_list = option_list,
 )
 
 print(opt)
+
+pipeline_dir <- opt$pipeline_dir
+if (!dir.exists(pipeline_dir)){
+  stop('ERROR: Invalid dir passed to --pipeline_dir')
+}
+
+if (opt$print_spec){
+  print('this is a printout of the spec')
+}
+
 
