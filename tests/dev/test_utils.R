@@ -48,9 +48,9 @@ read_command_script <- function(pipeline_dir, test_name){
 #'
 #' @export
 
-compare_command_scripts_and_spec_file <- function(pipeline_dir){
+compare_command_scripts_and_spec_file <- function(pipeline_dir, verbose = FALSE){
   test_specs <- read_test_spec_file(pipeline_dir = pipeline_dir)
-  bad_command_scripts <- NULL
+  comparison_results <- NULL
 
   for (indx in 1:nrow(test_specs)){
     c_test_name <- test_specs[indx, 'test_name']
@@ -65,15 +65,29 @@ compare_command_scripts_and_spec_file <- function(pipeline_dir){
                                           pipeline_dir = pipeline_dir)
 
     command_from_file <-
-    read_command_script(pipeline_dir = pipeline_dir,
-                        test_name = c_test_name)
+      read_command_script(pipeline_dir = pipeline_dir,
+                          test_name = c_test_name)
 
     if (generated_command != command_from_file){
-      bad_command_scripts <- c(bad_command_scripts, c_test_name)
+      c_result <- 'mis_match'
+    } else {
+      c_result <- 'match'
     }
+
+    if (verbose){
+      print(paste('Test name: ', c_test_name, sep = ''))
+      print(generated_command)
+      print(command_from_file)
+    }
+
+    comparison_results <- rbind(comparison_results,
+      data.frame(test_name = c_test_name,
+                 result = c_result,
+                 stringsAsFactors = FALSE)
+      )
   }
 
-  return(bad_command_scripts)
+  return(comparison_results)
 }
 
 #' Write a command script

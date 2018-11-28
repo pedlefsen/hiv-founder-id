@@ -20,7 +20,12 @@ make_option('--compare_spec_to_command_scripts',
 make_option('--run_all_test_command_scripts',
             action = 'store_true',
             default = FALSE,
-            help = 'Generate the call that will produce all the pipeline runs required to perform the testing')
+            help = 'Generate the call that will produce all the pipeline runs required to perform the testing'),
+
+make_option('--verbose',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Generate verbose output')
 
 )
 
@@ -53,7 +58,7 @@ if (opt$print_spec){
 Test Specification File:
 ========================')
   test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir)
-  kable(test_spec)
+  print(kable(test_spec))
 }
 
 if (opt$run_all_test_command_scripts){
@@ -65,4 +70,20 @@ cd ', pipeline_dir, '/tests/commands; ./run_all.sh
 
 ', sep = ''))
 }
+
+if (opt$compare_spec_to_command_scripts){
+  cat('
+Comparison of command scripts and test specification file:
+==========================================================
+')
+  comparison_result <- compare_command_scripts_and_spec_file(pipeline_dir, verbose = opt$verbose)
+  print(kable(comparison_result))
+  if (any(comparison_result$result == 'mis_match')){
+    cat('
+Mismatches found: 
+Common cause is tilde expansion - inspect this by setting the "--verbose" option.
+If tilde expansion is not the case, you should almost certainly rebuild the command scripts with the "--build_command_scripts" option')
+  }
+}
+
 
