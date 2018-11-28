@@ -42,6 +42,12 @@ if (!dir.exists(pipeline_dir)){
   stop('ERROR: Invalid dir passed to --pipeline_dir')
 }
 
+test_utils_file_name <- paste(pipeline_dir, '/tests/dev/test_utils.R', sep = '')
+if (!file.exists(test_utils_file_name)){
+  stop(paste('ERROR: ', test_utils_file_name, ' does not exists', sep = ''))
+}
+source(test_utils_file_name)
+
 if (opt$print_spec){
   print('this is a printout of the spec')
 }
