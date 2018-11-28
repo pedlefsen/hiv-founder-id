@@ -157,6 +157,25 @@ last_run_time <- function(pipeline_dir, test_name){
   return(time_since_last_run)
 }
 
+#' Computes the elapsed time since the previous time the test_spec was run
+#'
+#' Load the test spec file and computes the last time each specified test was run.
+#' @export
+
+all_last_run_times <- function(pipeline_dir){
+  test_spec <- read_test_spec_file(pipeline_dir)
+  last_run_times <- NULL
+  for (c_test_name in test_spec$test_name){
+    last_run_times <- rbind(last_run_times,
+      data.frame(test_name = c_test_name,
+                 time_since_last_run = last_run_time(pipeline_dir = pipeline_dir,
+                                                     test_name = c_test_name),
+                 stringsAsFactors = FALSE)
+      )
+  }
+  return(last_run_times)
+}
+
 #' Conducts a test on the hiv-founder-pipeline
 #'
 #' Given a test name and specification, check that the command to run the test
