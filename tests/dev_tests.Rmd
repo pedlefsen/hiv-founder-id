@@ -12,12 +12,10 @@ if (!exists('pipeline_dir')){
 }
 ```
 
-
 ```{r setup-and-config, include = FALSE}
 library(tools)
 library(knitr)
 knitr::opts_chunk$set(echo = FALSE)
-
 source('test_utils.R')
 ```
 
@@ -98,7 +96,6 @@ associated with that specification producing detailed output for each check.
 test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir)
 all_test_results <- NULL
 for (indx in 1:nrow(test_spec)){
-  print(indx)
   test_result <-
     conduct_test(c_test_name = test_spec[indx, 'test_name'],
                  fasta_file = test_spec[indx, 'fasta_file'],
@@ -112,9 +109,14 @@ for (indx in 1:nrow(test_spec)){
                n_passed = sum(test_result$test_result$result))
     )
 }
-print(kable(all_test_results))
 ```
 
+A total of `r nrow(all_test_results)` tests were run. Of these tests, `r sum(all_test_results$all_passed)` tests passed.
+
+```{r}
+kable(all_test_results,
+      caption = 'Summary of all tests results')
+```
 
 ## Individual tests
 
