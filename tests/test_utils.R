@@ -14,7 +14,8 @@ read_test_spec_file <- function(pipeline_dir, test_name = NULL){
 
 #' Generate command
 #'
-#' Given the input parameters for a command, generate the command character vectors that will eventually get written into the command script.
+#' Given the input parameters for a command, generate the command character
+#' vectors that will eventually get written into the command script.
 #' @export
 
 generate_command <- function(test_name, fasta_file, command_flags, 
@@ -24,6 +25,26 @@ rm -r ', pipeline_dir, '/tests/tmp/', test_name, '
 perl ', pipeline_dir, '/identify_founders.pl ', command_flags, ' -o ', pipeline_dir, '/tests/tmp/', test_name, ' ', pipeline_dir, '/tests/data/', fasta_file, 
   sep = '')
   return(command)
+}
+
+#' Checks a test spec against the test_spec.csv file
+#'
+#' Given a full test spec, read the test spec with the same test name from the
+#' test_spec.csv file and returns TRUE only if the two specs are identical.
+#' @export
+
+check_against_spec <- function(test_name, fasta_file, command_flags, 
+                               test_description, pipeline_dir){
+  test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir,
+                                   test_name = test_name)
+  if (nrow(test_spec) == 1){
+    return(fasta_file == test_spec$fasta_file &
+           command_flags == test_spec$command_flags &
+           test_description == test_spec$test_description
+          )
+  } else {
+    return(FALSE)
+  }
 }
 
 #' Read command file
