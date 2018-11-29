@@ -23,16 +23,21 @@ source('test_utils.R')
 
 ## Overview
 
-This document runs all the tests for the hiv-founder pipeline and presents the results.
+This document runs all the tests for the hiv-founder pipeline and presents the
+results.
 
 ### Specifying tests
 
 Tests are specified by listing:
 
-* `c_test_name`: The name of the test -> `test_xxx` where xxx is a zero-padded integer.
-* `fasta_file`: The name of the input file. This file must exists in the `tests/data` folder
-* `command_flags`: The command flags passed to `identify-founders.pl`. Example: -CPR
-* `test_description`: A very brief description of the test. Basically just an interpretation of the command flags.
+* `c_test_name`: The name of the test -> `test_xxx` where xxx is a zero-padded
+  integer.
+* `fasta_file`: The name of the input file. This file must exists in the
+  `tests/data` folder
+* `command_flags`: The command flags passed to `identify-founders.pl`. Example:
+  -CPR
+* `test_description`: A very brief description of the test. Basically just an
+  interpretation of the command flags.
 
 These test specifications live in a csv file called `test_specs.csv` in the
 tests folder. The last portion of this document also contains these
@@ -43,28 +48,37 @@ automatically.
 
 There is some weird thing that prevents the pipeline from running correctly
 when called with a `system` call by `R`. The workaround is to write a bash
-script into the tests/commands folder that runs the pipeline. These scripts are
-produced in an automated fashion. If you run the `test_pipeline.R` script in
-the tests folder with the flag `--build-command-scripts` then these scripts
+script into the `tests/commands` folder that runs the pipeline. These scripts
+are produced in an automated fashion. If you run the `test_pipeline.R` script
+in the tests folder with the flag `--build-command-scripts` then these scripts
 will be produced. There is a `run_all.sh` script in the commands folder that
 can be used to run all the tests.
 
 ### Steps in performing a test
 
-Using the `run_all.sh` script, the user should run all the command files related to the tests. This will execute all the command scripts in the commands folder, running the pipeline for each test. The output from these runs will be collected in `tests/tmp/test_xxx`. This step cannot be merged into an automated testing approach because the pipeline does not play nice with R's `system` command.
+Using the `run_all.sh` script, the user should run all the command files
+related to the tests. This will execute all the command scripts in the commands
+folder, running the pipeline for each test. The output from these runs will be
+collected in `tests/tmp/test_xxx`. This step cannot be merged into an automated
+testing approach because the pipeline does not play nice with R's `system`
+command.
 
 Next, the results produced in the `tests/tmp` folder is checked:
 
 * The existance of the folder `tests/tmp/test_xxx` is checked.
-* The dates of the files in this folder are inspected to ensure that the pipeline was run recently.
-* A check is performed to ensure that all the files in `tests/ref/test_xxx` are present in `tests/tmp/test_xxx`.
-* A check is performed to ensure that all the files in the `ref` and `tmp` are identical using md5 sums.
-* The results of all checks are collected into a `data.frame` with the following columns:
-  - `name`: The name of the check that was performed
-  - `result`: TRUE/FALSE indicating whether or not the check passed
-  - `obs`: The observed value related to the check
-  - `expected`: The expected calue related to the check
-  - `note`: A brief description of the test
+* The dates of the files in this folder are inspected to ensure that the
+  pipeline was run recently.
+* A check is performed to ensure that all the files in `tests/ref/test_xxx` are
+  present in `tests/tmp/test_xxx`.
+* A check is performed to ensure that all the files in the `ref` and `tmp` are
+  identical using md5 sums.
+* The results of all checks are collected into a `data.frame` with the
+  following columns:
+  - `name`: The name of the check that was performed.
+  - `result`: TRUE/FALSE indicating whether or not the check passed.
+  - `obs`: The observed value related to the check.
+  - `expected`: The expected calue related to the check.
+  - `note`: A brief description of the test.
 
 ### Two modes of testing
 
@@ -80,11 +94,31 @@ associated with that specification producing detailed output for each check.
 
 ## Bulk testing
 
-TODO.
+```{r}
+test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir)
+all_test_results <- NULL
+for (indx in 1:nrow(test_spec)){
+  print(indx)
+  test_result <-
+    conduct_test(c_test_name = test_spec[indx, 'test_name'],
+                 fasta_file = test_spec[indx, 'fasta_file'],
+                 command_flags = test_spec[indx, 'command_flags'],
+                 test_description = test_spec[indx, 'test_description'],
+                 pipeline_dir = pipeline_dir)
+  all_test_results <- rbind(all_test_results,
+    data.frame(test_name = test_result$test_name,
+               all_passed = all(test_result$test_result$result),
+               n_tests = nrow(test_result$test_result),
+               n_passed = sum(test_result$test_result$result))
+    )
+}
+print(kable(all_test_results))
+```
+
 
 ## Individual tests
 
-### test_001
+### `test_001`
 
 ```{r, include = FALSE}
 c_test_name <- 'test_001'
@@ -110,7 +144,7 @@ if (class(test_result) == 'character'){
 }
 ```
 
-### test_002
+### `test_002`
 
 ```{r, include = FALSE}
 c_test_name <- 'test_002'
@@ -137,7 +171,6 @@ if (class(test_result) == 'character'){
 ```
 
 ```{r, eval = FALSE}
-
 test_result <-
   conduct_test(c_test_name = c_test_name,
                fasta_file = fasta_file,
@@ -145,6 +178,4 @@ test_result <-
                test_description = test_description,
                pipeline_dir = pipeline_dir,
                write_new_command = TRUE)
-
 ```
-
