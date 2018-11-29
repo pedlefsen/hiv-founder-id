@@ -6,10 +6,16 @@ output:
     theme: cerulean
 ---
 
+```{r, echo = FALSE}
+if (!exists('pipeline_dir')){
+  stop('pipeline_dir variable must be specified')
+}
+```
+
+
 ```{r setup-and-config, include = FALSE}
 library(tools)
 library(knitr)
-pipeline_dir <- '/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id'
 knitr::opts_chunk$set(echo = FALSE)
 
 source('test_utils.R')
