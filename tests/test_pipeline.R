@@ -127,7 +127,7 @@ if (opt$build_test_doc){
 Building knitr document
 ')
   render(paste(pipeline_dir, '/tests/dev/dev_tests.Rmd', sep = ''), 
-         output_dir = paste(pipeline_dir, '/tests/dev'))
+         output_dir = paste(pipeline_dir, '/tests/dev', sep = ''))
 }
 
 
