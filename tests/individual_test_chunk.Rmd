@@ -1,0 +1,27 @@
+### ``r c_test_name``
+
+```{r}
+matches_spec_file <- check_against_spec(test_name = c_test_name, 
+                                        fasta_file = fasta_file, 
+                                        command_flags = command_flags, 
+                                        test_description = test_description, 
+                                        pipeline_dir = pipeline_dir)
+if (!matches_spec_file){
+  cat('\n\nWARNING!!!\nThe spec in the knitr document does not match the spec in the test_specs.csv file\n\n')
+}
+```
+
+```{r}
+test_result <-
+  conduct_test(c_test_name = c_test_name,
+               fasta_file = fasta_file,
+               command_flags = command_flags,
+               test_description = test_description,
+               pipeline_dir = pipeline_dir)
+
+if (class(test_result) == 'character'){
+    cat(paste('\n\nWARNING!!!!\n', test_result, '\n\n', sep = ''))
+} else {
+  kable(test_result$test_result)
+}
+```
