@@ -57,7 +57,7 @@ if (!dir.exists(pipeline_dir)){
   stop('ERROR: Invalid dir passed to --pipeline_dir')
 }
 
-test_utils_file_name <- paste(pipeline_dir, '/tests/dev/test_utils.R', sep = '')
+test_utils_file_name <- paste(pipeline_dir, '/tests/test_utils.R', sep = '')
 if (!file.exists(test_utils_file_name)){
   stop(paste('ERROR: The test utilities script, "', test_utils_file_name, '", does not exists', sep = ''))
 }
@@ -126,8 +126,8 @@ if (opt$build_test_doc){
   cat('
 Building knitr document
 ')
-  render(paste(pipeline_dir, '/tests/dev/dev_tests.Rmd', sep = ''), 
-         output_dir = paste(pipeline_dir, '/tests/dev', sep = ''))
+  render(paste(pipeline_dir, '/tests/dev_tests.Rmd', sep = ''), 
+         output_dir = paste(pipeline_dir, '/tests', sep = ''))
 }
 
 

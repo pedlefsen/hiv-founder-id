@@ -136,10 +136,6 @@ if (class(test_result) == 'character'){
 }
 ```
 
-
-
-
-
 ```{r, eval = FALSE}
 
 test_result <-

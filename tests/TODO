@@ -1,0 +1,19 @@
+Modify dev document to reflect the fact that it is an overall testing document and not specifically a test document. - this involves renaming and moving a couple of folders
+
+Modify test document to _also_ read from the test_specs file. This is now called the bulk testing approach.
+
+Add function that checks specifications in dev_tests.Rmd against test_specs.csv
+
+Test full pipeline for Ted - especially the recombination stuff
+
+Get access to tawny
+
+Test the testing on tawny (or just my other computer?)
+
+Write installation instructions:
+  - git clone
+  - phyml:
+    - source dl
+    - patch
+    - build
+    - symlink
