@@ -6,6 +6,11 @@ suppressPackageStartupMessages(library(rmarkdown))
 
 option_list <- list(
 
+make_option('--compact_help',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Prints out compact list of viable options'),
+
 make_option("--pipeline_dir", help = "Path to the root of the pipeline folder"),
 
 make_option('--print_spec',
@@ -42,6 +47,7 @@ make_option('--build_test_doc',
             action = 'store_true',
             default = FALSE,
             help = 'Builds the knitr document that presents the test results')
+
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -49,6 +55,13 @@ opt <- parse_args(OptionParser(option_list = option_list,
   epilogue = 'Example Calls:
 ./test_pipeline.R --pipeline-dir="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id" --print-spec
 '))
+
+if (opt$compact_help){
+  for (i in option_list){print(i@long_flag)}
+  opt <- options(show.error.messages = FALSE)
+  on.exit(options(opt))
+  stop()
+}
 
 print(opt)
 
@@ -129,4 +142,3 @@ Building knitr document
   render(paste(pipeline_dir, '/tests/dev_tests.Rmd', sep = ''), 
          output_dir = paste(pipeline_dir, '/tests', sep = ''))
 }
-
