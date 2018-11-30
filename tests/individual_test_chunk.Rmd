@@ -21,7 +21,22 @@ test_result <-
 
 if (class(test_result) == 'character'){
     cat(paste('\n\nWARNING!!!!\n', test_result, '\n\n', sep = ''))
+    status <- 'FAILED'
 } else {
+  if (all(test_result$test_result$result)){
+    status <- 'PASSED'
+  } else {
+    status <- 'FAILED'
+  }
+}
+```
+
+**This test `r status`**
+
+```{r}
+if (class(test_result) != 'character'){
+
   kable(test_result$test_result)
 }
 ```
+
