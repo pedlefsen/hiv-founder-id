@@ -1,3 +1,4 @@
 test_name,fasta_file,command_flags,test_description
 "test_001","ld_seqs.fasta","-CPRFHT","Entropy only on ld_seqs.fasta"
 "test_002","ld_seqs.fasta","-PRFEHT","PhyML and Insites only on ld_seqs.fasta"
+"test_003","ld_seqs.fasta","-CPFEHT","Recombination removal via RAP on ld_seqs.fasta"
