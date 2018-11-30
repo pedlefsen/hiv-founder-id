@@ -120,6 +120,28 @@ kable(all_test_results,
 
 ## Individual tests
 
+### Description of pipeline flags
+
+* `opt_D` means print debugging output.
+* `opt_o` is an optional directory to put the output; default depends on input filename.
+* `opt_O` is just like opt_o.  Same thing.
+* `opt_V` means be verbose.
+* `opt_C` means skip (do not run) the PhyML diversity or InSites analysis and the primary founder call (which depends on those)
+* `opt_P` means skip (do not run) profillic
+* `opt_R` means skip (do not run) RAP (alignment-internal recombination detection program)
+* `opt_F` means skip (do not run) PFitter
+* `opt_E` means skip (do not run) entropy statistics calculation
+* `opt_H` means skip (do not run) HYPERMUT 2.0 hypermutation detection
+* `opt_f` means fix hypermutated sequences, instead of removing them.
+* `opt_w` is what we should fix hypermutated sequences with (default: R)
+* `opt_I` means run inSites online (instead of offline)
+* `opt_i` is the insites threshold to use for all regions except v3 (default: 0.85).
+* `opt_v` is the insites threshold to use for v3 (default: 0.33).
+* `opt_T` means don't train the profillic profile, just use the converted alignment directly.
+* `opt_r` means recursively operate on clusters identified using the Informtive Sites method.
+
+
+
 ```{r, include = FALSE}
 c_test_name <- 'test_001'
 fasta_file <- 'ld_seqs.fasta'
@@ -133,9 +155,12 @@ test_description <- 'Entropy only on ld_seqs.fasta'
 ```{r, include = FALSE}
 c_test_name <- 'test_002'
 fasta_file <- 'ld_seqs.fasta'
-command_flags <- '-PRFHT'
-test_description <- 'Entropy, PhyML and Insites on ld_seqs.fasta'
+command_flags <- '-PRFEHT'
+test_description <- 'PhyML and Insites only on ld_seqs.fasta'
 ```
 
 ```{r, child='individual_test_chunk.Rmd'}
 ```
+
+
+

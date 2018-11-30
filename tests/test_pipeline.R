@@ -130,4 +130,3 @@ Building knitr document
          output_dir = paste(pipeline_dir, '/tests', sep = ''))
 }
 
-
