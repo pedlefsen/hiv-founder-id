@@ -3,7 +3,8 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 # for removeDuplicateSequencesFromAlignedFasta(..)
-source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
+pipeline_dir <- Sys.getenv( "hiv_founder_pipeline_dir" )
+source( paste(pipeline_dir, "/removeDuplicateSequencesFromAlignedFasta_safetosource.R", sep = '') )
 
 ## 
 
