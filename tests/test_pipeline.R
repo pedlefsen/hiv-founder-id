@@ -6,11 +6,6 @@ suppressPackageStartupMessages(library(rmarkdown))
 
 option_list <- list(
 
-make_option('--compact_help',
-            action = 'store_true',
-            default = FALSE,
-            help = 'Prints out compact list of viable options'),
-
 make_option("--pipeline_dir", help = "Path to the root of the pipeline folder"),
 
 make_option('--print_spec',
@@ -46,14 +41,19 @@ make_option('--check_freshness',
 make_option('--build_test_doc',
             action = 'store_true',
             default = FALSE,
-            help = 'Builds the knitr document that presents the test results')
+            help = 'Builds the knitr document that presents the test results'),
+
+make_option('--compact_help',
+            action = 'store_true',
+            default = FALSE,
+            help = 'Prints out compact list of viable options')
 
 )
 
 opt <- parse_args(OptionParser(option_list = option_list,
   description = 'Script to control the testing for the hiv-founder-pipeline',
   epilogue = 'Example Calls:
-./test_pipeline.R --pipeline-dir="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id" --print-spec
+./test_pipeline.R --pipeline_dir="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id" --print_spec
 '))
 
 if (opt$compact_help){
