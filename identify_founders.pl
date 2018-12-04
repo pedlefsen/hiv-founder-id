@@ -576,10 +576,15 @@ sub identify_founders {
             print "Calling R to remove hypermutated sequences..";
           }
       }
-      $R_output = `export hiv_founder_pipeline_dir="$pipeline_dir"; export removeHypermutatedSequences_fixWith="$fix_hypermutated_sequences_with"; export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      my $R_hypermut_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export removeHypermutatedSequences_fixWith=\"$fix_hypermutated_sequences_with\"; export removeHypermutatedSequences_fixInsteadOfRemove=\"$fix_hypermutated_sequences\"; export removeHypermutatedSequences_pValueThreshold=\"$hypermut2_pValueThreshold\"; export removeHypermutatedSequences_inputFilename=\"$fasta_file\"; export removeHypermutatedSequences_outputDir=\"$output_path_dir_for_input_fasta_file\"; R -f removeHypermutatedSequences.R --vanilla --slave; cd ..\"";
+      if( $VERBOSE ) {
+        print( $R_hypermut_command );
+      }
+      $R_output = `"$R_hypermut_command"`;
       if( $VERBOSE ) {
         print( $R_output );
       }
+
       ## extract the number fixed/removed from the output
       my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
   #    if( $VERBOSE ) {
