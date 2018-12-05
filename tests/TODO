@@ -10,9 +10,7 @@ Test the testing on tawny (or just my other computer?)
 
 Add in more tests for the pipeline:
 - Drop the hypermutation flag
-  - Weird directory export things
-  - Prep dataset with hypermutations
-    - where to get the mutator scripts? were they packaged into hypermutr?
+  - why are the 10 hypermutated sequences not getting flagged?
 - Drop the recombination flag
   - RAP is down - get new RAPR wrapper from ted via paul
 - Drop the pfitter flag
