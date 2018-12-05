@@ -192,3 +192,13 @@ test_description <- 'Hypermutation removal only on ld_seqs_10hyp.fasta'
 ```{r, child='individual_test_chunk.Rmd'}
 ```
 
+```{r, include = FALSE}
+c_test_name <- 'test_006'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPREHT'
+test_description <- 'PFitter only on ld_seqs_10hyp.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+

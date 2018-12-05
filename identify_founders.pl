@@ -853,8 +853,12 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runPoissonFitter.R --vanilla --slave`;
+
+        my $R_pfitter_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"FALSE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command );
           print( $R_output );
           print( "done.\n" );
         }
@@ -935,8 +939,11 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter again, masking out nonsynonymous codons..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="TRUE"; R -f runPoissonFitter.R --vanilla --slave`;
+        my $R_pfitter_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"TRUE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command );
           print( $R_output );
           print( "done.\n" );
         }

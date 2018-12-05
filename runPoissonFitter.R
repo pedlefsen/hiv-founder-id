@@ -3,10 +3,11 @@ library( "ape" ) # for "chronos", "as.DNAbin", "dist.dna", "read.dna", "write.dn
 library( "seqinr", warn.conflicts = FALSE ) # for "as.alignment", "consensus"
 
 # for maskSynonymousCodonsInAlignedFasta(..)
-source( "maskSynonymousCodonsInAlignedFasta_safetosource.R" )
+pipeline_dir <- Sys.getenv( "hiv_founder_pipeline_dir" )
+source( paste(pipeline_dir, "/maskSynonymousCodonsInAlignedFasta_safetosource.R", sep = '') )
 
 # for removeDuplicateSequencesFromAlignedFasta(..)
-source( "removeDuplicateSequencesFromAlignedFasta_safetosource.R" )
+source( paste(pipeline_dir, "/removeDuplicateSequencesFromAlignedFasta_safetosource.R", sep = '') )
 
 ## Compute Hamming distances, prepare inputs to PFitter.R, call PFitter.R.
 runPoissonFitter <-
@@ -127,13 +128,13 @@ runPoissonFitter <-
         write( paste( fasta.file.short.nosuffix, "FOLLOWS A STAR-PHYLOGENY", sep = " " ), file=outfile2, append=FALSE );
         .rv <- "0";
     } else {
-      R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' PFitter.R" );
+      R.cmd <- paste( "R CMD BATCH '--vanilla --args ", pairwise.distances.as.matrix.file, " 2.16e-05 ", ncol( fasta.no.duplicates.with.consensus ), "' ", pipeline_dir, "/PFitter.R", sep = '');
       .rv <- system( R.cmd );
     }
 
     if( run.DSStarPhyTest ) {
         DSStarPhyTest.outfile <- paste( output.dir, "/", fasta.file.short.nosuffix, "_DSStarPhyTest.out", sep = "" );
-        R.cmd <- paste( "R CMD BATCH '--vanilla --args", pairwise.distances.as.matrix.file, "2.16e-05", ncol( fasta.no.duplicates.with.consensus ), "' DSStarPhyTest.R", DSStarPhyTest.outfile );
+        R.cmd <- paste( "R CMD BATCH '--vanilla --args ", pairwise.distances.as.matrix.file, " 2.16e-05 ", ncol( fasta.no.duplicates.with.consensus ), "' ", pipeline_dir, "/DSStarPhyTest.R ", DSStarPhyTest.outfile, sep = '' );
         .rv <- system( R.cmd );
     }
     return( .rv );
