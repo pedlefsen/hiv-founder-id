@@ -939,11 +939,11 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter again, masking out nonsynonymous codons..";
         }
-        my $R_pfitter_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"TRUE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+        my $R_pfitter_command2 = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"TRUE\"; R -f runPoissonFitter.R --vanilla --slave\"";
 
-        $R_output = `"$R_pfitter_command"`;
+        $R_output = `"$R_pfitter_command2"`;
         if( $VERBOSE ) {
-          print( $R_pfitter_command );
+          print( $R_pfitter_command2 );
           print( $R_output );
           print( "done.\n" );
         }

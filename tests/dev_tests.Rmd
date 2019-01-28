@@ -140,8 +140,6 @@ kable(all_test_results,
 * `opt_T` means don't train the profillic profile, just use the converted alignment directly.
 * `opt_r` means recursively operate on clusters identified using the Informtive Sites method.
 
-
-
 ```{r, include = FALSE}
 c_test_name <- 'test_001'
 fasta_file <- 'ld_seqs.fasta'

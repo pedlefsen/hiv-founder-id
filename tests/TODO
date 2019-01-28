@@ -9,11 +9,8 @@ Test the testing on tawny (or just my other computer?)
 - Should I make a new repo with my fork's stuff?
 
 Add in more tests for the pipeline:
-- Drop the hypermutation flag
-  - why are the 10 hypermutated sequences not getting flagged?
-- Drop the recombination flag
-  - RAP is down - get new RAPR wrapper from ted via paul
 - Drop the pfitter flag
+  - Ok, now review the results and make sure they pass a basic sanity test.
 
 Write installation instructions:
   - git clone
