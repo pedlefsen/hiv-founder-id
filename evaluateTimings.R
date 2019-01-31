@@ -16,8 +16,11 @@ source( "getResultsByRegionAndTime_safetosource.R" );
 source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
-GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
-RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
+GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
+#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
+SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
+RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
 
 ########################################################
 ## Other fns
@@ -116,7 +119,7 @@ evaluateTimings.compute.config.string <- function (
 #' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
 #' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
 #' @param helpful.additional.cols.with.interactions extra cols to be included in the glm both as-is and interacting with each other and with members of the helpful.additional.cols set.
-#' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
+#' @param results.dirname the subdirectory of SEQUENCES.DIR and also of RESULTS.DIR
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
 #' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
 #' @param partition.bootstrap.samples the number of bootstrap replicates to conduct; the idea is to get an estimate of the variation in estimates and results (errors) across these samples.
@@ -134,10 +137,11 @@ evaluateTimings <- function (
   include.intercept = FALSE,
   mutation.rate.calibration = FALSE,
   include.all.vars.in.lasso = TRUE,
-  helpful.additional.cols = c(), #c( "lPVL" ),
+  helpful.additional.cols = c( "lPVL" ),
   helpful.additional.cols.with.interactions = c(), #c( "v3_not_nflg", "X6m.not.1m" ),
-  results.dirname = "raw_edited_20160216",
-  force.recomputation = FALSE,
+  #results.dirname = "raw_edited_20160216",
+  results.dirname = "raw_fixed",
+  force.recomputation = TRUE,
   partition.bootstrap.seed = 98103,
   partition.bootstrap.samples = 100,
   partition.bootstrap.num.cores = detectCores(),
@@ -165,7 +169,7 @@ evaluateTimings <- function (
     );
     
     results.by.region.and.time.Rda.filename <-
-        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
+        paste( RESULTS.DIR, results.dirname, "/Timings.results.by.region.and.time.", config.string, ".Rda", sep = "" );
     
     if( config.string == "" ) {
         evaluateTimings.tab.file.suffix <- "_evaluateTimings.tab";
@@ -180,25 +184,25 @@ evaluateTimings <- function (
     
     MINIMUM.CORRELATION.WITH.OUTCOME <- 0.1;
     
-    rv217.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_gold_standard_timings.csv" );
+    rv217.gold.standard.infection.dates.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/rv217_gold_standard_timings.csv", sep = "" ) );
     rv217.gold.standard.infection.dates <- as.Date( as.character( rv217.gold.standard.infection.dates.in[,2] ), "%m/%d/%y" );
     names( rv217.gold.standard.infection.dates ) <- as.character( rv217.gold.standard.infection.dates.in[,1] );
     
-    caprisa002.gold.standard.infection.dates.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_gold_standard_timings.csv" );
+    caprisa002.gold.standard.infection.dates.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standard_timings.csv", sep = "" ) );
     caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.gold.standard.infection.dates.in[,2] ), "%Y/%m/%d" );
     names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
     if( use.gold.is.multiple ) {
-      rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/rv217/RV217_gold_standards.csv", sep = "" ) );
+      rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "" ) );
       rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
       names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
       
-      caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
+      caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
       caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
       names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
     }
-    rv217.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv" );
-    caprisa002.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv" );
+    rv217.pvl.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/rv217_viralloads.csv", sep = "" ) );
+    caprisa002.pvl.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_viralloads.csv", sep = "" ) );
     
     rmse <- function( x, na.rm = FALSE ) {
         if( na.rm ) {
@@ -228,14 +232,16 @@ evaluateTimings <- function (
         function ( the.region, the.time, the.ptids, partition.size = NA ) {
         ## Add to results: "infer" results.
         if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
-            the.region.dir <- "v3_edited_20160216";
+            #the.region.dir <- "v3_edited_20160216";
+            the.region.dir <- "v3";
         } else {
-            the.region.dir <- "nflg_copy_20160222";
+            #the.region.dir <- "nflg_copy_20160222";
+            the.region.dir <- "nflg";
         }
         if( is.na( partition.size ) ) {
-            infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+            infer.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region.dir, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
         } else {
-            #infer.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/", the.time, "/partitions", sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+            #infer.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region.dir, "/", the.time, "/partitions", sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
             stop( "TODO: When there are some Infer results run on partitions, evaluate the results here" );
         }
         # Special: for v3, separate out the caprisa seqs from the rv217 seqs
@@ -334,14 +340,16 @@ evaluateTimings <- function (
     get.anchre.results.columns <- function ( the.region, the.time, sample.dates.in, partition.size = NA ) {
         ## Add to results: "infer" results.
         if( ( the.region == "v3" ) || ( the.region == "rv217_v3" ) ) {
-            the.region.dir <- "v3_edited_20160216";
+            #the.region.dir <- "v3_edited_20160216";
+            the.region.dir <- "v3";
         } else {
+            #the.region.dir <- "nflg_copy_20160222";
             the.region.dir <- "nflg_copy_20160222";
         }
         stopifnot( is.na( partition.size ) ); # TODO: Implement support for anchre on partitions.
         stopifnot( the.time == "1m6m" ); # There's only anchre results for longitudinal data.
         ## Add to results: "anchre" results. (only at 1m6m)
-        anchre.results.directories <- dir( paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+        anchre.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region.dir, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
         if( length( anchre.results.directories ) == 0 ) {
             return( NULL );
         }
@@ -355,7 +363,7 @@ evaluateTimings <- function (
                 .file.short.nosuffix <-
                     gsub( "^([^\\.]+)(\\..+)?$", "\\1", .file.short, perl = TRUE );
                 .file.converted <-
-                    paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
+                    paste( RESULTS.DIR, results.dirname, "/", the.region.dir, "/1m6m/", .file.short.nosuffix, ".anc2tsv.tab", sep = "" );
                 # convert it.
                 system( paste( "./anc2tsv.sh", .file, ">", .file.converted ) );
                 stopifnot( file.exists( .file.converted ) );
@@ -1828,7 +1836,7 @@ evaluateTimings <- function (
     } # bound.and.evaluate.results.per.ppt (..)
 
     get.timings.results.for.region.and.time <- function ( the.region, the.time, partition.size ) {
-        .days.since.infection.filename <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
+        .days.since.infection.filename <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
         if( the.region == "v3" ) {
             days.since.infection <-
                 getDaysSinceInfection(
@@ -1846,9 +1854,9 @@ evaluateTimings <- function (
             
         ## identify-founders results; we always get and use these.
         if( is.na( partition.size ) ) {
-            results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
+            results.in <- readIdentifyFounders( paste( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
         } else {
-            results.in <- readIdentifyFounders( paste( paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
+            results.in <- readIdentifyFounders( paste( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
         }
 
         # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
@@ -1880,7 +1888,7 @@ evaluateTimings <- function (
         
         days.colnames <- c( grep( "time", colnames( results.in ), value = T ), grep( "days", colnames( results.in ), value = T ) );
         
-        days.est.colnames <- grep( "est", days.colnames, value = TRUE );
+        days.est.colnames <- grep( "est$", days.colnames, value = TRUE );
         days.est <- results.in[ , days.est.colnames, drop = FALSE ];
         lambda.est.colnames <-
             gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
@@ -2072,7 +2080,7 @@ evaluateTimings <- function (
       .result.ignored <- sapply( "v3", function ( the.region ) {
           ..result.ignored <- 
           sapply( times, function ( the.time ) {
-              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
+              out.file <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/evaluateTimings_p10.tab", sep = "" );
               .tbl <- apply( results.table.by.region.and.time.p10[[ the.region ]][[ the.time ]], 1:2, function( .x ) { sprintf( "%0.2f", .x ) } );
               write.table( .tbl, quote = FALSE, file = out.file, sep = "\t" );
               return( NULL );

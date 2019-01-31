@@ -9,8 +9,9 @@ source( "getResultsByRegionAndTime_safetosource.R" );
 source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
-GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
-RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
+GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
+RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
 
 #' Evaluate isMultiple estimates and produce results tables.
 #'
@@ -30,7 +31,7 @@ RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #' @param include.bounds.in.lasso include the corresponding prior bounds in the regression equations used for cross-validation.
 #' @param include.helpful.additional.cols.in.glm include helpful.additional.cols in the glm (but don't force them to stay in the lasso)? By default this is the opposite of include.bounds.in.glm).
 #' @param helpful.additional.cols [TODO: extra cols to be included in the glm. By default, "pred.days", which is a special code meaning that the results should be computed for _each_ of the sets of preditions in the set: { same-time-and-region, same-time, same-region, all-times-and-regions }.]
-#' @param results.dirname the subdirectory of "/fh/fast/edlefsen_p/bakeoff/analysis_sequences" and also of "/fh/fast/edlefsen_p/bakeoff_analysis_results"
+#' @param results.dirname the subdirectory of RESULTS.DIR
 #' @param force.recomputation if FALSE (default) and if there is a saved version called isMultiple.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
 #' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
 #' @param partition.bootstrap.samples the number of bootstrap replicates to conduct; the idea is to get an estimate of the variation in estimates and results (errors) across these samples.
@@ -46,8 +47,9 @@ evaluateIsMultiple <- function (
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              helpful.additional.cols = c( "diversity", "priv.sites", "multifounder.Synonymous.DS.Starphy.R", "DS.Starphy.R", "inf.sites.clusters", "lPVL" ),
-                             results.dirname = "raw_edited_20160216",
-                             force.recomputation = FALSE,
+                             #results.dirname = "raw_edited_20160216",
+                             results.dirname = "raw_fixed",
+                             force.recomputation = TRUE,
                              partition.bootstrap.seed = 98103,
                              partition.bootstrap.samples = 100,
                              partition.bootstrap.num.cores = detectCores(),
@@ -62,16 +64,16 @@ evaluateIsMultiple <- function (
 
     ## Read in the gold standards.
     # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
-    rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/rv217/RV217_gold_standards.csv", sep = "" ) );
+    rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "" ) );
     rv217.gold.is.multiple <- rv217.gold.standards.in[ , "gold.is.multiple" ];
     names( rv217.gold.is.multiple ) <- rv217.gold.standards.in[ , "ptid" ];
     
-    caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "/caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
+    caprisa002.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_gold_standards.csv", sep = "" ) );
     caprisa002.gold.is.multiple <- caprisa002.gold.standards.in[ , "gold.is.multiple" ];
     names( caprisa002.gold.is.multiple ) <- caprisa002.gold.standards.in[ , "ptid" ];
 
-    rv217.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/rv217_viralloads.csv" );
-    caprisa002.pvl.in <- read.csv( "/fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/caprisa_002_viralloads.csv" );
+    rv217.pvl.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/rv217_viralloads.csv", sep = "" ) );
+    caprisa002.pvl.in <- read.csv( paste( GOLD.STANDARD.DIR, "caprisa_002/caprisa_002_viralloads.csv", sep = "" ) );
     
     ## Sometimes there are multiple entries for one ptid/sample, eg
     ## for the NFLGs there are often right half and left half (RH and
