@@ -23,8 +23,7 @@ use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R $opt_x );
 use vars qw( $VERBOSE $DEBUG );
 # }}}
 
-my $emailAddress = "philliplab\@gmail.com";
-#my $resultsFile = "/home/phillipl/RAPR_results.csv";
+my $emailAddress = "pedlefsen\@gmail.com";
 
 # {{{ Documentation for %opt:
 # i => input file
