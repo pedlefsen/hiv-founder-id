@@ -1,0 +1,3 @@
+hd_seqs.fasta: R package hypermutR: ?hypermutR::hd_seqs
+ld_seqs.fasta: R package hypermutR: ?hypermutR::ld_seqs
+ld_seqs_10hyp.fasta: The ld_seqs dataset with hypermutation induced at 90% of possible hypermutation sites in 10 of the sequences.

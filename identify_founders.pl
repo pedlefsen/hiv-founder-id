@@ -32,6 +32,12 @@
 ##      Or: rm -r Abrahams-2009aa-hiv-founder-id_-fr_resultDir/; mkdir Abrahams-2009aa-hiv-founder-id_-fr_resultDir/; perl ./identify_founders.pl -fr -O Abrahams-2009aa-hiv-founder-id_-fr_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > Abrahams-2009aa-hiv-founder-id_-fr_resultDir/identify-founders.out 
 ###******************************************************************************
 
+# Load a pipeline_dir variable to export it as an environment variable for the R scripts
+# This is needed because of some weird interaction between
+# R; perl and neovim's terminal emulator
+use Cwd qw(cwd);
+my $pipeline_dir = cwd;
+
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
 use Path::Tiny;
@@ -570,10 +576,15 @@ sub identify_founders {
             print "Calling R to remove hypermutated sequences..";
           }
       }
-      $R_output = `export removeHypermutatedSequences_fixWith="$fix_hypermutated_sequences_with"; export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
+      my $R_hypermut_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export removeHypermutatedSequences_fixWith=\"$fix_hypermutated_sequences_with\"; export removeHypermutatedSequences_fixInsteadOfRemove=\"$fix_hypermutated_sequences\"; export removeHypermutatedSequences_pValueThreshold=\"$hypermut2_pValueThreshold\"; export removeHypermutatedSequences_inputFilename=\"$fasta_file\"; export removeHypermutatedSequences_outputDir=\"$output_path_dir_for_input_fasta_file\"; R -f removeHypermutatedSequences.R --vanilla --slave; cd ..\"";
+      if( $VERBOSE ) {
+        print( $R_hypermut_command );
+      }
+      $R_output = `"$R_hypermut_command"`;
       if( $VERBOSE ) {
         print( $R_output );
       }
+
       ## extract the number fixed/removed from the output
       my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
   #    if( $VERBOSE ) {
@@ -842,8 +853,12 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runPoissonFitter.R --vanilla --slave`;
+
+        my $R_pfitter_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"FALSE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command );
           print( $R_output );
           print( "done.\n" );
         }
@@ -924,8 +939,11 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter again, masking out nonsynonymous codons..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="TRUE"; R -f runPoissonFitter.R --vanilla --slave`;
+        my $R_pfitter_command2 = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"TRUE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command2"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command2 );
           print( $R_output );
           print( "done.\n" );
         }
