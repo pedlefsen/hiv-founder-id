@@ -1,0 +1,202 @@
+---
+title: Testing the hiv-founder-id-pipeline
+output: 
+  html_document:
+    toc: false
+    theme: cerulean
+---
+
+```{r, echo = FALSE}
+if (!exists('pipeline_dir')){
+  stop('pipeline_dir variable must be specified')
+}
+```
+
+```{r setup-and-config, include = FALSE}
+library(tools)
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+source('test_utils.R')
+```
+
+## Overview
+
+This document runs all the tests for the hiv-founder pipeline and presents the
+results.
+
+### Specifying tests
+
+Tests are specified by listing:
+
+* `c_test_name`: The name of the test -> `test_xxx` where xxx is a zero-padded
+  integer.
+* `fasta_file`: The name of the input file. This file must exists in the
+  `tests/data` folder
+* `command_flags`: The command flags passed to `identify-founders.pl`. Example:
+  -CPR
+* `test_description`: A very brief description of the test. Basically just an
+  interpretation of the command flags.
+
+These test specifications live in a csv file called `test_specs.csv` in the
+tests folder. The last portion of this document also contains these
+specifications and the two documents are checked against each other
+automatically.
+
+### Running a test
+
+There is some weird thing that prevents the pipeline from running correctly
+when called with a `system` call by `R`. The workaround is to write a bash
+script into the `tests/commands` folder that runs the pipeline. These scripts
+are produced in an automated fashion. If you run the `test_pipeline.R` script
+in the tests folder with the flag `--build-command-scripts` then these scripts
+will be produced. There is a `run_all.sh` script in the commands folder that
+can be used to run all the tests.
+
+### Steps in performing a test
+
+Using the `run_all.sh` script, the user should run all the command files
+related to the tests. This will execute all the command scripts in the commands
+folder, running the pipeline for each test. The output from these runs will be
+collected in `tests/tmp/test_xxx`. This step cannot be merged into an automated
+testing approach because the pipeline does not play nice with R's `system`
+command.
+
+Next, the results produced in the `tests/tmp` folder is checked:
+
+* The existance of the folder `tests/tmp/test_xxx` is checked.
+* The dates of the files in this folder are inspected to ensure that the
+  pipeline was run recently.
+* A check is performed to ensure that all the files in `tests/ref/test_xxx` are
+  present in `tests/tmp/test_xxx`.
+* A check is performed to ensure that all the files in the `ref` and `tmp` are
+  identical using md5 sums.
+* The results of all checks are collected into a `data.frame` with the
+  following columns:
+  - `name`: The name of the check that was performed.
+  - `result`: TRUE/FALSE indicating whether or not the check passed.
+  - `obs`: The observed value related to the check.
+  - `expected`: The expected calue related to the check.
+  - `note`: A brief description of the test.
+
+### Two modes of testing
+
+Testing can be performed in one of two ways:
+
+* Bulk testing
+* Individual testing
+
+Bulk testing loads the test spec file and checks all the tests listed therein.
+
+Individual testing takes a single specification and runs all the checks
+associated with that specification producing detailed output for each check.
+
+## Bulk testing
+
+```{r}
+test_spec <- read_test_spec_file(pipeline_dir = pipeline_dir)
+all_test_results <- NULL
+for (indx in 1:nrow(test_spec)){
+  test_result <-
+    conduct_test(c_test_name = test_spec[indx, 'test_name'],
+                 fasta_file = test_spec[indx, 'fasta_file'],
+                 command_flags = test_spec[indx, 'command_flags'],
+                 test_description = test_spec[indx, 'test_description'],
+                 pipeline_dir = pipeline_dir)
+  all_test_results <- rbind(all_test_results,
+    data.frame(test_name = test_result$test_name,
+               all_passed = all(test_result$test_result$result),
+               n_tests = nrow(test_result$test_result),
+               n_passed = sum(test_result$test_result$result))
+    )
+}
+```
+
+A total of `r nrow(all_test_results)` tests were run. Of these tests, `r sum(all_test_results$all_passed)` tests passed.
+
+```{r}
+kable(all_test_results,
+      caption = 'Summary of all tests results')
+```
+
+## Individual tests
+
+### Description of pipeline flags
+
+* `opt_D` means print debugging output.
+* `opt_o` is an optional directory to put the output; default depends on input filename.
+* `opt_O` is just like opt_o.  Same thing.
+* `opt_V` means be verbose.
+* `opt_C` means skip (do not run) the PhyML diversity or InSites analysis and the primary founder call (which depends on those)
+* `opt_P` means skip (do not run) profillic
+* `opt_R` means skip (do not run) RAP (alignment-internal recombination detection program)
+* `opt_F` means skip (do not run) PFitter
+* `opt_E` means skip (do not run) entropy statistics calculation
+* `opt_H` means skip (do not run) HYPERMUT 2.0 hypermutation detection
+* `opt_f` means fix hypermutated sequences, instead of removing them.
+* `opt_w` is what we should fix hypermutated sequences with (default: R)
+* `opt_I` means run inSites online (instead of offline)
+* `opt_i` is the insites threshold to use for all regions except v3 (default: 0.85).
+* `opt_v` is the insites threshold to use for v3 (default: 0.33).
+* `opt_T` means don't train the profillic profile, just use the converted alignment directly.
+* `opt_r` means recursively operate on clusters identified using the Informtive Sites method.
+
+```{r, include = FALSE}
+c_test_name <- 'test_001'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPRFHT'
+test_description <- 'Entropy only on ld_seqs.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+
+```{r, include = FALSE}
+c_test_name <- 'test_002'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-PRFEHT'
+test_description <- 'PhyML and Insites only on ld_seqs.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+
+```{r, include = FALSE}
+c_test_name <- 'test_003'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPFEHT'
+test_description <- 'Recombination removal via RAP on ld_seqs.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+
+```{r, include = FALSE}
+c_test_name <- 'test_004'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPRFET'
+test_description <- 'Hypermutation removal only on ld_seqs.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+
+```{r, include = FALSE}
+c_test_name <- 'test_005'
+fasta_file <- 'ld_seqs_10hyp.fasta'
+command_flags <- '-CPRFET'
+test_description <- 'Hypermutation removal only on ld_seqs_10hyp.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+
+```{r, include = FALSE}
+c_test_name <- 'test_006'
+fasta_file <- 'ld_seqs.fasta'
+command_flags <- '-CPREHT'
+test_description <- 'PFitter only on ld_seqs_10hyp.fasta'
+```
+
+```{r, child='individual_test_chunk.Rmd'}
+```
+

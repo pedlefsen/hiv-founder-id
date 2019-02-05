@@ -1,0 +1,2 @@
+infile	file	num.seqs	num.diversity.seqs	diversity	inf.sites	priv.sites	inf.to.priv.ratio	exceeds.diversity.threshold	exceeds.ratio.threshold	ratio.threshold	InSites.is.one.founder	mean.entropy	sd.entropy	inf.sites.clusters	InSites.founders
+ld_seqs.fasta	ld_seqs.fasta	872	872	0.0000	1	18	0.0556	0	0	0.85	1	0.0006	0.0029	2	1

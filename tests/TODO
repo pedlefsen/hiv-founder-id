@@ -1,0 +1,23 @@
+Testing for Ted: Make sure that running the pipeline on tawny yields identical results to what was obtained for the paper
+- get permissions to file system
+- figure out script location
+- figure out dataset location
+- figure out previous output location
+- figure out where to put the data when I run it so that it does not override anything inportant.
+
+Test the testing on tawny (or just my other computer?)
+- Should I make a new repo with my fork's stuff?
+
+Add in more tests for the pipeline:
+- Drop the pfitter flag
+  - Ok, now review the results and make sure they pass a basic sanity test.
+
+Write installation instructions:
+  - git clone
+  - phyml:
+    - source dl
+    - patch
+    - build
+    - symlink
+
+
