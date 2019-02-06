@@ -132,42 +132,6 @@ sub runRAPOnline {
     print "Table of duplicates removed: $table_file_no_duplicates\n";
   }
 
-  # RAP has a problem with certain characters in fasta headers. 
-  ## STEP 2: Rename the seqs to just their numbers.
-  if( $VERBOSE ) {
-    print "Calling R to create a version of the fasta file in which seqs are numbered instead of named..";
-  }
-  my ( $fasta_file_no_duplicates_numbered ) =
-    ( $fasta_file_no_duplicates =~ /^(.+)$input_fasta_file_suffix$/ );
-  $fasta_file_no_duplicates_numbered .= "_numbered$input_fasta_file_suffix";
-  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$fasta_file_no_duplicates"; export computeConsensusSequenceFromAlignedFasta_outputFilename="$fasta_file_no_duplicates_numbered"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
-  # The output has the file name of the "consensus file" which is not in fact the consensus but the fasta with renamed seqs.
-  if( $DEBUG ) {
-    print( "GOT: $R_output\n" );
-  }
-  if( $VERBOSE ) {
-    print ".done.\n";
-  }
-  # Parse it to get the filename.
-  my ( $fasta_file_readyForRAP ) = ( $R_output =~ /\"([^\"]+)\"/ );
-  if( $DEBUG ) {
-    print "Fasta file ready for RAP: $fasta_file_readyForRAP\n";
-  }
-
-  ## Set up the table mapping sequence names to numbers.
-      if( $VERBOSE ) {
-        print "Reading sequence names from file \"", $fasta_file_no_duplicates, "\"..";
-      }
-      my $fasta_file_no_duplicates_contents =
-           path( $fasta_file_no_duplicates )->slurp();
-      if( $VERBOSE ) {
-        print ".done\n";
-      }
-      if( $DEBUG ) {
-        #print $fasta_file_no_duplicates_contents;
-      }
-      my ( @seq_names ) =  ( $fasta_file_no_duplicates_contents =~ /\n?>[ \t]*(.+) *\n/g );
-
   my $mech = WWW::Mechanize->new( autocheck => 1 );
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/RAP/RAP.html" );
 

@@ -53,13 +53,13 @@ sub parseARGV { #{{{
   my $rel_input = File::Spec->abs2rel($opt{'i'}, $cwd);
   my $rel_output = File::Spec->abs2rel($opt{'o'}, $cwd);
 
-  $opt{'i'} = $rel_input;
-  $opt{'o'} = $rel_output;
-
   if ( $opt{'V'} ){
     print "\n\nFor some reason absolute paths leads to errors. Remapping:\n$opt{'i'}\n$rel_input\n\n$opt{'o'}\n$rel_output\n\n";
   }
   
+  $opt{'i'} = $rel_input;
+  $opt{'o'} = $rel_output;
+
   unless (-e $opt{'i'}){
     print "\nERROR: Specified input file does not exist.\n";
     exit;
@@ -111,9 +111,10 @@ sub runElimDupes { #{{{
     exit;
   } else {
     $number_of_dups_removed =~ s/^\[1\] "Number of duplicates removed: ([0-9]*)"/$1/g;
-    if ($number_of_dups_removed > 0){
+    # always put it in the ElimDupes format even if there are no dupes, so skip the test.
+    #if ($number_of_dups_removed > 0){
       $opt{'a'} = $opt{'e'};
-    }
+    #}
   }
   return %opt;
 } #}}}
@@ -124,13 +125,71 @@ sub runRAPROnline { #{{{
 
   my $job_id = "NOTRUN";
 
-  my $input_fasta_file = $opt{'a'};
+  my $output_fasta_file = $opt{'o'};
+        my ( $output_fasta_file_path, $output_fasta_file_short ) =
+          ( $output_fasta_file =~ /^(.*?)\/([^\/]+)$/ );
 
+  my $input_fasta_file = $opt{'a'};
+        my ( $input_fasta_file_path, $input_fasta_file_short ) =
+          ( $input_fasta_file =~ /^(.*?)\/([^\/]+)$/ );
+        unless( $input_fasta_file_short ) {
+            $input_fasta_file_short = $input_fasta_file;
+            $input_fasta_file_path = ".";
+          }
+        my ( $input_fasta_file_short_nosuffix, $input_fasta_file_suffix ) =
+          ( $input_fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+
+  $VERBOSE = $opt{'V'};
+
+  my $R_output;
+
+  # RAP has a problem with certain characters in fasta headers. 
+  ## Step 1: Set up the table mapping sequence names to numbers.
+      if( $VERBOSE ) {
+        print "Reading sequence names from file \"", $input_fasta_file, "\"..";
+      }
+      my $input_fasta_file_contents =
+           path( $input_fasta_file )->slurp();
+      if( $VERBOSE ) {
+        print ".done\n";
+      }
+      if( $DEBUG ) {
+        #print $input_fasta_file_contents;
+      }
+      my ( @seq_names ) =  ( $input_fasta_file_contents =~ /\n?>[ \t]*(.+) *\n/g );
+
+  ## STEP 2: Rename the seqs to just their numbers.
+  my ( $input_fasta_file_numbered ) =
+    ( $input_fasta_file =~ /^(.+)$input_fasta_file_suffix$/ );
+  $input_fasta_file_numbered .= "_numbered$input_fasta_file_suffix";
+  if( $VERBOSE ) {
+    print "Calling R to create a version of the fasta file in which seqs are numbered instead of named ($input_fasta_file_numbered)..";
+  }
+
+  $R_output = `export computeConsensusSequenceFromAlignedFasta_inputFilename="$input_fasta_file"; export computeConsensusSequenceFromAlignedFasta_outputFilename="$input_fasta_file_numbered"; export computeConsensusSequenceFromAlignedFasta_includeFullAlignment="TRUE"; export  computeConsensusSequenceFromAlignedFasta_includeConsensus="FALSE"; export computeConsensusSequenceFromAlignedFasta_useSeqeunceNumbersAsNames="TRUE"; export computeConsensusSequenceFromAlignedFasta_addSuffixToSeqNames="_1"; R -f computeConsensusSequenceFromAlignedFasta.R --vanilla --slave`;
+  # The output has the file name of the "consensus file" which is not in fact the consensus but the fasta with renamed seqs.
+  if( $DEBUG ) {
+    print( "GOT: $R_output\n" );
+  }
+  if( $VERBOSE ) {
+    print ".done.\n";
+  }
+  ## Parse it to get the filename.
+  #my ( $fasta_file_readyForRAP ) = ( $R_output =~ /\"([^\"]+)\"/ );
+  my ( $fasta_file_readyForRAP ) = $input_fasta_file_numbered;
+  if( $VERBOSE ) {
+    print "Fasta file almost ready for RAP: $fasta_file_readyForRAP\n";
+  }
+  
+  # Also fix the filename.
   my $fasta_file_readyForLANL = File::Temp::tempnam( ".", "tmp" ) . ".fasta";
-  `cp $input_fasta_file $fasta_file_readyForLANL`;
   # remove leading dots and slashes from filename:
   ( $fasta_file_readyForLANL ) = ( $fasta_file_readyForLANL =~ /^\.\/(.+)$/ );
-  
+  `cp $fasta_file_readyForRAP $fasta_file_readyForLANL`;
+
+  if( $VERBOSE ) {
+    print "Fasta file finally ready for RAPR on LANL: $fasta_file_readyForLANL\n";
+  }
   my $mech = WWW::Mechanize->new( ssl_opts => {
       SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE,
       verify_hostname => 0, # this key is likely going to be removed in future LWP >6.04
@@ -247,6 +306,9 @@ sub runRAPROnline { #{{{
     exit;
   }
   $opt{'j'} = $job_id;
+  
+  # Store these for renaming seqs.
+  $opt{'seq_names'} = \@seq_names;
   return %opt;
 } #}}}
 
@@ -286,10 +348,47 @@ sub retrieveResult { #{{{
     
     if ( $response =~ /List of Recombinants/ ){
       my $url_with_recs = "https://www.hiv.lanl.gov/cgi-bin/common_code/download.cgi?/tmp/RAP/$job_id/sample.recs.txt";
-      $mech->get( $url_with_recs, ":content_file" => $opt{'r'} );
+      my $RAP_output_file = $opt{'r'};
+      $mech->get( $url_with_recs, ":content_file" => $RAP_output_file );
+      
+      # Fix the numbers back to sequence names.
+      ## TODO: DEHACKIFY? KEEP A "BEFORE" VERSION.
+      `cp $RAP_output_file ${RAP_output_file}_beforeFixingNumbersToSequenceNames.tab`;
+      
+      my $RAP_output_file_contents = path( $RAP_output_file )->slurp();
+      my @RAP_output_file_lines = split( "\n", $RAP_output_file_contents );
+      my @seq_names = @{ $opt{'seq_names'} };
+      my ( @recombinant_line, $rl0, $rl4, $rl6 );
+      for( my $line_i = 1; $line_i < scalar( @RAP_output_file_lines ); $line_i++ ) {
+        ## TODO: REMOVE!
+        print "LINE $line_i: $RAP_output_file_lines[ $line_i ]\n";
+          @recombinant_line = split( /\t/, $RAP_output_file_lines[ $line_i ] );
+          # Relevant columns are 0, 4, 6.
+          ( $rl0 ) = ( $recombinant_line[ 0 ] =~ /^(\d+)_/ ); # strip off the suffix if there is one.
+          ( $rl4 ) = ( $recombinant_line[ 4 ] =~ /^(\d+)_/ ); # strip off the suffix if there is one.
+          ( $rl6 ) = ( $recombinant_line[ 6 ] =~ /^(\d+)_/ ); # strip off the suffix if there is one.
+          $recombinant_line[ 0 ] = $seq_names[ $rl0 - 1 ];
+          $recombinant_line[ 4 ] = $seq_names[ $rl4 - 1 ];
+          $recombinant_line[ 6 ] = $seq_names[ $rl6 - 1 ];
+          $RAP_output_file_lines[ $line_i ] = join( "\t", @recombinant_line );
+        }
+      $RAP_output_file_contents = join( "\n", @RAP_output_file_lines ) . "\n";
+
+        if( $VERBOSE ) {
+          print( "Writing out RAP output file \"$RAP_output_file\".." );
+        }
+        if( $VERBOSE ) { print "Opening file \"$RAP_output_file\" for writing..\n"; }
+        unless( open RAP_output_fileFH, ">$RAP_output_file" ) {
+            warn "Unable to open output file \"$RAP_output_file\": $!\n";
+            return 1;
+          }
+        print RAP_output_fileFH $RAP_output_file_contents;
+      close( RAP_output_fileFH );
+  
+      print "Recombinants identified ($RAP_output_file)\n";
 
       # NOW call ElimDupes.R and make it remove the sequences in the recombined list.
-      my $second_ElimDupes_command = "Rscript ElimDupes.R --verbose --input_file=$opt{'a'} --output_file=$opt{'f'} --reduplicate --duplicates_file=$opt{'d'} --but_first_remove=$opt{'r'}";
+      my $second_ElimDupes_command = "Rscript ElimDupes.R --verbose --input_file=$opt{'a'} --output_file=$opt{'f'} --reduplicate --duplicates_file=$opt{'d'} --but_first_remove=$RAP_output_file";
       if ($opt{'V'}){
         print "\n\n\n\n";
         print $second_ElimDupes_command;
