@@ -653,35 +653,35 @@ sub identify_founders {
       my $removed_recombined_sequences = 0;
       # Note we use verbosity for RAPR to parse its output.
       my $RAP_result_stdout = `perl runRAPROnline.pl $extra_flags -V -i $fasta_file -o ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_RAPR.fasta`;
-      if( $VERBOSE ) {
-        print $RAP_result_stdout;
+      if( 1 || $VERBOSE ) {
+        print "GOT FROM runRAPROnline.pl:\n$RAP_result_stdout\n";
       }
       my ( $ElimDups_output_file ) = ( $RAP_result_stdout =~ /^d => (.+)\s*$/m );
-      if( !defined( $ElimDups_output_file ) ) { # Do duplicates.
+      if( !defined( $ElimDups_output_file ) ) { # No duplicates.
         $ElimDups_output_file = "";
       }
       ## TODO: REMOVE
       #print( "\$ElimDups_output_file is $ElimDups_output_file\n" );
       my ( $RAPR_fasta_output_file ) = ( $RAP_result_stdout =~ /^f => (.+)\s*$/m );
-      if( !defined( $RAPR_fasta_output_file ) ) { # Do duplicates.
+      if( !defined( $RAPR_fasta_output_file ) ) {
         $RAPR_fasta_output_file = "";
       }
       ## TODO: REMOVE
       print( "\$RAPR_fasta_output_file is $RAPR_fasta_output_file\n" );
-      if( $RAP_result_stdout =~ /Total number of recombinants found:/ ) {
+      if( $RAP_result_stdout =~ m/Total number of recombinants found:/ ) {
         ## extract the number fixed/removed from the output
-        my ( $removed_recombined_sequences ) = ( $RAP_result_stdout =~ /Total number of recombinants found: (.+)\s*$/ );
+        ( $removed_recombined_sequences ) = ( $RAP_result_stdout =~ m/Total number of recombinants found: (.+)/ );
         if( $VERBOSE ) {
-          print( ".done." );
+          print( ".done ($removed_recombined_sequences recombinants removed)." );
         }
         # Now use the output from that..
         $fasta_file_path = $output_path_dir_for_input_fasta_file;
-        ( $fasta_file_short ) = ( $RAPR_fasta_output_file =~ /$fasta_file_path\/(.+)$/ );
+        $fasta_file = $RAPR_fasta_output_file;
+        ( $fasta_file_short ) = ( $fasta_file =~ /$fasta_file_path\/(.+)$/ );
         ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
           ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
-        $fasta_file = "${fasta_file_path}/${fasta_file_short}";
         # Recompute the seq_headers.
-        $fasta_file_contents = path( $fasta_file )->slurp();
+        $fasta_file_contents = path( $RAPR_fasta_output_file )->slurp();
         ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
       } else {
         if( $VERBOSE ) {
