@@ -19,4 +19,4 @@ export errFile=${mainDir}/${patient}.err
 export listFile=${mainDir}/${patient}.list
 rm $errFile
 touch $errFile
-/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl -C -E -P -F -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl -CPTFEIf -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
