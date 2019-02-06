@@ -42,3 +42,22 @@ biocLite( pkgs = eval( "seqinr" ) );
 if( !require( package = eval( "seqinr" ) ) ) {
     stop( paste( "Error loading package", "seqinr" ) );
 }
+
+install.packages( pkgs = "optparse", dependencies = TRUE, quiet = TRUE );
+if( !require( "optparse" ) ) {
+    stop( "Error loading package \"optparse\"" );
+}
+
+## TO INSTALL hypermuteR on linux:
+# (in R:)
+library( "devtools" );
+install_github( "philliplab/hypermutR" )
+## BUT on my mac I had to rebuild it from source:
+# (in shell:)
+# git clone https://github.com/philliplab/hypermutR.git
+# rm hypermutR/src/*.o hypermutR/src/*.so
+# sudo R CMD INSTALL hypermutR
+# Test it loads (in R:)
+if( !require( package = eval( "hypermutR" ) ) ) {
+    stop( paste( "Error loading package", "hypermutR" ) );
+}
