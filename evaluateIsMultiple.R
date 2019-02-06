@@ -655,7 +655,7 @@ evaluateIsMultiple <- function (
               summarizeCovariatesOnePerParticipant( identify.founders.study.with.lPVL );
            
           if( use.bounds ) {
-              the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
+              the.artificial.bounds <- getArtificialBounds( the.region, the.time, RESULTS.DIR, results.dirname );
               # Only keep the "sampledwidth" bounds.
               the.artificial.bounds <-
                 the.artificial.bounds[ grep( "sampledwidth", names( the.artificial.bounds ), value = TRUE ) ];

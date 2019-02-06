@@ -1,6 +1,7 @@
 getArtificialBounds <- function (
     the.region,
     the.time,
+    RESULTS.DIR,
     results.dirname,
     bounds.subdirname = "bounds"
 ) {
@@ -26,7 +27,7 @@ getArtificialBounds <- function (
     ## These files have names beginning with
     ## "artificialBounds_" and ending with ".tab".
     .artificial.bounds.dirname <-
-        paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
+        paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
     artificial.bounds.filenames <-
         dir( .artificial.bounds.dirname, pattern = "artificialBounds_.*.tab", recursive = FALSE, full.names = TRUE );
     names( artificial.bounds.filenames ) <- gsub( "^.*artificialBounds_(.*).tab$", "\\1", artificial.bounds.filenames );
@@ -51,5 +52,5 @@ getArtificialBounds <- function (
         the.artificial.bounds[ grep( "deterministic", names( the.artificial.bounds ), invert = TRUE ) ];
     
     return( the.artificial.bounds );
-} # get.artificial.bounds (..)
+} # getArtificialBounds (..)
 

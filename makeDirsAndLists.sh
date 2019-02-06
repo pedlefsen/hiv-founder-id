@@ -5,7 +5,7 @@
 # TAH 11/15
 ##
 
-for patient in ` ls -c1 ./*.fasta | egrep --only "_[0-9]{5,}_" | tr -d "_"`
+for patient in `ls -c1 ./*.fasta | egrep --only "_[0-9]{5,}_" | tr -d "_"`
 do
    rm -rf hiv_founder_id_$patient
    mkdir hiv_founder_id_$patient

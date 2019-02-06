@@ -215,11 +215,12 @@ evaluateTimings <- function (
         apply( results, 2, function ( .column ) {
             .rv <- 
             sapply( unique( rownames( results ) ), function( .ppt ) {
-                .ppt.cells <- .column[ rownames( results ) == .ppt ];
+                print( .ppt );
+                .ppt.cells <- as.numeric( as.character( .column[ rownames( results ) == .ppt ] ) );
                 if( all( is.na( .ppt.cells ) ) ) {
                   return( NA );
                 }
-                .ppt.weights <- weights[ rownames( results ) == .ppt ];
+                .ppt.weights <- apply( weights[ rownames( results ) == .ppt, , drop = FALSE ], 1, mean );
                 .ppt.weights <- .ppt.weights / sum( .ppt.weights, na.rm = TRUE );
                 sum( .ppt.cells * .ppt.weights, na.rm = TRUE );
             } );
@@ -1935,7 +1936,7 @@ evaluateTimings <- function (
               compute.results.per.person( results, .weights );
         
           if( use.bounds ) {
-              the.artificial.bounds <- getArtificialBounds( the.region, the.time, results.dirname );
+              the.artificial.bounds <- getArtificialBounds( the.region, the.time, RESULTS.DIR, results.dirname );
               # Only keep the "sampledwidth" bounds.
               the.artificial.bounds <-
                 the.artificial.bounds[ grep( "sampledwidth", names( the.artificial.bounds ), value = TRUE ) ];
@@ -2093,5 +2094,5 @@ evaluateTimings <- function (
 } # evaluateTimings (..)
 
 ## Here is where the action is.
-#evaluateTimings();
+evaluateTimings();
 

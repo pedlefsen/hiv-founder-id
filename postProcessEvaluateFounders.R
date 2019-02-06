@@ -5,7 +5,8 @@ source( "prettyPrintPValues_safetosource.R" )
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard";
 #RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_fixed/";
-RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/";
+RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/raw_fixed/";
 
 # From this file we read in indicators of whether to use the multiple- or single-founder true profile.
 rv217.gold.standards.in <- read.csv( paste( GOLD.STANDARD.DIR, "rv217/RV217_gold_standards.csv", sep = "/" ) );
