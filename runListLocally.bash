@@ -8,7 +8,7 @@
 ##
 export mainDir=$1
 export patient=$2
-export outputDir=./hiv_founder_id_${patient}
+export outputDir=${mainDir}/hiv_founder_id_${patient}
 rm -rf ${outputDir}
 mkdir $outputDir
 export outputFile=${outputDir}/identify_founders.out
