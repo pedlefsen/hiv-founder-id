@@ -6,7 +6,7 @@
 ##      Paul Thatcher Edlefsen   pedlefse@fredhutch.org
 ##  Description:
 ##
-##      Script for using DiveIn tools (at the Mullins lab web site) to
+##      Script for using LANL and DiveIn tools (at the Mullins lab web site) to
 ##      estimate the number of founders and perform sequence
 ##      reconstruction of the founders.
 ##
@@ -31,6 +31,12 @@
 ##      Or: mkdir CAPRISA002_ft_seqs-hiv-founder-id_resultDir/; perl ./identify_founders.pl -O CAPRISA002_ft_seqs-hiv-founder-id_resultDir/ ~/src/from-git/projects/tholzman/MorgansFounderIDMethod/CAPRISA002_ft_seqs.txt  > CAPRISA002_ft_seqs-hiv-founder-id_resultDir/identify-founders.out
 ##      Or: rm -r Abrahams-2009aa-hiv-founder-id_-fr_resultDir/; mkdir Abrahams-2009aa-hiv-founder-id_-fr_resultDir/; perl ./identify_founders.pl -fr -O Abrahams-2009aa-hiv-founder-id_-fr_resultDir/ Abrahams-2009aa/preparedFor_hiv-identify-founders.list > Abrahams-2009aa-hiv-founder-id_-fr_resultDir/identify-founders.out 
 ###******************************************************************************
+
+# Load a pipeline_dir variable to export it as an environment variable for the R scripts
+# This is needed because of some weird interaction between
+# R; perl and neovim's terminal emulator
+use Cwd qw(cwd);
+my $pipeline_dir = cwd;
 
 use Getopt::Std; # for getopts
 use File::Path qw( make_path );
@@ -210,7 +216,7 @@ sub identify_founders {
   # opt_V means be verbose.
   # opt_C means skip (do not run) the PhyML diversity or InSites analysis and the primary founder call (which depends on those)
   # opt_P means skip (do not run) profillic
-  # opt_R means skip (do not run) RAP (alignment-internal recombination detection program)
+  # opt_R means skip (do not run) RAPR (alignment-internal recombination detection program)
   # opt_F means skip (do not run) PFitter
   # opt_E means skip (do not run) entropy statistics calculation
   # opt_H means skip (do not run) HYPERMUT 2.0 hypermutation detection
@@ -570,12 +576,43 @@ sub identify_founders {
             print "Calling R to remove hypermutated sequences..";
           }
       }
-      $R_output = `export removeHypermutatedSequences_fixWith="$fix_hypermutated_sequences_with"; export removeHypermutatedSequences_fixInsteadOfRemove="$fix_hypermutated_sequences"; export removeHypermutatedSequences_pValueThreshold="$hypermut2_pValueThreshold"; export removeHypermutatedSequences_inputFilename="$fasta_file"; export removeHypermutatedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeHypermutatedSequences.R --vanilla --slave`;
-      if( $VERBOSE ) {
-        print( $R_output );
+      #my $R_hypermut_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export removeHypermutatedSequences_fixWith=\"$fix_hypermutated_sequences_with\"; export removeHypermutatedSequences_fixInsteadOfRemove=\"$fix_hypermutated_sequences\"; export removeHypermutatedSequences_pValueThreshold=\"$hypermut2_pValueThreshold\"; export removeHypermutatedSequences_inputFilename=\"$fasta_file\"; export removeHypermutatedSequences_outputDir=\"$output_path_dir_for_input_fasta_file\"; R -f removeHypermutatedSequences.R --vanilla --slave; cd ..\"";
+      my $R_hypermut_command = "Rscript hypermutR.R --input_file=\"$fasta_file\" --p_value=\"$hypermut2_pValueThreshold\" --ancestor=\"consensus\"";
+      my ( $fasta_file_short_hypermut, $hypermut_output_file );
+      if( $fix_hypermutated_sequences ) {
+        $fasta_file_short_hypermut = "${fasta_file_short_nosuffix}_fixHypermutatedSequencesWith${fix_hypermutated_sequences_with}.fasta";
+        $hypermut_output_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_hypermut}";
+        $R_hypermut_command .= " --output_file=\"$hypermut_output_file\" --fix_with=\"$fix_hypermutated_sequences_with\"";
+      } else {
+        $fasta_file_short_hypermut = "${fasta_file_short_nosuffix}_removeHypermutatedSequences.fasta";
+        $hypermut_output_file = "${output_path_dir_for_input_fasta_file}/${fasta_file_short_hypermut}";
+        $R_hypermut_command .= " --output_file=\"$hypermut_output_file\"";
       }
+      my $hypermut_removed_fasta_file = $hypermut_output_file;
+      $hypermut_removed_fasta_file =~ s/\.fasta/\_hypermutants\.fasta/;
+      ## TODO: REMOVE
+      #print( "\$hypermut_removed_fasta_file = $hypermut_removed_fasta_file\n" );
+      if( -e $hypermut_removed_fasta_file ) {
+        my $result_ignored = `rm $hypermut_removed_fasta_file`;
+      }
+      if( $VERBOSE ) {
+        print( "RUNNING:\n$R_hypermut_command\n" );
+      }
+      $R_output = `$R_hypermut_command`;
+      if( $VERBOSE ) {
+        print( "GOT:\n$R_output\n" );
+      }
+
       ## extract the number fixed/removed from the output
-      my ( $num_hypermut_sequences ) = ( $R_output =~ /^\[1\]\s*(\d+)\s*$/m );
+      my $num_hypermut_sequences = 0;
+      if( -e $hypermut_removed_fasta_file ) {
+        # TODO:REMOVE
+        #print( "THE FILE EXISTS" );
+        my $hypermut_removed_fasta_file_contents = path( $hypermut_removed_fasta_file )->slurp();
+        my ( @hypermut_removed_fasta_file_seq_headers ) = ( $hypermut_removed_fasta_file_contents =~ /^>(.*)$/mg );
+        ## TODO: Do we need to multiply these by the # if they were previously deduplicated?
+        $num_hypermut_sequences = scalar( @hypermut_removed_fasta_file_seq_headers );
+      }
   #    if( $VERBOSE ) {
           if( $fix_hypermutated_sequences ) {
             print( "The number of hypermutated sequences fixed is: $num_hypermut_sequences\n" );
@@ -589,10 +626,8 @@ sub identify_founders {
       # Now use the output from that..
       if( $num_hypermut_sequences > 0 ) {
         $fasta_file_path = $output_path_dir_for_input_fasta_file;
-        if( $fix_hypermutated_sequences ) {
-          $fasta_file_short = "${fasta_file_short_nosuffix}_fixHypermutatedSequencesWith${fix_hypermutated_sequences_with}${fasta_file_suffix}";
-        } else {
-          $fasta_file_short = "${fasta_file_short_nosuffix}_removeHypermutatedSequences${fasta_file_suffix}";
+        $fasta_file_short = $fasta_file_short_hypermut;
+        if( !$fix_hypermutated_sequences ) {
           # Recompute the seq_headers.
           $fasta_file_contents = path( "${fasta_file_path}/${fasta_file_short}" )->slurp();
           ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
@@ -603,43 +638,45 @@ sub identify_founders {
       } # End if we need to change files..
       
       if( $VERBOSE ) {
-        print ".done.\n";
+        print ".done. \$fasta_file is now $fasta_file\n";
       }
     } # End if $run_Hypermut
 
     if( $run_RAP ) {
-      ## Run RAP on LANL, which gives individual
+      ## Run RAPR on LANL, which gives individual
       ## sequences that are recombinants of other individual sequences,
       ## allowing those to be flagged for removal just like hypermutated
       ## ones.
       if( $VERBOSE ) {
-        print "Running RAP at LANL to compute recombined sequences..";
+        print "Running RAPR at LANL to compute recombined sequences..";
       }
       my $removed_recombined_sequences = 0;
-      my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
+      # Note we use verbosity for RAPR to parse its output.
+      my $RAP_result_stdout = `perl runRAPROnline.pl $extra_flags -V -i $fasta_file -o ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_RAPR.fasta`;
       if( $VERBOSE ) {
         print $RAP_result_stdout;
       }
-      my ( $removeDuplicateSequencesFromAlignedFasta_output_file ) = ( $RAP_result_stdout =~ /^Table of duplicates removed: (.+)\s*$/m );
-      if( !defined( $removeDuplicateSequencesFromAlignedFasta_output_file ) ) { # Do duplicates.
-        $removeDuplicateSequencesFromAlignedFasta_output_file = "";
+      my ( $ElimDups_output_file ) = ( $RAP_result_stdout =~ /^d => (.+)\s*$/m );
+      if( !defined( $ElimDups_output_file ) ) { # Do duplicates.
+        $ElimDups_output_file = "";
       }
       ## TODO: REMOVE
-      #print( "\$removeDuplicateSequencesFromAlignedFasta_output_file is $removeDuplicateSequencesFromAlignedFasta_output_file" );
-      if( $RAP_result_stdout =~ /Recombinants identified/ ) {
-        my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
-        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_removeDuplicateSequencesFromAlignedFastaOutputFile="$removeDuplicateSequencesFromAlignedFasta_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
-        if( $VERBOSE ) {
-          print $R_output;
-        }
+      #print( "\$ElimDups_output_file is $ElimDups_output_file\n" );
+      my ( $RAPR_fasta_output_file ) = ( $RAP_result_stdout =~ /^f => (.+)\s*$/m );
+      if( !defined( $RAPR_fasta_output_file ) ) { # Do duplicates.
+        $RAPR_fasta_output_file = "";
+      }
+      ## TODO: REMOVE
+      print( "\$RAPR_fasta_output_file is $RAPR_fasta_output_file\n" );
+      if( $RAP_result_stdout =~ /Total number of recombinants found:/ ) {
         ## extract the number fixed/removed from the output
-        ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/m );
+        my ( $removed_recombined_sequences ) = ( $RAP_result_stdout =~ /Total number of recombinants found: (.+)\s*$/ );
         if( $VERBOSE ) {
           print( ".done." );
         }
         # Now use the output from that..
         $fasta_file_path = $output_path_dir_for_input_fasta_file;
-        $fasta_file_short = "${fasta_file_short_nosuffix}_removeRecombinedSequences${fasta_file_suffix}";
+        ( $fasta_file_short ) = ( $RAPR_fasta_output_file =~ /$fasta_file_path\/(.+)$/ );
         ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
           ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
         $fasta_file = "${fasta_file_path}/${fasta_file_short}";
@@ -842,8 +879,12 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="FALSE"; R -f runPoissonFitter.R --vanilla --slave`;
+
+        my $R_pfitter_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"FALSE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command );
           print( $R_output );
           print( "done.\n" );
         }
@@ -924,8 +965,11 @@ sub identify_founders {
         if( $VERBOSE ) {
           print "\nCalling R to run PoissonFitter again, masking out nonsynonymous codons..";
         }
-        $R_output = `export runPoissonFitter_inputFilename="$fasta_file"; export runPoissonFitter_outputDir="$output_path_dir_for_input_fasta_file"; export runPoissonFitter_runDSStarPhyTest="TRUE"; export runPoissonFitter_maskOutNonsynonymousCodons="TRUE"; R -f runPoissonFitter.R --vanilla --slave`;
+        my $R_pfitter_command2 = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export runPoissonFitter_inputFilename=\"$fasta_file\"; export runPoissonFitter_outputDir=\"$output_path_dir_for_input_fasta_file\"; export runPoissonFitter_runDSStarPhyTest=\"TRUE\"; export runPoissonFitter_maskOutNonsynonymousCodons=\"TRUE\"; R -f runPoissonFitter.R --vanilla --slave\"";
+
+        $R_output = `"$R_pfitter_command2"`;
         if( $VERBOSE ) {
+          print( $R_pfitter_command2 );
           print( $R_output );
           print( "done.\n" );
         }
