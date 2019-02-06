@@ -577,7 +577,7 @@ sub identify_founders {
           }
       }
       #my $R_hypermut_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export removeHypermutatedSequences_fixWith=\"$fix_hypermutated_sequences_with\"; export removeHypermutatedSequences_fixInsteadOfRemove=\"$fix_hypermutated_sequences\"; export removeHypermutatedSequences_pValueThreshold=\"$hypermut2_pValueThreshold\"; export removeHypermutatedSequences_inputFilename=\"$fasta_file\"; export removeHypermutatedSequences_outputDir=\"$output_path_dir_for_input_fasta_file\"; R -f removeHypermutatedSequences.R --vanilla --slave; cd ..\"";
-      my $R_hypermut_command = "hypermutR.R --input_file=\"$fasta_file\" --p_value=\"$hypermut2_pValueThreshold\" --ancestor=\"consensus\"";
+      my $R_hypermut_command = "Rscript hypermutR.R --input_file=\"$fasta_file\" --p_value=\"$hypermut2_pValueThreshold\" --ancestor=\"consensus\"";
       my ( $fasta_file_short_hypermut, $hypermut_output_file );
       if( $fix_hypermutated_sequences ) {
         $fasta_file_short_hypermut = "${fasta_file_short_nosuffix}_fixHypermutatedSequencesWith${fix_hypermutated_sequences_with}.fasta";
@@ -651,7 +651,8 @@ sub identify_founders {
         print "Running RAPR at LANL to compute recombined sequences..";
       }
       my $removed_recombined_sequences = 0;
-      my $RAP_result_stdout = `perl runRAPROnline.pl $extra_flags -i $fasta_file -o ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_RAPR.fasta`;
+      # Note we use verbosity for RAPR to parse its output.
+      my $RAP_result_stdout = `perl runRAPROnline.pl $extra_flags -V -i $fasta_file -o ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_RAPR.fasta`;
       if( $VERBOSE ) {
         print $RAP_result_stdout;
       }

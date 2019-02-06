@@ -38,8 +38,8 @@ install.packages( pkgs = "entropy", dependencies = TRUE, quiet = TRUE );
 if( !require( "entropy" ) ) {
     stop( "Error loading package \"entropy\"" );
 }
-biocLite( pkgs = eval( "seqinr" ) );
-if( !require( package = eval( "seqinr" ) ) ) {
+biocLite( pkgs = "seqinr" );
+if( !require( package = "seqinr" ) ) {
     stop( paste( "Error loading package", "seqinr" ) );
 }
 
