@@ -70,7 +70,7 @@ getFilteredResultsTables <- function (
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
     ## Also exclude "DS.Starphy" versions of results, which are redundant w PFitter (here, because it's just the est / mut rate coef)
     ## Also exclude all "Starphy" versions of results, which are close enough to redundant w PFitter that it's not worth cluttering the output.
-    results.filtered <- results[ grep( paste( c( "Star[Pp]hy", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
+    results.filtered <- results[ grep( paste( c( "(DS)?Star[Pp]hy(Test)?", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
 
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
@@ -191,7 +191,7 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
     ## Also exclude "DS.Starphy" versions of results, which are redundant w PFitter (here, because it's just the est / mut rate coef)
     ## Also exclude all "Starphy" versions of results, which are close enough to redundant w PFitter that it's not worth cluttering the output.
-    results.filtered <- results[ grep( paste( c( "Star[Pp]hy", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
+    results.filtered <- results[ grep( paste( c( "(DS)?Star[Pp]hy(Test)?", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
 
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {

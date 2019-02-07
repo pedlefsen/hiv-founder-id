@@ -164,6 +164,7 @@ evaluateTimings <- function (
 )
 {
     ## For debugging: start from .results.for.region in evaluate.specific.timings.model.formula from  ~/src/from-git/hiv-founder-id/getFilteredResultsTables_safetosource.R
+    # use.bounds = TRUE; use.infer = TRUE; use.anchre = FALSE; use.glm.validate = TRUE; use.step.validate = FALSE; use.lasso.validate = FALSE; use.gold.is.multiple = FALSE; include.intercept = INCLUDE.INTERCEPT; mutation.rate.calibration = FALSE; include.all.vars.in.lasso = TRUE; helpful.additional.cols = HELPFUL.ADDITIONAL.COLS; helpful.additional.cols.with.interactions = HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS; results.dirname = RESULTS.DIRNAME; force.recomputation = TRUE; partition.bootstrap.seed = 98103; partition.bootstrap.samples = 100; partition.bootstrap.num.cores = detectCores(); regions = c( "nflg", "v3" ); times = c( "1m", "6m" )
 #     results.per.person = .results.for.region[[ the.time ]][["results.per.person" ]]; days.since.infection = .results.for.region[[ the.time ]][["days.since.infection" ]]; results.covars.per.person.with.extra.cols = .results.for.region[[ the.time ]][["results.covars.per.person.with.extra.cols" ]]; the.artificial.bounds = .results.for.region[[ the.time ]][["bounds" ]]
 #     use.bounds = TRUE;  use.infer = TRUE; use.anchre = FALSE; use.glm.validate = TRUE; use.step.validate = FALSE; use.lasso.validate = FALSE; results.dirname = "raw_edited_20160216"; force.recomputation = FALSE; partition.bootstrap.seed = 98103; partition.bootstrap.samples = 100; partition.bootstrap.num.cores = detectCores();
 
@@ -454,7 +455,7 @@ evaluateTimings <- function (
         ## anything to do here.
         days.est.cols <- colnames( results.per.person );
         days.est.cols <- grep( "deterministic", days.est.cols, invert = TRUE, value = TRUE );
-        days.est.cols <- grep( "PFitter|Star[Pp]hy", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
+        days.est.cols <- grep( "PFitter|(DS)?Star[Pp]hy(Test)?", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
         # Also exclude anything time-dependent with times we don't use anymore.
         days.est.cols <- grep( "(one|six)month", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        if( the.time == "1m.6m" ) {
@@ -1854,6 +1855,8 @@ evaluateTimings <- function (
         print( paste( "the.time", the.time ) );
         
         .days.since.infection.filename <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
+        stopifnot( file.exists( .days.since.infection.filename ) );
+
         if( the.region == "v3" ) {
             days.since.infection <-
                 getDaysSinceInfection(
@@ -1910,9 +1913,9 @@ evaluateTimings <- function (
         lambda.est.colnames <-
             gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
         stopifnot( all( lambda.est.colnames %in% colnames( results.in ) ) );
-        days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
+        days.est.colnames.nb <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
         days.est.nb <- results.in[ , days.est.colnames.nb, drop = FALSE ];
-        days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
+        days.est.colnames.nseq <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
         days.est.nseq <- results.in[ , days.est.colnames.nseq, drop = FALSE ];
         
         results <- results.with.lPVL[ , days.est.colnames, drop = FALSE ];
