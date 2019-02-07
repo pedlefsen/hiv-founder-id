@@ -18,7 +18,7 @@ cleanLists <- function (
   exclusion.pattern = EXCLUSION.PATTERN,
   SEQUENCES.DIR = THE.SEQUENCES.DIR,
   results.dirname = RESULTS.DIRNAME,
-  use.processed.lists = FALSE,
+  use.processed.lists = TRUE,
   regions = c( "nflg", "v3", "rv217_v3" ),
   times = c( "1m", "6m", "1m6m" )
 )
@@ -45,7 +45,7 @@ cleanLists.in.dir <- function (
   exclusion.pattern = EXCLUSION.PATTERN,
   SEQUENCES.DIR = THE.SEQUENCES.DIR,
   results.dirname = RESULTS.DIRNAME,
-  use.processed.lists = FALSE
+  use.processed.lists = TRUE
 )
 {
     the.dir <-
