@@ -1,4 +1,4 @@
-writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE, results.dirname = "raw_edited_20160216" ) {
+writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix, regions, results.are.bounded = TRUE, RESULTS.DIR = "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname = "raw_edited_20160216" ) {
     ## Note that there are now special entries in results.by.region.and.time that are not regions (under "results.across.regions.by.time") -- these are comparisons across the two (main) regions.
 
   if( results.are.bounded ) {
@@ -85,7 +85,7 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
           ...result.ignored <- 
               sapply( .bounds.types, function ( the.bounds.type ) {
                   #print( the.bounds.type );
-                  out.dir <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", sep = "" );
+                  out.dir <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/", sep = "" );
                   dir.create( out.dir, recursive = TRUE, showWarnings = FALSE );
               out.file <- paste( out.dir, the.bounds.type, out.tab.file.suffix, sep = "" );
               ## TODO: REMOVE
@@ -174,7 +174,7 @@ writeResultsTables <- function ( results.by.region.and.time, out.tab.file.suffix
           .bounds.types <- names( results.table.across.regions.by.time.and.bounds.type[[ from.region ]][[ to.region ]][[ the.time ]] );
           ....result.ignored <- 
             sapply( .bounds.types, function ( the.bounds.type ) {
-              out.file <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", from.region, "_and_", to.region, "_", the.time, "_", the.bounds.type, out.tab.file.suffix, sep = "" );
+              out.file <- paste( RESULTS.DIR, results.dirname, "/", from.region, "_and_", to.region, "_", the.time, "_", the.bounds.type, out.tab.file.suffix, sep = "" );
               ## TODO: REMOVE
               print( paste( the.bounds.type, out.file ) );
               .tbl <-

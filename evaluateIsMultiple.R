@@ -11,7 +11,11 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
 #RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
-RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
+#RESULTS.DIRNAME <- "raw_edited_20160216";
+
+#RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
+RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+RESULTS.DIRNAME <- "raw_fixed";
 
 #' Evaluate isMultiple estimates and produce results tables.
 #'
@@ -47,8 +51,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              helpful.additional.cols = c( "diversity", "priv.sites", "multifounder.Synonymous.DS.Starphy.R", "DS.Starphy.R", "inf.sites.clusters", "lPVL" ),
-                             #results.dirname = "raw_edited_20160216",
-                             results.dirname = "raw_fixed",
+                             results.dirname = RESULTS.DIRNAME,
                              force.recomputation = TRUE,
                              partition.bootstrap.seed = 98103,
                              partition.bootstrap.samples = 100,
@@ -684,7 +687,7 @@ evaluateIsMultiple <- function (
         load( file = is.multiple.results.by.region.and.time.Rda.filename );
     }
 
-    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE );
+    writeResultsTables( results.by.region.and.time, "_evaluateIsMultiple.tab", regions = regions, results.are.bounded = TRUE, RESULTS.DIR = RESULTS.DIR, results.dirname = results.dirname );
 
     if( FALSE ) {
         get.uses <- function ( .varname = "none", regions = c( "nflg", "v3" ), times = c( "1m", "6m" ) ) {

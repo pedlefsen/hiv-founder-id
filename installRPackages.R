@@ -38,9 +38,26 @@ install.packages( pkgs = "entropy", dependencies = TRUE, quiet = TRUE );
 if( !require( "entropy" ) ) {
     stop( "Error loading package \"entropy\"" );
 }
+install.packages( pkgs = "ROCR", dependencies = TRUE, quiet = TRUE );
+if( !require( "ROCR" ) ) {
+    stop( "Error loading package \"ROCR\"" );
+}
+install.packages( pkgs = "glmnet", dependencies = TRUE, quiet = TRUE );
+if( !require( "glmnet" ) ) {
+    stop( "Error loading package \"glmnet\"" );
+}
+install.packages( pkgs = "glmnetUtils", dependencies = TRUE, quiet = TRUE );
+if( !require( "glmnetUtils" ) ) {
+    stop( "Error loading package \"glmnetUtils\"" );
+}
+
 biocLite( pkgs = "seqinr" );
 if( !require( package = "seqinr" ) ) {
     stop( paste( "Error loading package", "seqinr" ) );
+}
+biocLite( pkgs = "Biostrings" );
+if( !require( package = "Biostrings" ) ) {
+    stop( paste( "Error loading package", "Biostrings" ) );
 }
 
 install.packages( pkgs = "optparse", dependencies = TRUE, quiet = TRUE );
@@ -58,6 +75,6 @@ install_github( "philliplab/hypermutR" )
 # rm hypermutR/src/*.o hypermutR/src/*.so
 # sudo R CMD INSTALL hypermutR
 # Test it loads (in R:)
-if( !require( package = eval( "hypermutR" ) ) ) {
+if( !require( package = "hypermutR" ) ) {
     stop( paste( "Error loading package", "hypermutR" ) );
 }

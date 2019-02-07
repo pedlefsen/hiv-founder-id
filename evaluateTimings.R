@@ -19,13 +19,26 @@ source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
 #SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
 #RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
-SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
-RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_merged_analysis_sequences_results/";
+#RESULTS.DIRNAME <- "raw_edited_20160216";
+
+RESULTS.DIR <- SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
+#RESULTS.DIR <- SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+RESULTS.DIRNAME <- "raw_fixed";
+
+HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS <- c(); #c( "v3_not_nflg", "X6m.not.1m" );
+
+## Run it in all four configurations of INCLUDE.INTERCEPT and HELPFUL.ADDITIONAL.COLS to match what was done for the paper:
+
+HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
+#HELPFUL.ADDITIONAL.COLS <- c();
+
+INCLUDE.INTERCEPT <- FALSE;
+#INCLUDE.INTERCEPT <- TRUE;
 
 ########################################################
 ## Other fns
 evaluateTimings.compute.config.string <- function ( 
-  include.intercept = FALSE,
+  include.intercept = INCLUDE.INTERCEPT,
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = c( "lPVL" ),
   helpful.additional.cols.with.interactions = c( "v3_not_nflg", "X6m.not.1m" ),
@@ -134,13 +147,12 @@ evaluateTimings <- function (
   use.step.validate = FALSE,
   use.lasso.validate = FALSE,
   use.gold.is.multiple = FALSE,
-  include.intercept = FALSE,
+  include.intercept = INCLUDE.INTERCEPT,
   mutation.rate.calibration = FALSE,
   include.all.vars.in.lasso = TRUE,
-  helpful.additional.cols = c( "lPVL" ),
-  helpful.additional.cols.with.interactions = c(), #c( "v3_not_nflg", "X6m.not.1m" ),
-  #results.dirname = "raw_edited_20160216",
-  results.dirname = "raw_fixed",
+  helpful.additional.cols = HELPFUL.ADDITIONAL.COLS,
+  helpful.additional.cols.with.interactions = HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS,
+  results.dirname = RESULTS.DIRNAME,
   force.recomputation = TRUE,
   partition.bootstrap.seed = 98103,
   partition.bootstrap.samples = 100,
@@ -1837,6 +1849,10 @@ evaluateTimings <- function (
     } # bound.and.evaluate.results.per.ppt (..)
 
     get.timings.results.for.region.and.time <- function ( the.region, the.time, partition.size ) {
+        ## TODO: REMOVE
+        print( paste( "the.region", the.region ) );
+        print( paste( "the.time", the.time ) );
+        
         .days.since.infection.filename <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
         if( the.region == "v3" ) {
             days.since.infection <-
@@ -1855,9 +1871,9 @@ evaluateTimings <- function (
             
         ## identify-founders results; we always get and use these.
         if( is.na( partition.size ) ) {
-            results.in <- readIdentifyFounders( paste( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) ) );
+            results.in <- readIdentifyFounders( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/identify_founders.tab", sep = "" ) );
         } else {
-            results.in <- readIdentifyFounders( paste( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ) ), partition.size = partition.size );
+            results.in <- readIdentifyFounders( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/partitions/identify_founders.tab", sep = "" ), partition.size = partition.size );
         }
 
         # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
@@ -2044,7 +2060,7 @@ evaluateTimings <- function (
         results.by.region.and.time <- getTimingsResultsByRegionAndTime();
         save( results.by.region.and.time, file = results.by.region.and.time.Rda.filename );
 
-        writeResultsTables( results.by.region.and.time, evaluateTimings.tab.file.suffix, regions = regions, results.are.bounded = TRUE, results.dirname = results.dirname );
+        writeResultsTables( results.by.region.and.time, evaluateTimings.tab.file.suffix, regions = regions, results.are.bounded = TRUE, RESULTS.DIR = RESULTS.DIR, results.dirname = results.dirname );
     }
 
     ## TODO

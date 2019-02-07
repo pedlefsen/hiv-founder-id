@@ -675,9 +675,9 @@ sub identify_founders {
           print( ".done ($removed_recombined_sequences recombinants removed)." );
         }
         # Now use the output from that..
-        $fasta_file_path = $output_path_dir_for_input_fasta_file;
         $fasta_file = $RAPR_fasta_output_file;
-        ( $fasta_file_short ) = ( $fasta_file =~ /$fasta_file_path\/(.+)$/ );
+        ( $fasta_file_path, $fasta_file_short ) =
+          ( $fasta_file =~ /^(.*?)\/([^\/]+)$/ );
         ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
           ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
         # Recompute the seq_headers.

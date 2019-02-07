@@ -415,6 +415,7 @@ sub retrieveResult { #{{{
       $times_checked = 100;
     } elsif ( $response =~ /We encountered a problem with your input. Please consider these tips/ || $response =~ /Sorry!/  ) {
       print "\nError occurred. LANL rejected form\n";
+      $opt{'n'} = -1;
       $times_checked = 100;
     } else {
       $times_checked = $times_checked + 1;

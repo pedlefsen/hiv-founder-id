@@ -28,7 +28,7 @@ if [ -e "${outputDir}/identify_founders.tab" ]; then
     rm "${outputDir}/identify_founders.tab"
 fi
 
-for patient in  `ls -c1 ${1}/*.list  | egrep --only "[0-9]+\.list" | egrep --only "[0-9]+"  | sort -u`
+for patient in  `ls -c1 ${mainDir}/*.list  | egrep --only "[0-9]+\.list" | egrep --only "[0-9]+"  | sort -u`
 do
     echo "${patient}"
     if [ -z $5 ]; then
@@ -36,7 +36,7 @@ do
     else
         export estimateDirMaybeModified="${estimateDir}/bakeoff_analysis_${doPartitionsForStudy}_${patient}_${doPartitionsForTime}_${doPartitionsForRegion}"
     fi
-    if [ -z $4 ]; then 
+    if [ -z $notprocessedFlag ]; then 
         export inputDir=${estimateDirMaybeModified}/hiv_founder_id_processed_${patient}
     else
         export inputDir=${estimateDirMaybeModified}/hiv_founder_id_${patient}
