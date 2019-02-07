@@ -5,15 +5,14 @@ library(dplyr)
 
 EXCLUSION.PATTERN = "env";
 
-#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
-#RESULTS.DIRNAME <- "raw_edited_20160216";
-
+SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_unfiltered/results/";
 #SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
-SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
 RESULTS.DIRNAME <- "raw_fixed";
 
 THE.SEQUENCES.DIR <- SEQUENCES.DIR; # to avoid "promise already under evaluation" errors
 
+## NOTE if use.processed.lists is TRUE but there are NO PROCESSED LISTS, this will act on the unprocessed lists, and create symlinks to them with corresponding "processed_" prefixes.
 cleanLists <- function (
   exclusion.pattern = EXCLUSION.PATTERN,
   SEQUENCES.DIR = THE.SEQUENCES.DIR,
@@ -60,9 +59,19 @@ cleanLists.in.dir <- function (
     # List files, one per participant, each contains the source fasta files for that participant, one per line.
     if( use.processed.lists ) {
         list.files <- dir( the.dir, pattern = "^processed_[0-9]+\\.list$" );
+        if( length( list.files ) == 0 ) {
+            warning( paste( "There are no processed lists in directory", the.dir, "so we are cleaning the unprocessed lists and creating symlinks to them as processed lists.", sep = " " ) );
+            list.files <- dir( the.dir, pattern = "^[0-9]+\\.list$" );
+            for( .file in list.files ) {
+                print( paste( "Creating symbolic link for", paste( the.dir, "processed_", .file, sep = "" ) ) );
+                file.symlink( paste( the.dir, .file, sep = "" ), paste( the.dir, "processed_", .file, sep = "" ) );
+            }
+            list.files <- dir( the.dir, pattern = "^processed_[0-9]+\\.list$" );
+        }
     } else {
         list.files <- dir( the.dir, pattern = "^[0-9]+\\.list$" );
-        }
+    }
+    stopifnot( length( list.files ) > 0 );
     names( list.files ) <- gsub( "^(processed_)?([0-9]+)\\.list$", "\\2", list.files );
 
     for( .ppt in names( list.files ) ) {
