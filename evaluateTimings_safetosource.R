@@ -457,17 +457,17 @@ evaluateTimings <- function (
             grep( "num.*\\.seqs|totalbases|upper|lower", colnames( results.covars.per.person.with.extra.cols ), value = TRUE, perl = TRUE, invert = TRUE );
         # There are redundancies because the mut.rate.coef for DS is identical to PFitter's and for Bayesian it is very similar.
         .keep.cols <-
-            grep( "Star[pP]hy\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
+            grep( "(DS)?Star[pP]hy(Test)?\\.mut\\.rate\\.coef", .keep.cols, value = TRUE, invert = TRUE );
         # Also exclude this strange test.
         .keep.cols <-
-            grep( "DS\\.Star[pP]hy\\.is\\.starlike", .keep.cols, value = TRUE, invert = TRUE );
+            grep( "DS\\.(DS)?Star[pP]hy(Test)?\\.is\\.starlike", .keep.cols, value = TRUE, invert = TRUE );
         # Also exclude this, which is based on the strange test.
         .keep.cols <-
             grep( "StarPhy\\.is\\.one\\.founder", .keep.cols, value = TRUE, invert = TRUE );
         .keep.cols <-
-            grep( "Star[pP]hy\\.fits", .keep.cols, value = TRUE, invert = TRUE );
+            grep( "(DS)?Star[pP]hy(Test)?\\.fits", .keep.cols, value = TRUE, invert = TRUE );
         .keep.cols <-
-            grep( "Star[pP]hy\\.founders", .keep.cols, value = TRUE, invert = TRUE );
+            grep( "(DS)?Star[pP]hy(Test)?\\.founders", .keep.cols, value = TRUE, invert = TRUE );
 
         # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "sixmonths" ones.
         .keep.cols <-
