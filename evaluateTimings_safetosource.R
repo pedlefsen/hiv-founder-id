@@ -4,11 +4,6 @@ library( "parallel" ); # for mclapply
 library( "glmnet" ); # for cv.glmnet
 library( "glmnetUtils" ); # for formula interface (cv.glmnet.formula): see https://github.com/Hong-Revo/glmnetUtils
 
-# install.packages("devtools")
-# library(devtools)
-# install_github("hong-revo/glmnetUtils")
-# library(glmnetUtils)
-
 source( "readIdentifyFounders_safetosource.R" );
 source( "getDaysSinceInfection_safetosource.R" );
 source( "getArtificialBounds_safetosource.R" );
@@ -34,6 +29,8 @@ HELPFUL.ADDITIONAL.COLS <- c();
 
 INCLUDE.INTERCEPT <- FALSE;
 #INCLUDE.INTERCEPT <- TRUE;
+
+THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
 
 ########################################################
 ## Other fns
@@ -152,7 +149,7 @@ evaluateTimings <- function (
   include.all.vars.in.lasso = TRUE,
   helpful.additional.cols = HELPFUL.ADDITIONAL.COLS,
   helpful.additional.cols.with.interactions = HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS,
-  RESULTS.DIR = RESULTS.DIR,                           
+  RESULTS.DIR = THE.RESULTS.DIR,                           
   results.dirname = RESULTS.DIRNAME,
   force.recomputation = TRUE,
   partition.bootstrap.seed = 98103,

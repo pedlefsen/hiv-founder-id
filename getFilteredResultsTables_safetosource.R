@@ -5,6 +5,8 @@ RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
 #RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
 RESULTS.DIRNAME <- "raw_fixed";
 
+THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
+
 repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso|step).*.validation.results." ) {
     rownames.sans.patterns <- gsub( paste( "^(.*?)", pattern, "(.*)$", sep = "" ), "\\1\\2", rownames( the.matrix ) )
     pattern.matches.by.row <- gsub( paste( "^.*?(", pattern, ").*$", sep = "" ), "\\1", rownames( the.matrix ) );
@@ -37,7 +39,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso|step).*.
 ## setting the.time to "1m.6m" will return pooled results over those times
 ## rowname.pattern.map is a list of elements to be used in gsubs on the rownames of the results, iteratively in order.
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = RESULTS.DIR, results.dirname = RESULTS.DIRNAME, zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = THE.RESULTS.DIR, results.dirname = RESULTS.DIRNAME, zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
     ## HACK: the isMultiple results don't have a zeroNAs option.
     if( length( grep( "sMultiple", out.tab.file.suffix ) ) > 0 ) {
@@ -111,7 +113,7 @@ getFilteredResultsTables <- function (
 ### Get uses of parameters aggregated over lasso runs. see also 
 ## out.file.prefix should be "isMultiple" or "Timings"/
 getFilteredLassoUsageTables <- function (
-    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = RESULTS.DIR, results.dirname = RESULTS.DIRNAME, column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
+    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = THE.RESULTS.DIR, results.dirname = RESULTS.DIRNAME, column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
 ) {
     results.by.region.and.time.Rda.filename <-
         paste( RESULTS.DIR, results.dirname, "/", out.file.prefix, ".results.by.region.and.time.Rda", sep = "" );

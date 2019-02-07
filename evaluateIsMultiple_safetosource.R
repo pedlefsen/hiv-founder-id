@@ -13,9 +13,12 @@ GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
 #RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
 #RESULTS.DIRNAME <- "raw_edited_20160216";
 
-RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
-#RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+#RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
+RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
 RESULTS.DIRNAME <- "raw_fixed";
+
+
+THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
 
 #' Evaluate isMultiple estimates and produce results tables.
 #'
@@ -51,7 +54,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              helpful.additional.cols = c( "diversity", "priv.sites", "DSStarPhyTest.R", "inf.sites.clusters", "lPVL" ),
-                             RESULTS.DIR = RESULTS.DIR,
+                             RESULTS.DIR = THE.RESULTS.DIR,
                              results.dirname = RESULTS.DIRNAME,
                              force.recomputation = TRUE,
                              partition.bootstrap.seed = 98103,

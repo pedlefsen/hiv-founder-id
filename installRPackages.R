@@ -42,6 +42,10 @@ install.packages( pkgs = "ROCR", dependencies = TRUE, quiet = TRUE );
 if( !require( "ROCR" ) ) {
     stop( "Error loading package \"ROCR\"" );
 }
+install.packages( pkgs = "dplyr", dependencies = TRUE, quiet = TRUE );
+if( !require( "dplyr" ) ) {
+    stop( "Error loading package \"dplyr\"" );
+}
 install.packages( pkgs = "glmnet", dependencies = TRUE, quiet = TRUE );
 if( !require( "glmnet" ) ) {
     stop( "Error loading package \"glmnet\"" );
@@ -54,6 +58,10 @@ if( !require( "glmnetUtils" ) ) {
 biocLite( pkgs = "seqinr" );
 if( !require( package = "seqinr" ) ) {
     stop( paste( "Error loading package", "seqinr" ) );
+}
+biocLite( pkgs = "stringr" );
+if( !require( package = "stringr" ) ) {
+    stop( paste( "Error loading package", "stringr" ) );
 }
 biocLite( pkgs = "Biostrings" );
 if( !require( package = "Biostrings" ) ) {
