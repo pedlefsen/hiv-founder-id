@@ -51,6 +51,7 @@ evaluateIsMultiple <- function (
                              include.bounds.in.lasso = TRUE,
                              include.helpful.additional.cols.in.glm = !include.bounds.in.glm,
                              helpful.additional.cols = c( "diversity", "priv.sites", "multifounder.Synonymous.DS.Starphy.R", "DS.Starphy.R", "inf.sites.clusters", "lPVL" ),
+                             RESULTS.DIR = RESULTS.DIR,
                              results.dirname = RESULTS.DIRNAME,
                              force.recomputation = TRUE,
                              partition.bootstrap.seed = 98103,

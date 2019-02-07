@@ -234,7 +234,14 @@ infer:
 ### RESULTS.DIRNAME <- "raw_fixed";
 ./evaluateIsMultiple.bash /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed
 
-## Completes analysis of timings, creates */*/evaluateTimings.tab results:
+#### Completes analysis of timings, creates */*/evaluateTimings.tab results:
+### DO EACH OF THESE FOUR TIMES, FOR EACH COMBO OF HELPFUL.ADDITIONAL.COLS and INCLUDE.INTERCEPT (set in evalateTimings.R:)
+#HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
+#HELPFUL.ADDITIONAL.COLS <- c();
+#
+#INCLUDE.INTERCEPT <- FALSE;
+#INCLUDE.INTERCEPT <- TRUE;
+
 # 0) unfiltered
 ### !!!!!!!! SET THESE FIRST in evaluateTimings.R !!!!!
 ### SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
