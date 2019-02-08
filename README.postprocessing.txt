@@ -3,6 +3,21 @@
 ./copyAllIntoGoldStandards.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/v3/
 ./copyAllIntoGoldStandards.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/caprisa_002/v3/
 
+### CLEAN THE LISTS
+## !!For now this requires opening the file cleanLists.R and changing the SEQUENCES.DIR and RESULTS.DIRNAME entries.
+### 0) Results with no filtering.
+#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
+#RESULTS.DIRNAME <- "raw_edited_20160216";
+cleanLists.sh
+### 1) pre-2017 filtering
+#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
+#RESULTS.DIRNAME <- "raw_fixed";
+cleanLists.sh
+### 2) post-2017 (2019) filtering
+#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+#RESULTS.DIRNAME <- "raw_fixed";
+cleanLists.sh
+
 ## Copy the bounds.
 tar xzf /fast/bakeoff_merged_analysis_sequences_results/raw_fixed/bounds.tar.gz -C /fast/bakeoff_merged_analysis_sequences_results/results/raw_fixed/
 tar xzf /fast/bakeoff_merged_analysis_sequences_results/raw_fixed/bounds.tar.gz -C /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/
@@ -18,7 +33,7 @@ tar xzf /fast/bakeoff_merged_analysis_sequences_results/raw_fixed/bounds.tar.gz 
 
 ## Note that for our purposes here in #1 and #2, postProcessIdentifyFounders.sh takes the same argument repeated three times: the processed_lists dir. For #0 the args are different, though.
 
-## SEE BELOW WHERE WE CLEAN THE LISTS TOO
+## SEE ABOVE WHERE WE CLEAN THE LISTS TOO 
 
 ### 0) Results with no filtering.
 ./postProcessIdentifyFounders.sh /fh/fast/edlefsen_p/bakeoff/gold_standard/rv217/nflg/ /fh/fast/edlefsen_p/bakeoff/analysis_sequences/raw_edited_20160216/nflg_copy_20160222/1m/ /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/nflg_copy_20160222/1m/ 1
@@ -56,22 +71,6 @@ ln -s /fh/fast/edlefsen_p/bakeoff_analysis_results/raw_edited_20160216/rv217_v3_
 ./postProcessIdentifyFounders.sh /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m
 ./postProcessIdentifyFounders.sh /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/6m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/6m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/6m
 ./postProcessIdentifyFounders.sh /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m6m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m6m /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m6m
-
-### CLEAN THE LISTS
-## !!For now this requires opening the file cleanLists.R and changing the SEQUENCES.DIR and RESULTS.DIRNAME entries.
-### 0) Results with no filtering.
-#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
-#RESULTS.DIRNAME <- "raw_edited_20160216";
-cleanLists.sh
-### 1) pre-2017 filtering
-#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
-#RESULTS.DIRNAME <- "raw_fixed";
-cleanLists.sh
-### 2) post-2017 (2019) filtering
-#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
-#RESULTS.DIRNAME <- "raw_fixed";
-cleanLists.sh
-
 
 
 ###### END REQUIRED FOR EVERYTHING, EVEN IF SKIPPING evaluateFounders (still needed for evaluateIsMultiple and evaluateTimings): ###################

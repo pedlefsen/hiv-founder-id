@@ -264,6 +264,9 @@ evaluateTimings <- function (
         infer.results.directories <- c( infer.results.directories.unbounded, infer.results.directories.sampledwidth );
         
         infer.results.files <- sapply( infer.results.directories, dir, "toi.csv", full.name = TRUE );
+        if( length( infer.results.files ) == 0 ) {
+            return( NULL );
+        }
         infer.results.list <-
             lapply( unlist( infer.results.files ), function( .file ) {
                 .rv <- as.matrix( read.csv( .file, header = FALSE ), nrow = 1 );
@@ -274,6 +277,9 @@ evaluateTimings <- function (
         
         if( length( infer.results.list ) == 0 ) {
             return( NULL );
+        } else {
+            ## TODO: REMOVE
+            print( infer.results.list );
         }
         infer.results <- do.call( rbind, infer.results.list );
         colnames( infer.results ) <- c( "Infer", "Infer.CI.high", "Infer.CI.low" );
