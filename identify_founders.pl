@@ -619,53 +619,125 @@ sub identify_founders {
     } # End if $run_Hypermut
 
     if( $run_RAP ) {
-      ## Run RAP on LANL, which gives individual
-      ## sequences that are recombinants of other individual sequences,
-      ## allowing those to be flagged for removal just like hypermutated
-      ## ones.
       if( $VERBOSE ) {
-        print "Running RAP at LANL to compute recombined sequences..";
+        print "Running RAPR at LANL to compute recombined sequences..";
       }
-      my $removed_recombined_sequences = 0;
-      my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
-      if( $VERBOSE ) {
-        print $RAP_result_stdout;
-      }
-      my ( $removeDuplicateSequencesFromAlignedFasta_output_file ) = ( $RAP_result_stdout =~ /^Table of duplicates removed: (.+)\s*$/m );
-      if( !defined( $removeDuplicateSequencesFromAlignedFasta_output_file ) ) { # Do duplicates.
-        $removeDuplicateSequencesFromAlignedFasta_output_file = "";
-      }
-      ## TODO: REMOVE
-      #print( "\$removeDuplicateSequencesFromAlignedFasta_output_file is $removeDuplicateSequencesFromAlignedFasta_output_file" );
-      if( $RAP_result_stdout =~ /Recombinants identified/ ) {
-        my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
-        $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_removeDuplicateSequencesFromAlignedFastaOutputFile="$removeDuplicateSequencesFromAlignedFasta_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
-        if( $VERBOSE ) {
-          print $R_output;
+
+      my $removed_recombined_sequences = -1;
+      my $RAPR_output_file = "";
+      
+      my $rapr_in_basename = $fasta_file;
+      $rapr_in_basename =~ s/^.*(\/[^\/]+$)/$1/g;
+      my $rapr_out_file = $output_path_dir_for_input_fasta_file . $rapr_in_basename;
+      $rapr_out_file =~ s/.fasta$/_rapr_out.fasta/g;
+
+      my $RAPR_command = "perl runRAPROnline.pl -i $fasta_file -o $rapr_out_file";
+      print "\n\n\n$RAPR_command\n\n\n";
+      my $RAPR_result_stdout = `$RAPR_command`;
+      
+      print "\n\n\n$RAPR_result_stdout\n\n\n";
+      my @RAPR_result_stdout_list = split('\n', $RAPR_result_stdout);
+      for my $line_from_RAPR_output (@RAPR_result_stdout_list){
+        if ($line_from_RAPR_output =~ /Total number of recombinants found: /){
+          $removed_recombined_sequences = $line_from_RAPR_output;
+          $removed_recombined_sequences =~ s/Total number of recombinants found: ([0-9]+.*)$/$1/mg;
         }
-        ## extract the number fixed/removed from the output
-        ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/m );
-        if( $VERBOSE ) {
-          print( ".done." );
+        if ($line_from_RAPR_output =~ /Reduplicated file: (.*)$/){
+          $RAPR_output_file = $line_from_RAPR_output;
+          $RAPR_output_file =~ s/Reduplicated file: (.*)(\.fasta)$/$1$2/;
+          print "\n===================\nDEALING WITH THE reduplicated file:\n$line_from_RAPR_output\n$RAPR_output_file\n==========\n";
         }
-        # Now use the output from that..
+        if ( $line_from_RAPR_output =~ /No recombinants were found/ ) {
+          $removed_recombined_sequences = 0;
+          $RAPR_output_file = $fasta_file;
+        }
+      }
+
+      if ($removed_recombined_sequences == -1){
+        print "\n\nSomething went wrong with running RAPR\n\n";
+        exit;
+      } else {
+        print "\n\n\$removed_recombined_sequences = $removed_recombined_sequences\n\n";
+        print "\n\n\$RAPR_output_file = $RAPR_output_file\n\n";
+
+        print OUTPUT_TABLE_FH "\t", $removed_recombined_sequences;
         $fasta_file_path = $output_path_dir_for_input_fasta_file;
-        $fasta_file_short = "${fasta_file_short_nosuffix}_removeRecombinedSequences${fasta_file_suffix}";
-        ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
-          ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+        $fasta_file_short = $RAPR_output_file;
+        $fasta_file_short =~ s/^.*\/([^\/]+.fasta)/$1/g;
+        $fasta_file_short_nosuffix =~ s/^(.*).fasta/$1/g;
+        $fasta_file_suffix =~ ".fasta";
         $fasta_file = "${fasta_file_path}/${fasta_file_short}";
         # Recompute the seq_headers.
         $fasta_file_contents = path( $fasta_file )->slurp();
         ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
-      } else {
-        if( $VERBOSE ) {
-          print( ".done." );
-        }
-        $removed_recombined_sequences = 0;
-      } # End if any recombinants were identified. .. else ..
-      print( "The number of recombined sequences removed is: $removed_recombined_sequences\n" );
 
-      print OUTPUT_TABLE_FH "\t", $removed_recombined_sequences;
+        print "\n\$fasta_file_path = $fasta_file_path";
+        print "\n\$fasta_file_short = $fasta_file_short";
+        print "\n\$fasta_file_suffix = $fasta_file_suffix";
+        print "\n\$fasta_file = $fasta_file";
+        print "\n\$fasta_file_short_nosuffix = $fasta_file_short_nosuffix\n";
+      }
+
+
+      ### PAUL's old code for RAP
+      ### Run RAP on LANL, which gives individual
+      ### sequences that are recombinants of other individual sequences,
+      ### allowing those to be flagged for removal just like hypermutated
+      ### ones.
+      #if( $VERBOSE ) {
+      #  print "Running RAP at LANL to compute recombined sequences..";
+      #}
+      #print "\n\nperl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file\n\n";
+
+      #my $rapr_in_basename = $fasta_file;
+      #$rapr_in_basename =~ s/^.*(\/[^\/]+$)/$1/g;
+      #print "\n\n$rapr_in_basename\n\n";
+      #
+      #my $rapr_out_file = $output_path_dir_for_input_fasta_file . $rapr_in_basename;
+      #$rapr_out_file =~ s/.fasta$/_rapr_out.fasta/g;
+      #print "\n\n$rapr_out_file\n\n";
+      #
+      #
+      #my $removed_recombined_sequences = 0;
+      #my $RAP_result_stdout = `perl runRAPOnline.pl $extra_flags $fasta_file $output_path_dir_for_input_fasta_file`;
+      #if( $VERBOSE ) {
+      #  print $RAP_result_stdout;
+      #}
+      #my ( $removeDuplicateSequencesFromAlignedFasta_output_file ) = ( $RAP_result_stdout =~ /^Table of duplicates removed: (.+)\s*$/m );
+      #if( !defined( $removeDuplicateSequencesFromAlignedFasta_output_file ) ) { # Do duplicates.
+      #  $removeDuplicateSequencesFromAlignedFasta_output_file = "";
+      #}
+      ### TODO: REMOVE
+      ##print( "\$removeDuplicateSequencesFromAlignedFasta_output_file is $removeDuplicateSequencesFromAlignedFasta_output_file" );
+      #if( $RAP_result_stdout =~ /Recombinants identified/ ) {
+      #  my ( $RAP_output_file ) = ( $RAP_result_stdout =~ /Recombinants identified \((.+)\)\s*$/ );
+      #  $R_output = `export removeRecombinedSequences_pValueThreshold="$RAP_pValueThreshold"; export removeRecombinedSequences_RAPOutputFile="$RAP_output_file"; export removeRecombinedSequences_removeDuplicateSequencesFromAlignedFastaOutputFile="$removeDuplicateSequencesFromAlignedFasta_output_file"; export removeRecombinedSequences_inputFilename="$fasta_file"; export removeRecombinedSequences_outputDir="$output_path_dir_for_input_fasta_file"; R -f removeRecombinedSequences.R --vanilla --slave`;
+      #  if( $VERBOSE ) {
+      #    print $R_output;
+      #  }
+      #  ## extract the number fixed/removed from the output
+      #  ( $removed_recombined_sequences ) = ( $R_output =~ /^.*\[1\]\s*(\d+)\s*$/m );
+      #  if( $VERBOSE ) {
+      #    print( ".done." );
+      #  }
+      #  # Now use the output from that..
+      #  $fasta_file_path = $output_path_dir_for_input_fasta_file;
+      #  $fasta_file_short = "${fasta_file_short_nosuffix}_removeRecombinedSequences${fasta_file_suffix}";
+      #  ( $fasta_file_short_nosuffix, $fasta_file_suffix ) =
+      #    ( $fasta_file_short =~ /^([^\.]+)(\..+)?$/ );
+      #  $fasta_file = "${fasta_file_path}/${fasta_file_short}";
+      #  # Recompute the seq_headers.
+      #  $fasta_file_contents = path( $fasta_file )->slurp();
+      #  ( @seq_headers ) = ( $fasta_file_contents =~ /^>(.*)$/mg );
+      #} else {
+      #  if( $VERBOSE ) {
+      #    print( ".done." );
+      #  }
+      #  $removed_recombined_sequences = 0;
+      #} # End if any recombinants were identified. .. else ..
+      #print( "The number of recombined sequences removed is: $removed_recombined_sequences\n" );
+
+      #print OUTPUT_TABLE_FH "\t", $removed_recombined_sequences;
     } # End if $run_RAP
 
     print "Fasta file for analysis: $fasta_file_short\n";

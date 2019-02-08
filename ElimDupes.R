@@ -17,7 +17,10 @@ option_list <- list(
   make_option("--verbose",
               default = FALSE,
               action = "store_true",
-              help = "Print verbose output to STDOUT.")
+              help = "Print verbose output to STDOUT."),
+  make_option("--but_first_remove",
+              default = NULL,
+              help = "A tab seperated file with a header row and with the first column specifying the names of the sequences that must be removed before the reduplication operation.")
 )
 
 if (FALSE){
@@ -131,6 +134,10 @@ deduplicate_wrapper <- function(opt){
                                uniq_seqs = result$uniq_seqs,
                                dups_counts = result$dups_counts)
   }
+  print(paste("Number of duplicates removed: ", 
+              length(result$dat) - length(result$uniq_seqs), 
+              sep = '')
+  )
   write_deduplicate_outputs(opt = opt,
                             uniq_seqs = result$uniq_seqs,
                             dups_tab = result$dups_tab)
@@ -143,6 +150,10 @@ deduplicate_wrapper <- function(opt){
 reduplicate_operation <- function(opt){
   dat <- read.fasta(opt$input_file)
   dat <- sapply(dat, function(x){paste(x, collapse = '')})
+  if (!is.null(opt$but_first_remove)){
+    to_remove <- read.delim(opt$but_first_remove)
+    dat <- dat[!(names(dat) %in% to_remove[,1])]
+  }
 
   dups_tab <- read.csv(opt$duplicates_file, stringsAsFactors = FALSE)
 
