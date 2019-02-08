@@ -188,8 +188,6 @@ sub runGeneCutterOnline {
     }
   }
 
-  exit;
-
   my $result = $mech->submit_form(  form_number => 2,
                                   fields    => \%fields
                        );
