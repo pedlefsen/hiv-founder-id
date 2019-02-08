@@ -14,7 +14,7 @@ if [ -e "${inputOutputDir}/evaluateFounders.tbl" ]; then
     rm "${inputOutputDir}/evaluateFounders.tbl"
 fi
 
-for patient in  `ls -c1 ${mainDir}/*.fasta | egrep --only "_[0-9]{5,}_" | tr -d "_" | uniq`
+for patient in  `ls -c1 ${maindir}/*.list  | egrep --only "[0-9]+\.list" | egrep --only "[0-9]+"  | sort -u`
 do
     export inputDir="${inputOutputDir}/${patient}"
 

@@ -38,7 +38,51 @@ install.packages( pkgs = "entropy", dependencies = TRUE, quiet = TRUE );
 if( !require( "entropy" ) ) {
     stop( "Error loading package \"entropy\"" );
 }
-biocLite( pkgs = eval( "seqinr" ) );
-if( !require( package = eval( "seqinr" ) ) ) {
+install.packages( pkgs = "ROCR", dependencies = TRUE, quiet = TRUE );
+if( !require( "ROCR" ) ) {
+    stop( "Error loading package \"ROCR\"" );
+}
+install.packages( pkgs = "dplyr", dependencies = TRUE, quiet = TRUE );
+if( !require( "dplyr" ) ) {
+    stop( "Error loading package \"dplyr\"" );
+}
+install.packages( pkgs = "glmnet", dependencies = TRUE, quiet = TRUE );
+if( !require( "glmnet" ) ) {
+    stop( "Error loading package \"glmnet\"" );
+}
+install.packages( pkgs = "glmnetUtils", dependencies = TRUE, quiet = TRUE );
+if( !require( "glmnetUtils" ) ) {
+    stop( "Error loading package \"glmnetUtils\"" );
+}
+
+biocLite( pkgs = "seqinr" );
+if( !require( package = "seqinr" ) ) {
     stop( paste( "Error loading package", "seqinr" ) );
+}
+biocLite( pkgs = "stringr" );
+if( !require( package = "stringr" ) ) {
+    stop( paste( "Error loading package", "stringr" ) );
+}
+biocLite( pkgs = "Biostrings" );
+if( !require( package = "Biostrings" ) ) {
+    stop( paste( "Error loading package", "Biostrings" ) );
+}
+
+install.packages( pkgs = "optparse", dependencies = TRUE, quiet = TRUE );
+if( !require( "optparse" ) ) {
+    stop( "Error loading package \"optparse\"" );
+}
+
+## TO INSTALL hypermuteR on linux:
+# (in R:)
+library( "devtools" );
+install_github( "philliplab/hypermutR" )
+## BUT on my mac I had to rebuild it from source:
+# (in shell:)
+# git clone https://github.com/philliplab/hypermutR.git
+# rm hypermutR/src/*.o hypermutR/src/*.so
+# sudo R CMD INSTALL hypermutR
+# Test it loads (in R:)
+if( !require( package = "hypermutR" ) ) {
+    stop( paste( "Error loading package", "hypermutR" ) );
 }

@@ -5,7 +5,7 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     single.colnames <-
         grep( "\\.is\\.|fits", colnames( results ), perl = TRUE, value = TRUE );
     Starphy.R.colnames <-
-        grep( "Star[Pp]hy\\.R", colnames( results ), perl = TRUE, value = TRUE );
+        grep( "(DS)?Star[Pp]hy(Test)?\\.R", colnames( results ), perl = TRUE, value = TRUE );
     days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
     
     days.est.colnames <- grep( "est", days.colnames, value = TRUE );
@@ -13,9 +13,9 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     lambda.est.colnames <-
         gsub( "PFitter\\.lambda\\.est", "PFitter.lambda", gsub( "(?:days|time|fits)", "lambda", days.est.colnames, perl = TRUE ) );
     stopifnot( all( lambda.est.colnames %in% colnames( results ) ) );
-    days.est.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
+    days.est.colnames.nb <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "(?:days|time|fits).*$", "nbases", days.est.colnames, perl = TRUE ) );
     days.est.nb <- results[ , days.est.colnames.nb, drop = FALSE ];
-    days.est.colnames.nseq <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
+    days.est.colnames.nseq <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "(?:days|time|fits).*$", "nseq", days.est.colnames, perl = TRUE ) );
     days.est.nseq <- results[ , days.est.colnames.nseq, drop = FALSE ];
 
     results.covars.colnames <- c( "lPVL", "num.seqs", "num.diversity.seqs", "diversity", "inf.sites", "priv.sites", "inf.to.priv.ratio", "mean.entropy", "sd.entropy", "PFitter.mean.hd", "PFitter.max.hd", "PFitter.chi.sq.stat", "inf.sites.clusters", "InSites.founders", "StarPhy.founders", single.colnames, Starphy.R.colnames );
@@ -146,7 +146,7 @@ summarizeCovariatesOnePerParticipant <- function ( results ) {
     
     ## Case 5: the Starphy results.  For these we select the minimum R (the most information).
     Starphy.R.colnames <-
-        grep( "Star[Pp]hy\\.R", colnames( covars ), perl = TRUE, value = TRUE );
+        grep( "(DS)?Star[Pp]hy(Test)?\\.R", colnames( covars ), perl = TRUE, value = TRUE );
     Starphy.R.one.per.ppt <- 
     sapply( Starphy.R.colnames, function ( .col.name ) {
         .column <- covars[ , .col.name ];

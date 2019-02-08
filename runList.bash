@@ -13,10 +13,11 @@ export PERL5LIB=/home/tholzman/perl5/lib/perl5
 export mainDir=$1
 export patient=$2
 export outputDir=${mainDir}/hiv_founder_id_${patient}
-rm -rf ${outputDir}/*
+rm -rf ${outputDir}
+mkdir ${outputDir}
 export outputFile=${outputDir}/identify_founders.out
 export errFile=${mainDir}/${patient}.err
 export listFile=${mainDir}/${patient}.list
 rm $errFile
 touch $errFile
-/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl -C -E -P -F -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+/usr/bin/time -a -o $errFile perl -w ./identify_founders.pl -CPTFEIf -V -O ${outputDir}/ $listFile >$outputFile 2>>$errFile

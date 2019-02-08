@@ -1,3 +1,12 @@
+#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
+#RESULTS.DIRNAME <- "raw_edited_20160216";
+
+RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
+#RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+RESULTS.DIRNAME <- "raw_fixed";
+
+THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
+
 repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso|step).*.validation.results." ) {
     rownames.sans.patterns <- gsub( paste( "^(.*?)", pattern, "(.*)$", sep = "" ), "\\1\\2", rownames( the.matrix ) )
     pattern.matches.by.row <- gsub( paste( "^.*?(", pattern, ").*$", sep = "" ), "\\1", rownames( the.matrix ) );
@@ -30,7 +39,7 @@ repeatedRowsToColumns <- function ( the.matrix, pattern = "(?:glm|lasso|step).*.
 ## setting the.time to "1m.6m" will return pooled results over those times
 ## rowname.pattern.map is a list of elements to be used in gsubs on the rownames of the results, iteratively in order.
 getFilteredResultsTables <- function (
-    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
+    out.tab.file.suffix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = THE.RESULTS.DIR, results.dirname = RESULTS.DIRNAME, zeroNAs = TRUE, sort.column = "rmse", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " )
 ) {
     ## HACK: the isMultiple results don't have a zeroNAs option.
     if( length( grep( "sMultiple", out.tab.file.suffix ) ) > 0 ) {
@@ -39,11 +48,11 @@ getFilteredResultsTables <- function (
     
     if( is.null( to.region ) || is.na( to.region ) ) {
         ## if to.region is not defined then it means we should use the single-region results.
-        infile.results <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, out.tab.file.suffix, sep = "" );
+        infile.results <- paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/", the.bounds.type, out.tab.file.suffix, sep = "" );
     } else { # is.null( to.region ) .. else ..
         ## if to.region is defined then it means we should use the pooled-over-multiple-regions results.
         from.region <- the.region;
-        infile.results <- paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", from.region, "_and_", to.region, "_", the.time, "_", the.bounds.type, out.tab.file.suffix, sep = "" )
+        infile.results <- paste( RESULTS.DIR, results.dirname, "/", from.region, "_and_", to.region, "_", the.time, "_", the.bounds.type, out.tab.file.suffix, sep = "" )
     } # End if is.null( to.region ) .. else ..
     
     results.in <- read.table( infile.results, sep = "\t" );
@@ -70,7 +79,7 @@ getFilteredResultsTables <- function (
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
     ## Also exclude "DS.Starphy" versions of results, which are redundant w PFitter (here, because it's just the est / mut rate coef)
     ## Also exclude all "Starphy" versions of results, which are close enough to redundant w PFitter that it's not worth cluttering the output.
-    results.filtered <- results[ grep( paste( c( "Star[Pp]hy", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
+    results.filtered <- results[ grep( paste( c( "(DS)?Star[Pp]hy(Test)?", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
 
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
@@ -104,9 +113,8 @@ getFilteredResultsTables <- function (
 ### Get uses of parameters aggregated over lasso runs. see also 
 ## out.file.prefix should be "isMultiple" or "Timings"/
 getFilteredLassoUsageTables <- function (
-    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, results.dirname = "raw_edited_20160216", column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
+    out.file.prefix, the.region, the.time, the.bounds.type = "unbounded", to.region = NULL, RESULTS.DIR = THE.RESULTS.DIR, results.dirname = RESULTS.DIRNAME, column.pattern = NA, rowname.pattern.map = list( "\\.(days|time)\\.est" = "", "\\.mut\\.rate\\.coef" = "", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\." = " " ), colname.pattern.map = list( "inf\\.sites" = "InSites", "multifounder\\." = "(w/in clusts) ", "Synonymous\\." = "(syn) ", "is\\.poisson" = "fits", "is\\.starlike" = "star-like", "is.one.founder" = "single-founder", "\\.hd" = " HD", "\\." = " " )
 ) {
-    RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
     results.by.region.and.time.Rda.filename <-
         paste( RESULTS.DIR, results.dirname, "/", out.file.prefix, ".results.by.region.and.time.Rda", sep = "" );
     load( file = results.by.region.and.time.Rda.filename );
@@ -191,7 +199,7 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
     ## Also exclude "lower" and "upper" versions of results, which appear to be redundant.
     ## Also exclude "DS.Starphy" versions of results, which are redundant w PFitter (here, because it's just the est / mut rate coef)
     ## Also exclude all "Starphy" versions of results, which are close enough to redundant w PFitter that it's not worth cluttering the output.
-    results.filtered <- results[ grep( paste( c( "Star[Pp]hy", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
+    results.filtered <- results[ grep( paste( c( "(DS)?Star[Pp]hy(Test)?", "DS\\.Star[Pp]hy", "lower", "upper", "deterministic", the.times.it.aint ), collapse = "|" ), rownames( results ), invert = TRUE ), , drop = FALSE ];
 
     ## Maybe also exclude some columns.
     if( !is.null( column.pattern ) && !is.na( column.pattern ) && ( column.pattern != "" ) ) {
@@ -245,6 +253,15 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
             }
             .results.by.removed.ptid <-
                 .results.for.region[[ the.time ]][[ "evaluated.results" ]][[the.bounds.type]][[ paste( model.type, "formulas", sep = "." ) ]][[ .withbounds.string ]];
+            if( !( .varname %in% colnames( .results.by.removed.ptid ) ) ) {
+                ## To avoid a major crash, just revert to using another one as a template.
+                .formulas <- .results.by.removed.ptid[ , 1, drop = FALSE ];
+                .rv <- table( .formulas );
+                warning( "MISSING VAR WHEN RETRIEVING FORMULAS! USED ARBITRARY OTHER VAR AS TEMPLATE, WITH 0 COUNTS!" );
+                .rv[ 1:length( .rv ) ] <- 0;
+                return( .rv );
+            }
+            
             .formulas <- .results.by.removed.ptid[ , .varname, drop = FALSE ];
             table( .formulas );
         } # get.formulas (..)

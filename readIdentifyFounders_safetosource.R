@@ -1,5 +1,7 @@
 # If partition.size is not NA, then the results will be subsetted to just partitions of that size, meaning fasta files ending in _p[partition.size]_[\d]+.fasta
 readIdentifyFounders <- function ( identify.founders.tab.filename, partition.size = NA ) {
+    ## TODO: REMOVE
+    #print( identify.founders.tab.filename );
              results.in <- read.delim( identify.founders.tab.filename, sep = "\t" );
 
              results <- as.matrix( results.in );
@@ -22,21 +24,31 @@ readIdentifyFounders <- function ( identify.founders.tab.filename, partition.siz
 
              lambda.colnames <- grep( "lambda", colnames( results ), value = T );
              lambda <- results[ , lambda.colnames, drop = FALSE ];
-             lambda.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "lambda.*$", "nbases", lambda.colnames ) );
+             lambda.colnames.nb <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "lambda.*$", "nbases", lambda.colnames ) );
              lambda.nb <- results[ , lambda.colnames.nb, drop = FALSE ];
              
              days.colnames <- c( grep( "time", colnames( results ), value = T ), grep( "days", colnames( results ), value = T ) );
              days <- results[ , days.colnames, drop = FALSE ];
-             days.colnames.nb <- gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "days.*$", "nbases", days.colnames ) );
+             days.colnames.nb <- gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "days.*$", "nbases", days.colnames ) );
              days.nb <- results[ , days.colnames.nb, drop = FALSE ];
 
              single.colnames <- grep( "\\.is\\.|fits", colnames( results ), perl = TRUE, value = TRUE );
              single.exceptInSites.colnames <- grep( "InSites", single.colnames, value = T, invert = T );
+             ## TODO: REMOVE
+             #print( "single.exceptInSites.colnames" );
+             #print( single.exceptInSites.colnames );
+             
              single.exceptInSites <- results[ , single.exceptInSites.colnames, drop = FALSE ];
              single.exceptInSites.colnames.nb <-
-                 gsub( "^Star[Pp]hy", "PFitter", gsub( "[^\\.]+\\.Star[Pp]hy", "PFitter", gsub( "\\....er\\.PFitter\\.", "\\.", gsub( "(?:is\\.|fits).*$", "nbases", single.exceptInSites.colnames ) ) ) );
+                 gsub( "^(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "[^\\.]+\\.(DS)?Star[Pp]hy(Test)?", "PFitter", gsub( "(?:is\\.|fits).*$", "nbases", single.exceptInSites.colnames ) ) );
              ## Special case: the one called "StarPhy.is.one.founder" is actually using the synonymous PFitter results, so its "nbases" should be the synonymous one.
-             single.exceptInSites.colnames.nb[ single.exceptInSites.colnames == "StarPhy.is.one.founder" ] <- "Synonymous.PFitter.nbases";
+             if( any( single.exceptInSites.colnames == "StarPhy.is.one.founder" ) && ( "Synonymous.PFitter.nbases" %in% colnames( results ) ) ) {
+                 single.exceptInSites.colnames.nb[ single.exceptInSites.colnames == "StarPhy.is.one.founder" ] <- "Synonymous.PFitter.nbases";
+             }
+             ## TODO: REMOVE
+             #print( "single.exceptInSites.colnames.nb" );
+             #print( single.exceptInSites.colnames.nb );
+             
              single.exceptInSites.nb <- results[ , single.exceptInSites.colnames.nb, drop = FALSE ];
              
              ## Results for which nbases == 0 [should] reflect no variation in the input sequences.  Use lambda estimate 0, days est 0, and isSingle 1 (TRUE).
