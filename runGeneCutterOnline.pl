@@ -45,7 +45,7 @@ sub runGeneCutterOnline {
   # opt_n means get nucleotides only, not also translated into proteins.
   # But first reset the opt vars.
   ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R, $opt_x, $opt_n ) = ();
-  if( not getopts('DVpe:P:R:x:n:') ) {
+  if( not getopts('DVpe:P:R:x:n') ) {
     runGeneCutterOnline_usage();
   }
   
@@ -90,6 +90,14 @@ sub runGeneCutterOnline {
   # Remove the trailing "/" if any
   if( defined( $output_path_dir ) ) {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
+  }
+
+  if ($DEBUG){
+    print "\nChecking the input file names and output path:";
+    print "\n\$input_fasta_file = $input_fasta_file";
+    print "\n\$input_fasta_file_path = $input_fasta_file_path";
+    print "\n\$input_fasta_file_short = $input_fasta_file_short";
+    print "\n\$output_path_dir = $output_path_dir\n";
   }
 
   # GeneCutter has a problem with certain characters in fasta headers. 
@@ -179,6 +187,8 @@ sub runGeneCutterOnline {
       print $key .  " => " . $fields{ $key } . "\n";
     }
   }
+
+  exit;
 
   my $result = $mech->submit_form(  form_number => 2,
                                   fields    => \%fields
