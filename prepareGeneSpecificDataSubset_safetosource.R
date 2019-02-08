@@ -9,11 +9,9 @@ library(seqinr)
 library(stringr)
 library(dplyr)
 
-#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
-#RESULTS.DIRNAME <- "raw_edited_20160216";
-
-SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
-#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
+SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_unfiltered/results/";
+#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_filteredPre2017/results/";
+#SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_filtered2019/results/";
 RESULTS.DIRNAME <- "raw_fixed";
 
 THE.SEQUENCES.DIR <- SEQUENCES.DIR; # to avoid "promise already under evaluation" errors
@@ -112,69 +110,80 @@ prepareGeneSpecificDataSubset.in.dir <- function (
     
         write.fasta( as.list( all.sequences.alignment ), names( all.sequences.alignment ), all.sequences.fasta.file )
     } # End if we need to recompute the alignment and/or data frame of all source seqs.
-    
+
+    ## Run the file at genecutter.
+    system( paste( "perl ./runGeneCutterOnline.pl", all.sequences.fasta.file, output.dir ) );
+    stop( paste( "perl ./runGeneCutterOnline.pl", all.sequences.fasta.file, output.dir ) );
+
+
+
+    ## ERE I AM
     # load in the specific files and split them up again.
     
-    which_region <- 'ENV'
     all.sequences.df <- read.csv( all.sequences.df.file, stringsAsFactors = FALSE );
-    ## ERE I AM, DEBUGGING.
-    region_seq_file <- read.fasta(paste(output.dir, 
+
+    for( the.gene in genes ) {
+        print( the.gene );
+        
+        the.gene.fasta <- read.fasta(paste(output.dir, 
                                         'from_lanl', 
-                                        paste(which_region, '.NA.FASTA', sep = ''),
+                                        paste(the.gene, '.NA.FASTA', sep = ''),
                                         sep = '/'),
                                   seqtype = 'DNA',
                                   as.string = TRUE)
     
-    region_seq_file_vec <- as.character(region_seq_file)
-    names(region_seq_file_vec) <- sapply(region_seq_file, function(x){attr(x, 'name')})
-    
-    region_resplit <- list()
-    
-    all.sequences.df$found <- 'no'
-    for (i in 1:nrow(all.sequences.df)){
-      
-      if (all.sequences.df$seq_name[i] %in% names(region_seq_file_vec)){
-        all.sequences.df$found[i] <- 'yes'
-        the_seq <- region_seq_file_vec[all.sequences.df$seq_name[i] == names(region_seq_file_vec)]
-        prop_gaps <- str_count(the_seq, "-") / nchar(the_seq)
-        all.sequences.df$prop_gaps[i] <- prop_gaps
-    
-        # only save sequences with less than 90% gaps
-        if (prop_gaps < 0.9){
-          if (is.null(region_resplit[[all.sequences.df$in_file[i]]])){
-            region_resplit[[all.sequences.df$in_file[i]]] <- the_seq
-          } else {
-            region_resplit[[all.sequences.df$in_file[i]]] <- c(region_resplit[[all.sequences.df$in_file[i] ]],
-                                                          the_seq)
+        the.gene.seqs <- as.character(the.gene.fasta)
+        names(the.gene.seqs) <- sapply(the.gene.fasta, function(x){attr(x, 'name')})
+        
+        the.gene.seqs.by.source.file <- list();
+        
+        all.sequences.df$found <- 'no'
+        for (i in 1:nrow(all.sequences.df)){
+          
+          if (all.sequences.df$seq_name[i] %in% names(the.gene.seqs)){
+            all.sequences.df$found[i] <- 'yes';
+            the.seq <- the.gene.seqs[all.sequences.df$seq_name[i] == names(the.gene.seqs)];
+            gap.frequency <- str_count(the.seq, "-") / nchar(the.seq);
+            all.sequences.df$gap.frequency[i] <- gap.frequency;
+        
+            # only save sequences with less than 90% gaps
+            if (gap.frequency < 0.9){
+              if (is.null(the.gene.seqs.by.source.file[[ all.sequences.df$in_file[i] ]])){
+                the.gene.seqs.by.source.file[[ all.sequences.df$in_file[i] ]] <- the.seq;
+              } else {
+                  the.gene.seqs.by.source.file[[ all.sequences.df$in_file[i] ]] <-
+                      c( the.gene.seqs.by.source.file[[ all.sequences.df$in_file[i] ]], the.seq );
+              }
+            }
           }
+        } # End sorting the newly cut gene-specific sequences by their source file
+        
+        gap.stats <- all.sequences.df %>% 
+          group_by(in_file) %>%
+          summarize(n = n(),
+                    avg_gaps = mean(gap.frequency),
+                    max_gaps = max(gap.frequency),
+                    min_gaps = min(gap.frequency),
+                    n_seqs_included = sum(gap.frequency < 0.9))
+        
+        dir.create( paste(output.dir, the.gene, sep = '/') )
+        for (source.file in names(the.gene.seqs.by.source.file)){
+          write.fasta(as.list(the.gene.seqs.by.source.file[[source.file]]),
+                      names(the.gene.seqs.by.source.file[[source.file]]),
+                      paste(output.dir, the.gene, 
+                            gsub(".fasta", 
+                                 paste("_", the.gene, ".fasta", sep = ''), 
+                                 source.file), 
+                            sep = '/'))
         }
-      }
-    }
+        
+        write.csv(gap.stats, 
+                  paste(output.dir, 
+                        the.gene,
+                        paste('gap_stats_', the.gene, '.csv', sep = ''),
+                        sep = '/'),
+                  row.names = FALSE)
+    } # End foreach the.gene
     
-    gap_stats <- all.sequences.df %>% 
-      group_by(in_file) %>%
-      summarize(n = n(),
-                avg_gaps = mean(prop_gaps),
-                max_gaps = max(prop_gaps),
-                min_gaps = min(prop_gaps),
-                n_seqs_included = sum(prop_gaps < 0.9))
-    
-    dir.create( paste(output.dir, which_region, sep = '/') )
-    for (source.file in names(region_resplit)){
-      write.fasta(as.list(region_resplit[[source.file]]),
-                  names(region_resplit[[source.file]]),
-                  paste(output.dir, which_region, 
-                        gsub(".fasta", 
-                             paste("_", which_region, ".fasta", sep = ''), 
-                             source.file), 
-                        sep = '/'))
-    }
-    
-    write.csv(gap_stats, 
-              paste(output.dir, 
-                    which_region,
-                    paste('gap_stats_', which_region, '.csv', sep = ''),
-                    sep = '/'),
-              row.names = FALSE)
 
 } # prepareGeneSpecificDataSubset.in.dir (..)

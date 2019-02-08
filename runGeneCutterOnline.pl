@@ -5,8 +5,8 @@
 ##  Author:
 ##      Paul Thatcher Edlefsen   pedlefse@fredhutch.org
 ##  Description:
-##      Script for running GeneCutter using the online LANL tools to determine which
-##      sequences are recombinants of other sequences in a set.
+##      Script for running GeneCutter using the online LANL tools to split
+##      nflg or half-genome sequence alignments into gene-specific subalignments.
 ##      
 ###******************************************************************************
 
@@ -21,7 +21,7 @@ use WWW::Mechanize;
 use LWP::Simple;
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R $opt_x );
+use vars qw( $opt_D $opt_V $opt_e $opt_p $opt_P $opt_R $opt_x $opt_n );
 use vars qw( $VERBOSE $DEBUG );
 
 sub runGeneCutterOnline {
@@ -34,7 +34,7 @@ sub runGeneCutterOnline {
     exit;
   }
 
-  # This means -D and -V, -p, -e, -P, -R, -x are ok, but nothin' else.
+  # This means -D and -V, -p, -e, -P, -R, -x, -n are ok, but nothin' else.
   # opt_D means print debugging output.
   # opt_V means be verbose.
   # opt_p means that the input files are pre-aligned.
@@ -42,16 +42,17 @@ sub runGeneCutterOnline {
   # opt_P changes the proteins to evaluate string (default: "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF")a
   # opt_R changes the region of the genome that is being evaluated (default: "ALL")
   # opt_x is an optional prefix to add before the "_allnucs.zip" and "_allproteins.zip"
+  # opt_n means get nucleotides only, not also translated into proteins.
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R, $opt_x ) = ();
-  if( not getopts('DVpe:P:R:x:') ) {
+  ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R, $opt_x, $opt_n ) = ();
+  if( not getopts('DVpe:P:R:x:n:') ) {
     runGeneCutterOnline_usage();
   }
   
   $DEBUG ||= $opt_D;
   $VERBOSE ||= $opt_V;
 
-  my $is_prealigned = $opt_p || 0;
+  my $is_unaligned = !$opt_p;
   my $emailAddress = $opt_e || $DEFAULT_EMAIL_ADDRESS;
   my $proteins_to_evaluate = $opt_P || "-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF";
   # NOTE: -FULL_SEQUENCE seems to not ever give work without giving the in-fasta-file-output message eg "Error: I can't open file /tmp/download/GENE_CUTTER/30488/FULL_SEQUENCE.NA.RAW.: No such file or directory"
@@ -65,6 +66,7 @@ sub runGeneCutterOnline {
 #  if( $proteins_to_evaluate !~ /^-/ ) {
 #    stop( "The -P argument must be formatted as '-GENE1-GENE2-GENE3' eg '-GAG-POL-VIF-VPR-TAT-REV-VPU-ENV-NEF'" );
 #  }
+  my $get_amino_acids_too = !$opt_n;
   
   my $old_autoflush;
   if( $VERBOSE ) {
@@ -90,29 +92,85 @@ sub runGeneCutterOnline {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
   }
 
-  my $fasta_file_readyForGeneCutter = $input_fasta_file;
+  # GeneCutter has a problem with certain characters in fasta headers. 
+  ## Step 1: Set up the table mapping sequence names to numbers.
+      if( $VERBOSE ) {
+        print "Reading sequence names from file \"", $input_fasta_file, "\"..";
+      }
+      my $input_fasta_file_contents =
+           path( $input_fasta_file )->slurp();
+      if( $VERBOSE ) {
+        print ".done\n";
+      }
+      if( $DEBUG ) {
+        #print $input_fasta_file_contents;
+      }
+      my ( @seq_names ) =  ( $input_fasta_file_contents =~ /\n?>[ \t]*(.+) *\n/g );
+
+  ## STEP 2: Rename the seqs to just their numbers.
+  my ( $input_fasta_file_numbered ) =
+    ( $input_fasta_file =~ /^(.+)$input_fasta_file_suffix$/ );
+  $input_fasta_file_numbered .= "_numbered$input_fasta_file_suffix";
+
+  if( !( -e $input_fasta_file_numbered ) ) {
+    if( $VERBOSE ) {
+      print "Creating a version of the fasta file in which seqs are numbered instead of named ($input_fasta_file_numbered)..";
+    }
+    if( $VERBOSE ) { print "Opening file \"$input_fasta_file\".."; }
+    unless( open( INPUT_FASTA_FH, $input_fasta_file ) ) {
+      warn "Unable to open input_fasta file \"$input_fasta_file\": $!";
+      return 1;
+    }
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE ) { print "Opening file \"$input_fasta_file_numbered\" for writing.."; }
+    unless( open OUTPUT_FH, ">$input_fasta_file_numbered" ) {
+      warn "Unable to open output file \"$input_fasta_file_numbered\": $!";
+      return 1;
+    }
+    if( $VERBOSE ) { print ".done.\n"; }
   
-  # Genecutter now rejects filenames containing dots apparently, or something (ie even in the directory name), so we use a temporary symlink in the current dir and then strip the dots.
-  $fasta_file_readyForGeneCutter = File::Temp::tempnam( ".", "tmp" ) . ".fasta"; # this doesn't actually create the file.
-  `cp $input_fasta_file $fasta_file_readyForGeneCutter`;
-  # Ok and now annoyingly we have to strip the "./" because the latest version of genecutter doesn't like it.
-  ( $fasta_file_readyForGeneCutter ) = ( $fasta_file_readyForGeneCutter =~ /^\.\/(.+)$/ );
+    for( my $counter = 1; <INPUT_FASTA_FH>; ) {
+      if( $_ =~ /^>/ ) { print OUTPUT_FH ">$counter\n"; $counter = $counter + 1 } else { print OUTPUT_FH $_ }
+    }
+  
+    if( $VERBOSE ) { print ".done.\n"; }
+    
+    if( $VERBOSE && $input_fasta_file_numbered ) { print "Closing file \"$input_fasta_file_numbered\".."; }
+    close OUTPUT_FH;
+    if( $VERBOSE && $input_fasta_file_numbered ) { print ".done.\n"; }
+    if( $VERBOSE ) { print "Closing file \"$input_fasta_file\".."; }
+    close INPUT_FASTA_FH;
+    if( $VERBOSE ) { print ".done.\n"; }
+  } # End unless it already exists, create the numbered version of the input fasta file.
+
+  # Also fix the filename.
+  my $fasta_file_readyForLANL = File::Temp::tempnam( ".", "tmp" ) . ".fasta";
+  # remove leading dots and slashes from filename:
+  ( $fasta_file_readyForLANL ) = ( $fasta_file_readyForLANL =~ /^\.\/(.+)$/ );
+  # remove any underscores:
+  $fasta_file_readyForLANL =~ s/\_//;
+
+  `cp $input_fasta_file_numbered $fasta_file_readyForLANL`;
+
   if( $VERBOSE ) {
-    print "Created temporary copy of the input fasta file at $fasta_file_readyForGeneCutter\n";
+    print "Created temporary copy of the input fasta file at $fasta_file_readyForLANL\n";
   }
 
   my $mech = WWW::Mechanize->new( autocheck => 1 );
+  
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/GENE_CUTTER/cutter.html" );
 
   my                                   %fields    = (
                                                 ORGANISM => "HIV-1",
-                                                UPLOAD => $fasta_file_readyForGeneCutter,
-                                                PREALIGNED => ( $is_prealigned ? "YES" : "NO" ),
+                                                UPLOAD => $fasta_file_readyForLANL,
+                                                PREALIGNED => ( $is_unaligned ? "YES" : "NO" ), # "PREALIGNED" actually means "unaligned" from page text
                                                 SEG => $region,
                                                 INSERTSTDSEQ => "YES",
                                                 REMOVESTDSEQ => "NO",
-                                                ALIGN => "YES", # THIS IS FOR CODON-ALIGNING THE REGION; I THINK IT'S JUST TWEAKING IT IF IT'S PREALIGNED.
-                                                PROTEIN => "YES3", # THIS TOLERATES SOME AMBIGUITY I GUESS
+                                                     ALIGN => ( $is_unaligned ? "YES" : "NO" ), #"YES", # THIS IS FOR CODON-ALIGNING THE REGION; I THINK IT'S JUST TWEAKING IT IF IT'S ACTUALLY prealigned (but note "PREALIGNED" in this form actually means unaligned).
+                                                compensatingNum => "15",
+                                                PROTEIN => ( $get_amino_acids_too ? "YES3" : "NO" ),
                                                 ACTION => "DOWNPC",
                                                 VIEW => "YES"
                                                );
@@ -174,18 +232,19 @@ sub runGeneCutterOnline {
     ## DO NOTHING.
     #warn "caught error: $_";
   };
-  while( !defined( $resultsContent ) || ( $resultsContent =~ /No such file/ ) ) {
+  for( my $num_waits = 1; !defined( $resultsContent ) || ( $resultsContent eq "" ) || ( $resultsContent =~ /No such file/ ); $num_waits++ ) {
     if( $VERBOSE || $DEBUG ) {
-      print( "trying again to get the gene cutter results in 1 second..\n" );
+      print( "trying again to get the gene cutter results in $num_waits seconds..\n" );
     }
-      sleep( 1 );
+      sleep( $num_waits );
       try {
         $mech->get( $results_url );
         $resultsContent = $mech->content();
       } catch {
         # do nothing.
       }
-    }
+  }
+  
   if( $DEBUG ) {
     print( "finally, got $resultsContent" );
   }
@@ -193,7 +252,7 @@ sub runGeneCutterOnline {
   $mech->get( $nuc_prepresults_url );
   $mech->get( $nuc_results_url );
   #my $nuc_results_content = $mech->content();
-  $mech->submit_form( 
+  $mech->submit_form( form_number => 1,
                                   fields    => {
                                                 REGION => $region,
                                                 OUTFORMAT => "FASTA",
@@ -208,29 +267,31 @@ sub runGeneCutterOnline {
     print "OK3\n";# \$content3 is $content3\n";
   }
 
-  $mech->get( $pro_prepresults_url );
-  $mech->get( $pro_results_url );
-  my $pro_results_content = $mech->content();
-
-  $mech->submit_form( 
-                                  fields    => {
-                                                REGION => $region,
-                                                OUTFORMAT => "FASTA",
-                                                PROTEINLIST => $proteins_to_evaluate,
-                                                PROTEIN_FLAG => "YES",
-                                                DIR => "/tmp/download/GENE_CUTTER/$jobID"
-                                               }
- );
-  $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}${output_zip_prefix}_allproteins.zip" );
-  #my $content4 = $mech->content();
-  if( $DEBUG ) {
-    print "OK4\n";# \$content4 is $content4\n";
-  }
+  if( $get_amino_acids_too ) {
+    $mech->get( $pro_prepresults_url );
+    $mech->get( $pro_results_url );
+    my $pro_results_content = $mech->content();
+  
+    $mech->submit_form( 
+                                    fields    => {
+                                                  REGION => $region,
+                                                  OUTFORMAT => "FASTA",
+                                                  PROTEINLIST => $proteins_to_evaluate,
+                                                  PROTEIN_FLAG => "YES",
+                                                  DIR => "/tmp/download/GENE_CUTTER/$jobID"
+                                                 }
+   );
+    $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}${output_zip_prefix}_allproteins.zip" );
+    #my $content4 = $mech->content();
+    if( $DEBUG ) {
+      print "OK4\n";# \$content4 is $content4\n";
+    }
+  } # End if $get_amino_acids_too
 
   ## See above where we created a tmpfile for this.
-  `rm $fasta_file_readyForGeneCutter`;
+  `rm $fasta_file_readyForLANL`;
   if( $VERBOSE ) {
-    print "Removed temporary file $fasta_file_readyForGeneCutter\n";
+    print "Removed temporary file $fasta_file_readyForLANL\n";
   }
 
   if( $VERBOSE ) {
