@@ -169,6 +169,14 @@ sub runGeneCutterOnline {
   
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/GENE_CUTTER/cutter.html" );
 
+  if( $DEBUG ){
+    print "\n===========================================================\n";
+    print "Initial Form requested:\n";
+    #    print $mech->content();
+    print "\nEnd of initial form\n";
+    print "============================================================\n";
+  }
+
   my                                   %fields    = (
                                                 ORGANISM => "HIV-1",
                                                 UPLOAD => $fasta_file_readyForLANL,
@@ -183,6 +191,8 @@ sub runGeneCutterOnline {
                                                 VIEW => "YES"
                                                );
   if( $DEBUG ) {
+    print "\n===========================================================\n";
+    print "Content that will be submitted for the intial form\n";
     foreach my $key ( keys %fields ) {
       print $key .  " => " . $fields{ $key } . "\n";
     }
@@ -223,7 +233,7 @@ sub runGeneCutterOnline {
     print "JOB ID IS $jobID\n";
   }
   ## Results page
-  my $results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/FRAMESET_PRO.html";
+  my $results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/FRAMESET_NUCS.html"; # PL changed this from .../FRAMESET_PRO.html
   ## Actual results are here:
   my $pro_prepresults_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/printpro.html";
   my $pro_results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/CONTROLS_PRO.html";
