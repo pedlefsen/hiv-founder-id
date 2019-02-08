@@ -260,7 +260,9 @@ sub runGeneCutterOnline {
                                                 PROTEIN_FLAG => "NO",
                                                 DIR => "/tmp/download/GENE_CUTTER/$jobID"
                                                }
- );
+                    );
+
+  ## TODO: ERE I AM. The problem is that these will be numbered; we need to expand it, replace numbers with names, and re-collapse it!
   $mech->save_content( "${output_path_dir}/${input_fasta_file_short_nosuffix}${output_zip_prefix}_allnucs.zip" );
   #my $content3 = $mech->content();
   if( $DEBUG ) {

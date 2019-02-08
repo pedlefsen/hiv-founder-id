@@ -112,37 +112,47 @@ prepareGeneSpecificDataSubset.in.dir <- function (
     } # End if we need to recompute the alignment and/or data frame of all source seqs.
 
     ## Run the file at genecutter.
-    system( paste( "perl ./runGeneCutterOnline.pl", all.sequences.fasta.file, output.dir ) );
-    stop( paste( "perl ./runGeneCutterOnline.pl", all.sequences.fasta.file, output.dir ) );
+    gene.cutter.command <-
+        paste( "perl -w ./runGeneCutterOnline.pl -pDV", all.sequences.fasta.file, output.dir );
+    cat( paste( "Running", gene.cutter.command ), fill = TRUE );
+    system( gene.cutter.command );
 
+#    all.sequences.fasta.file.short <-
+#        gsub( "^.*?\\/?([^\\/]+?)$", "\\1", all.sequences.fasta.file, perl = TRUE );
+#    all.sequences.fasta.file.short.nosuffix <-
+#        gsub( "^([^\\.]+)(\\..+)?$", "\\1", all.sequences.fasta.file.short, perl = TRUE );
+#    all.sequences.fasta.file.short.nosuffix <-
+#        paste( the.time, "_all_sequences", sep = "" );
 
-
-    ## ERE I AM
-    # load in the specific files and split them up again.
+    ## ERE I AM. TESTING THE FOLLOWING FOR EXPANDING THE FILES:
     
-    all.sequences.df <- read.csv( all.sequences.df.file, stringsAsFactors = FALSE );
+    ## First expand the output zip file.
+    system( paste( "cd ", output.dir, "; mkdir ", the.time, "; cd ", the.time, "; unzip ../", the.time, "_all_sequences_allnucs.zip" ), sep = "" );
+    
+    ## Load in the specific files and split them up again.
 
+    all.sequences.df <- read.csv( all.sequences.df.file, stringsAsFactors = FALSE );
     for( the.gene in genes ) {
         print( the.gene );
         
         the.gene.fasta <- read.fasta(paste(output.dir, 
-                                        'from_lanl', 
+                                        the.time, 
                                         paste(the.gene, '.NA.FASTA', sep = ''),
                                         sep = '/'),
                                   seqtype = 'DNA',
-                                  as.string = TRUE)
+                                  as.string = TRUE);
     
         the.gene.seqs <- as.character(the.gene.fasta)
         names(the.gene.seqs) <- sapply(the.gene.fasta, function(x){attr(x, 'name')})
         
         the.gene.seqs.by.source.file <- list();
-        
         all.sequences.df$found <- 'no'
+        the.gene.seqs.names <- names(the.gene.seqs);
         for (i in 1:nrow(all.sequences.df)){
           
-          if (all.sequences.df$seq_name[i] %in% names(the.gene.seqs)){
+          if (all.sequences.df$seq_name[i] %in% the.gene.seqs.names){
             all.sequences.df$found[i] <- 'yes';
-            the.seq <- the.gene.seqs[all.sequences.df$seq_name[i] == names(the.gene.seqs)];
+            the.seq <- the.gene.seqs[all.sequences.df$seq_name[i] == the.gene.seqs.names];
             gap.frequency <- str_count(the.seq, "-") / nchar(the.seq);
             all.sequences.df$gap.frequency[i] <- gap.frequency;
         
