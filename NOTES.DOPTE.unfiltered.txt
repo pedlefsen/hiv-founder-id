@@ -1,0 +1,42 @@
+cd /fast/bakeoff_merged_analysis_sequences_unfiltered
+tar xzf archive/processed_lists_raw_fixed_withSampleDatesAndReadyForResults.tar.gz
+mv processed_lists results
+tar xzf archive/bounds.tar.gz
+ln -s /fast/bakeoff_merged_analysis_sequences_unfiltered/bounds results/raw_fixed/bounds
+
+## For main results:
+ cd ~/src/from-git/hiv-founder-id 
+# nflg
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m/ &
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/6m/ &
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m6m/ &
+
+# v3
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m/ &
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ &
+./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ &
+
+## For the PREAST/PrankenBeast/Infer results:
+cd ~/src/from-git/PREAST
+## unbounded results: 
+#./runAllListsLocally.sh /fast/bakeoff_merged_analysis_sequences_results_2019/results/raw_fixed/v3/1m/ &
+# ... skipping these for now.
+ 
+## bounded results: 
+# nflg
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/nflg/1m/artificialBounds_sampledwidth_uniform_mtn003.tab /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m/ &
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/nflg/6m/artificialBounds_sampledwidth_uniform_hvtn502.tab  /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/6m/ &
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/nflg/1m6m/artificialBounds_sampledwidth_uniform_mtn003.tab /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m6m/ &
+
+# v3
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/v3/1m/artificialBounds_sampledwidth_uniform_mtn003.tab /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m/ &
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/v3/6m/artificialBounds_sampledwidth_uniform_hvtn502.tab  /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ &
+./runAllListsBoundsLocally.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/bounds/v3/1m6m/artificialBounds_sampledwidth_uniform_mtn003.tab /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ &
+
+############################################################
+## FOR ANALYSIS OF evaluateIsMultiple and evaluateTimings ##
+############################################################
+mkdir /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/report/
+cp ~/src/from-git/projects/pedlefse/BakeOff/BakeOff.Rnw /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/report/BakeOff-Unfiltered.Rnw
+cd /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/report/
+export BakeOff_RESULTS.DIR = "/fast/bakeoff_merged_analysis_sequences_unfiltered/results/"; R -e ' Sweave("BakeOff-Unfiltered.Rnw")';
