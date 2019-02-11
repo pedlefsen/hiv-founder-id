@@ -185,6 +185,9 @@ sub runRAPROnline { #{{{
   my $fasta_file_readyForLANL = File::Temp::tempnam( ".", "tmp" ) . ".fasta";
   # remove leading dots and slashes from filename:
   ( $fasta_file_readyForLANL ) = ( $fasta_file_readyForLANL =~ /^\.\/(.+)$/ );
+  # remove any underscores:
+  $fasta_file_readyForLANL =~ s/\_//;
+  
   `cp $fasta_file_readyForRAP $fasta_file_readyForLANL`;
 
   if( $VERBOSE ) {
