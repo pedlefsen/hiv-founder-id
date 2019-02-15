@@ -202,7 +202,8 @@ sub runPhyML {
       my ( $seqName ) = ( $line =~ /^(\S+)\s+/ );
       #warn( "$seqName: $line\n" );
       unless( $seqName eq $seqNames[ scalar( @alternative_seqNames ) ] ) {
-        warn( "seqName changed: was " . $seqNames[ scalar( @alternative_seqNames ) ] . "; is now " . $seqName );
+        # They end up being reordered..
+        #warn( "seqName changed: was " . $seqNames[ scalar( @alternative_seqNames ) ] . "; is now " . $seqName );
         $seqNames[ scalar( @alternative_seqNames ) ] = $seqName;
       }
       push @alternative_seqNames, $seqName;
@@ -221,7 +222,7 @@ sub runPhyML {
     my $dists = $2.$3;	
     my @distances = split /\s+/, $dists;
     for( my $i = 0; $i < scalar( @distances ); $i++ ) {
-      unless( $name eq $seqNames[ $i ] ) {					
+      unless( $name eq $seqNames[ $i ] ) {
         if( $distances[ $i ] eq '-' ) { # This means the sequences are nonoverlapping (eg right half and left half)
           next; # We just don't include these in the calculation.  PhyML pairwise diffs exclude gaps.
         }

@@ -53,7 +53,20 @@ do
             cat ${inputDir}/identify_founders.tab > ${outputDir}/identify_founders.tab
         fi
     else
-        echo "Missing input dir: ${inputDir}"
+        echo "Missing identify_founders.tab file in input dir: ${inputDir}"
+    fi
+
+    if [ -e "${inputDir}/identify_founders_PhyML.tab" ]; then
+        if [ -e "${outputDir}/identify_founders_PhyML.tab" ]; then
+            # Skip the header since it is already there.
+            echo "All but header: ${inputDir}/identify_founders_PhyML.tab"
+            tail -n +2 ${inputDir}/identify_founders_PhyML.tab >> ${outputDir}/identify_founders_PhyML.tab
+        else
+            echo "Including header: ${inputDir}/identify_founders_PhyML.tab"
+            cat ${inputDir}/identify_founders_PhyML.tab > ${outputDir}/identify_founders_PhyML.tab
+        fi
+    else
+        #echo "Missing identify_founders_PhyML.tab file in input dir: ${inputDir}"
     fi
 done
 
