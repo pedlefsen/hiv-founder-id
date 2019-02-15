@@ -1,0 +1,14 @@
+diff --git a/src/utilities.c b/src/utilities.c
+index 3d50bed..0e4cc80 100644
+--- a/src/utilities.c
++++ b/src/utilities.c
+@@ -8406,6 +8406,9 @@ t_tree *Dist_And_BioNJ(calign *cdata, t_mod *mod, option *io)
+       
+       tree      = mat->tree;
+       tree->mat = mat;
++
++      // Added by Paul T. Edlefsen Feb 14, 2019, see https://groups.google.com/forum/#!topic/phyml-forum/yeIwFkwsI8c
++      Print_Mat( mat );
+     }
+   else
+     {
