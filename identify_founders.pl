@@ -44,7 +44,7 @@ use Path::Tiny;
 require Sort::Fields; # for ??
 
 use strict;
-use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_I $opt_i $opt_v $opt_T $opt_r );
+use vars qw( $opt_D $opt_V $opt_o $opt_O $opt_C $opt_P $opt_R $opt_F $opt_E $opt_H $opt_f $opt_w $opt_I $opt_i $opt_v $opt_T $opt_r $opt_t );
 use vars qw( $VERBOSE $DEBUG );
 
 sub splitFastaFileOnHeaderPatterns {
@@ -205,7 +205,7 @@ sub identify_founders {
   @ARGV = @_;
 
   sub identify_founders_usage {
-    print "\tidentify_founders [-DV] [-CPRFEHfnIsr] [-i <insites_threshold>] [-v <insites_threshold_v3>] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
+    print "\tidentify_founders [-DV] [-CPRFEHfnIsr] [-i <insites_threshold>] [-v <insites_threshold_v3>] [-t <identify.founders.tab output filename>] [-(o|O) <output_dir>] <input_fasta_file1 or file_listing_input_files> [<input_fasta_file2> ...] \n";
     exit;
   }
 
@@ -227,9 +227,10 @@ sub identify_founders {
   # opt_v is the insites threshold to use for v3 (default: 0.33).
   # opt_T means don't train the profillic profile, just use the converted alignment directly.
   # opt_r means recursively operate on clusters identified using the Informtive Sites method.
+  # opt_t is the name of the tab-delimited output file (default: "identify_founders.tab")
   # But first reset the opt vars.
-  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_I, $opt_i, $opt_v, $opt_T, $opt_r ) = ();
-  if( not getopts('DVo:O:CPRFEHfw:Ii:v:Tr') ) {
+  ( $opt_D, $opt_V, $opt_o, $opt_O, $opt_C, $opt_P, $opt_R, $opt_F, $opt_E, $opt_H, $opt_f, $opt_w, $opt_I, $opt_i, $opt_v, $opt_T, $opt_r, $opt_t ) = ();
+  if( not getopts('DVo:O:CPRFEHfw:Ii:v:Trt:') ) {
     identify_founders_usage();
   }
   
@@ -298,6 +299,8 @@ sub identify_founders {
     $output_path_dir = ".";
   }
 
+  my $output_tab_file = $opt_t || "identify_founders.tab";
+
   my $extra_flags = "";
   if( $DEBUG ) {
     $extra_flags .= "-D ";
@@ -307,7 +310,7 @@ sub identify_founders {
   }
 
   #my %subtable_sharing_original_short_name_stripped; # Arrays, one per file with the same prefix (for multi-region)
-  my $output_table_file = $output_path_dir . '/' . "identify_founders.tab";
+  my $output_table_file = $output_path_dir . '/' . $output_tab_file;
 
   if( $VERBOSE ) { print "Opening file \"$output_table_file\" for writing.."; }
   unless( open OUTPUT_TABLE_FH, ">$output_table_file" ) {

@@ -8,11 +8,9 @@
 ##
 export mainDir=$1
 export patient=$2
-export outputDir=${mainDir}/hiv_founder_id_${patient}
-mkdir $outputDir
+export outputDir=${mainDir}/hiv_founder_id_processed_${patient}
 export outputFile=${outputDir}/identify_founders_PhyML.out
-export errFile=${mainDir}/${patient}_PhyML.err
-export listFile=${mainDir}/${patient}.list
-rm $errFile
+export errFile=${outputDir}/${patient}_PhyML.err
 touch $errFile
-perl -w ./identify_founders.pl -PTFEI -HR -V -O ${outputDir}/ $listFile >$outputFile 2>>$errFile
+export listFile=${mainDir}/processed_${patient}.list
+perl -w ./identify_founders.pl -PTFEI -HR -t identify_founders_PhyML.tab -V -O ${outputDir}/ $listFile >$outputFile 2>>$errFile

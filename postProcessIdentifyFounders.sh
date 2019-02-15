@@ -65,8 +65,6 @@ do
             echo "Including header: ${inputDir}/identify_founders_PhyML.tab"
             cat ${inputDir}/identify_founders_PhyML.tab > ${outputDir}/identify_founders_PhyML.tab
         fi
-    else
-        #echo "Missing identify_founders_PhyML.tab file in input dir: ${inputDir}"
     fi
 done
 
