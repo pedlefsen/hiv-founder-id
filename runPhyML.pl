@@ -32,6 +32,9 @@ use Readonly;
 
 use List::Util 'shuffle';
 
+use Cwd qw<realpath>;
+use File::Spec;
+
 # use Bio::TreeIO;
 # use Bio::Tree::TreeFunctionsI;
 # use Net::SMTP;
@@ -43,6 +46,7 @@ use vars qw( $VERBOSE $DEBUG );
 ## NOTE THAT THIS NEEDS TO BE PATCHED; SEE ABOVE.
 use constant PHYML_EXECUTABLE => "./phyml";
 use constant PHYML_MAX_SEQS => 4000;
+use constant PHYML_MAX_FILENAME_LENGTH => 189;
 
 Readonly my %PHYML_OPTIONS => (
   datatype       => "nt",	# sequence data type ('nt' or 'aa')
@@ -102,7 +106,27 @@ sub runPhyML {
   }
   make_path( $output_path_dir );
 
-  my $phylipFile = $output_path_dir . '/' . $input_fasta_file_short_nosuffix .'.phylip';	# reformatted for phyml
+  my $phylipFile_long = $output_path_dir . '/' . $input_fasta_file_short_nosuffix .'.phylip';	# reformatted for phyml
+  my $phylipFile = $phylipFile_long;
+  my $phylipFile_shortened = undef;
+  if( length( $phylipFile ) > PHYML_MAX_FILENAME_LENGTH ) {
+    my $which_is_fasta_in_its_dir = 0;
+    
+    opendir( DIR, $input_fasta_file_path ) or die "Cannot open dir $input_fasta_file_path";
+    my @fastas_in_dir = grep {-T "$input_fasta_file_path/$_\.fasta\$"} readdir DIR;
+    closedir( DIR );
+
+    foreach my $file_i ( 0..$#fastas_in_dir ) {
+      print "file = $fastas_in_dir[ $file_i ]\n";
+      if( $fastas_in_dir[ $file_i ] eq $input_fasta_file_short ) {
+        $which_is_fasta_in_its_dir = $file_i;
+        last;
+      }
+    } # End foreach $file_i
+    ## Truncate off some of the file name?
+    $phylipFile_shortened = $output_path_dir . '/' . $which_is_fasta_in_its_dir .'.phylip';	# reformatted for phyml
+    $phylipFile = $phylipFile_shortened;
+  }
   my $phymlOutFile = $phylipFile . "_phyml.out"; # phyml's redirected standard output with distance matrix (phyml patched to show it)
   my $errFile = $phylipFile . "_phyml.err"; # pairwise (not tree-based) diversities in a table format.
   my $pwDiversityFile = $phylipFile . "_phyml_pwdiversity.txt"; # pairwise (not tree-based) diversities in a table format.
@@ -116,8 +140,10 @@ sub runPhyML {
   my $seqCount = scalar( @seqNames );
 
   ## PhyML has a hard-coded limit of PHYML_MAX_SEQS sequences.
+  ## PhyML has a hard-coded limit of PHYML_MAX_FILENAME_LENGTH name lengths for input files.
 ## TODO: REMOVE
   #warn( "PHYML_MAX_SEQS is " . PHYML_MAX_SEQS . "\n" );
+  #warn( "PHYML_MAX_FILENAME_LENGTH is " . PHYML_MAX_FILENAME_LENGTH . "\n" );
   #warn( "\$seqCount is $seqCount\n" );
   if( $seqCount >= PHYML_MAX_SEQS ) {
     @seqNames = ChangetoPhylip( $unixFile, $phylipFile, ( PHYML_MAX_SEQS - 1 ) );
@@ -159,7 +185,7 @@ sub runPhyML {
     my @lines = <ERR>;
     my $errMsg = join('', @lines);
     close ERR;
-    die( "Error running PhyML: $errMsg" );
+    warn( "Error running PhyML: $errMsg" );
   }
 
   # Get pairwise distances.
@@ -305,6 +331,38 @@ sub runPhyML {
     print( ".done\n" );
   }
 
+  if( defined( $phylipFile_shortened ) ) {
+    ## Make links to the outputs at their expected names.
+    my $phymlOutFile_long = $phylipFile_long . "_phyml.out"; # phyml's redirected standard output with distance matrix (phyml patched to show it)
+    my $errFile_long = $phylipFile_long . "_phyml.err"; # pairwise (not tree-based) diversities in a table format.
+    my $pwDiversityFile_long = $phylipFile_long . "_phyml_pwdiversity.txt"; # pairwise (not tree-based) diversities in a table format.
+    if( $VERBOSE ) {
+      print( "Creating symlinks eg $phylipFile_long => $phylipFile\n" );
+    }
+
+    my $long_filename_abs;
+    
+    $long_filename_abs = File::Spec->rel2abs( realpath( $phylipFile_long ) );
+    unlink( $long_filename_abs );
+    symlink( File::Spec->rel2abs( realpath( $phylipFile ) ), $long_filename_abs ) or die print "$!\n";
+    
+    $long_filename_abs = File::Spec->rel2abs( realpath( $phymlOutFile_long ) );
+    unlink( $long_filename_abs );
+    symlink( File::Spec->rel2abs( realpath( $phymlOutFile ) ), $long_filename_abs ) or die print "$!\n";
+    
+    $long_filename_abs = File::Spec->rel2abs( realpath( $errFile_long ) );
+    unlink( $long_filename_abs );
+    symlink( File::Spec->rel2abs( realpath( $errFile ) ), $long_filename_abs ) or die print "$!\n";
+    
+    $long_filename_abs = File::Spec->rel2abs( realpath( $pwDiversityFile_long ) );
+    unlink( $long_filename_abs );
+    symlink( File::Spec->rel2abs( realpath( $pwDiversityFile ) ), $long_filename_abs ) or die print "$!\n";
+    
+    if( $VERBOSE ) {
+      print( ".done\n" );
+    }
+  } # End if we had to shorted the file name, make links now.
+  
   if( $VERBOSE ) {
     select STDOUT;
     $| = $old_autoflush;
@@ -339,6 +397,7 @@ sub ChangetoPhylip {
 	my $unixFile = shift;
         my $phylipFile = shift;
         my $numberOfSequencesToRetain = shift || undef;
+        
         ## TODO: REMOVE
         if( defined( $numberOfSequencesToRetain ) ) {
           print( "ChangetoPhylip called with \$numberOfSequencesToRetain = $numberOfSequencesToRetain\n" );
