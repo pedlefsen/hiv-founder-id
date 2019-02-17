@@ -46,7 +46,7 @@ use vars qw( $VERBOSE $DEBUG );
 ## NOTE THAT THIS NEEDS TO BE PATCHED; SEE ABOVE.
 use constant PHYML_EXECUTABLE => "./phyml";
 use constant PHYML_MAX_SEQS => 4000;
-use constant PHYML_MAX_FILENAME_LENGTH => 189;
+use constant PHYML_MAX_FILENAME_LENGTH => 100; # Should be 189, but this seems to work better
 
 Readonly my %PHYML_OPTIONS => (
   datatype       => "nt",	# sequence data type ('nt' or 'aa')
@@ -341,22 +341,26 @@ sub runPhyML {
     }
 
     my $long_filename_abs;
-    
+
     $long_filename_abs = File::Spec->rel2abs( realpath( $phylipFile_long ) );
-    unlink( $long_filename_abs );
-    symlink( File::Spec->rel2abs( realpath( $phylipFile ) ), $long_filename_abs ) or die print "$!\n";
+    if( !-e $long_filename_abs ) {
+      symlink( File::Spec->rel2abs( realpath( $phylipFile ) ), $long_filename_abs ) or die print "$!\n";
+    }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $phymlOutFile_long ) );
-    unlink( $long_filename_abs );
-    symlink( File::Spec->rel2abs( realpath( $phymlOutFile ) ), $long_filename_abs ) or die print "$!\n";
+    if( !-e $long_filename_abs ) {
+      symlink( File::Spec->rel2abs( realpath( $phymlOutFile ) ), $long_filename_abs ) or die print "$!\n";
+    }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $errFile_long ) );
-    unlink( $long_filename_abs );
-    symlink( File::Spec->rel2abs( realpath( $errFile ) ), $long_filename_abs ) or die print "$!\n";
+    if( !-e $long_filename_abs ) {
+      symlink( File::Spec->rel2abs( realpath( $errFile ) ), $long_filename_abs ) or die print "$!\n";
+    }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $pwDiversityFile_long ) );
-    unlink( $long_filename_abs );
-    symlink( File::Spec->rel2abs( realpath( $pwDiversityFile ) ), $long_filename_abs ) or die print "$!\n";
+    if( !-e $long_filename_abs ) {
+      symlink( File::Spec->rel2abs( realpath( $pwDiversityFile ) ), $long_filename_abs ) or die print "$!\n";
+    }
     
     if( $VERBOSE ) {
       print( ".done\n" );

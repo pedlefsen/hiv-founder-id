@@ -27,6 +27,9 @@ mkdir -p ${outputDir}
 if [ -e "${outputDir}/identify_founders.tab" ]; then
     rm "${outputDir}/identify_founders.tab"
 fi
+if [ -e "${outputDir}/identify_founders_PhyML.tab" ]; then
+    rm "${outputDir}/identify_founders_PhyML.tab"
+fi
 
 for patient in  `ls -c1 ${mainDir}/*.list  | egrep --only "[0-9]+\.list" | egrep --only "[0-9]+"  | sort -u`
 do
