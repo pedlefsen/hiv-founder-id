@@ -107,6 +107,10 @@ sub runPhyML {
   make_path( $output_path_dir );
 
   my $phylipFile_long = $output_path_dir . '/' . $input_fasta_file_short_nosuffix .'.phylip';	# reformatted for phyml
+  if( -e $phylipFile_long ) {
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $phylipFile_long;
+  }
   my $phylipFile = $phylipFile_long;
   my $phylipFile_shortened = undef;
   if( length( $phylipFile ) > PHYML_MAX_FILENAME_LENGTH ) {
@@ -125,11 +129,27 @@ sub runPhyML {
     } # End foreach $file_i
     ## Truncate off some of the file name?
     $phylipFile_shortened = $output_path_dir . '/' . $which_is_fasta_in_its_dir .'.phylip';	# reformatted for phyml
+    if( -e $phylipFile_shortened ) {
+      # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+      unlink $phylipFile_shortened;
+    }
     $phylipFile = $phylipFile_shortened;
   }
   my $phymlOutFile = $phylipFile . "_phyml.out"; # phyml's redirected standard output with distance matrix (phyml patched to show it)
+  if( -e $phymlOutFile ) {
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $phymlOutFile;
+  }
   my $errFile = $phylipFile . "_phyml.err"; # pairwise (not tree-based) diversities in a table format.
+  if( -e $errFile ) {
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $errFile;
+  }
   my $pwDiversityFile = $phylipFile . "_phyml_pwdiversity.txt"; # pairwise (not tree-based) diversities in a table format.
+  if( -e $pwDiversityFile ) {
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $pwDiversityFile;
+  }
 
   ## First, using code from Wenjie's Fasta2Phylip.pl script (from http://indra.mullins.microbiol.washington.edu/perlscript/docs/Sequence.html)
 
@@ -343,21 +363,29 @@ sub runPhyML {
     my $long_filename_abs;
 
     $long_filename_abs = File::Spec->rel2abs( realpath( $phylipFile_long ) );
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $long_filename_abs;
     if( !-e $long_filename_abs ) {
       symlink( File::Spec->rel2abs( realpath( $phylipFile ) ), $long_filename_abs ) or die print "$!\n";
     }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $phymlOutFile_long ) );
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $long_filename_abs;
     if( !-e $long_filename_abs ) {
       symlink( File::Spec->rel2abs( realpath( $phymlOutFile ) ), $long_filename_abs ) or die print "$!\n";
     }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $errFile_long ) );
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $long_filename_abs;
     if( !-e $long_filename_abs ) {
       symlink( File::Spec->rel2abs( realpath( $errFile ) ), $long_filename_abs ) or die print "$!\n";
     }
     
     $long_filename_abs = File::Spec->rel2abs( realpath( $pwDiversityFile_long ) );
+    # Try unlinking it if it is already there. Symlinks seem to not be removed by this on my mac os x.
+    unlink $long_filename_abs;
     if( !-e $long_filename_abs ) {
       symlink( File::Spec->rel2abs( realpath( $pwDiversityFile ) ), $long_filename_abs ) or die print "$!\n";
     }

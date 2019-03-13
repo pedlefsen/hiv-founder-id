@@ -2,7 +2,7 @@
 
 source( "getDaysSinceInfection_safetosource.R" );
 
-results.dirname <- "raw_edited_20160216";
+results.dirname <- "raw_fixed";
 #results.dirname <- "raw";
 bounds.subdirname <- "bounds";
 
@@ -25,7 +25,7 @@ hvtn503.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlef
 # These are from HVTN 505, which during this period (blinded-phase of study, not unblinded followup) had a scheduled visit every 3 months, though it may have included more frequent visits during the vaccination phase (I do not know).
 hvtn505.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v505.csv", sep = "" ), header = TRUE )[[1]];
 
-# These are from MTN 003, which had a 4-week visit window but at this point there is some confusion over whether testing was conducted every 4 weeks or every 12 weeks (3 months).  Perhaps taking a look at it will help to resolve this.
+# These are from MTN 003, which had a 4-week visit window but this have a long large tail.
 mtn003.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_m003.csv", sep = "" ), header = TRUE )[[1]];
 
 ## Some exploration suggests that the 503 data are quite different from the 502 data.
