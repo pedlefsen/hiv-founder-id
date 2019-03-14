@@ -578,6 +578,10 @@ get.days.since.infection <-
             } else {
                 .results.for.region <- results.by.region.and.time[[ regions ]];
             }
+            if( !( the.time %in% names( .results.for.region ) ) ) {
+                ## Uh oh, that time was not computed!
+                stop( paste( the.time, "is missing from the results." ) );
+            }
             results.covars.per.person.df <-
                 data.frame( .results.for.region[[ the.time ]][[ "results.covars.per.person.with.extra.cols" ]] );
 
@@ -960,7 +964,7 @@ calculateBiasesFromPredictionErrors <-
     function( .col ) { sprintf( "%0.1f", mean( .col, na.rm = T ) ) };    
 
 ## This creates pdf and csv file outputs for the timings results
-createResultsPlotAndSpreadsheet <- function ( include.intercept, withbounds, train.regions, region, time, mutation.rate.calibration = FALSE, ylims.1m = 300, ylims.6m = 300 ) {
+createResultsPlotAndSpreadsheet <- function ( include.intercept, withbounds, train.regions, region, time, mutation.rate.calibration = FALSE, force.recomputation = FALSE, ylims.1m = 300, ylims.6m = 300 ) {
     if( time == "1w" ) {
         ylims = ylims.1m;## TODO: Add a 1w version in the argument list?
         .Biases.and.RMSEs.yloc = -ylims.1m;
@@ -1217,6 +1221,74 @@ createAllResultsPlotsAndSpreadsheets <- function ( regions = c( "v3", "nflg" ), 
         } # End foreach the.time
     } # End foreach the.region
 } # createAllResultsPlotsAndSpreadsheets (..)
+
+# Assumes that you are in the same directory as the previously created .csv files after running createAllResultsPlotsAndSpreadsheets()
+createScatterplotOfResultVsGoldStandard <- function ( include.intercept, withbounds, train.regions, region, time ) {
+    .config.string <- paste( region, " Days at ", time, sep = "" );
+    if( withbounds ) {
+        .config.string <- paste( .config.string, " with bound", sep = "" );
+    }
+    if( include.intercept ) {
+        .config.string <- paste( .config.string, " including intercept", sep = "" );
+    }
+    if( !( ( length( the.region ) == length( train.regions ) ) && ( all( sort( the.region ) == sort( train.regions ) ) ) ) ) {
+        .config.string <- paste( .config.string, " trained using regions ", paste( train.regions, collapse = ", " ), sep = "" );
+    }
+
+    data.in.base <- paste( "Uncalibrated Estimators of", .config.string );
+    
+    ## Ok now load the COB estimates and make a scatter plot for the paper.
+    stopifnot( file.exists( paste( data.in.base, "v3 Days at 1m data.csv" ) ) );
+    uncalibrated.v3.1m.days   <- read.csv( paste( data.in.base, "v3 Days at 1m data.csv"   ) );
+    uncalibrated.v3.6m.days   <- read.csv( paste( data.in.base, "v3 Days at 6m data.csv"   ) );
+    uncalibrated.nflg.1m.days <- read.csv( paste( data.in.base, "nflg Days at 1m data.csv" ) );
+    uncalibrated.nflg.6m.days <- read.csv( paste( data.in.base, "nflg Days at 6m data.csv" ) );
+    
+    uncalibrated.days.goldstandard.cob.df <-
+        data.frame( rbind( 
+            cbind( uncalibrated.v3.1m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "1-2M", Region = "V3" ),
+            cbind( uncalibrated.v3.6m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "~6M", Region = "V3" ),
+            cbind( uncalibrated.nflg.1m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "1-2M", Region = "NFLG" ),
+            cbind( uncalibrated.nflg.6m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "~6M", Region = "NFLG" )
+            ) );
+    .xymin <- base::min( base::min( uncalibrated.days.goldstandard.cob.df$Center.of.Bounds ), base::min( uncalibrated.days.goldstandard.cob.df$Gold.Standard ) ); 
+    .xymax <- base::max( base::max( uncalibrated.days.goldstandard.cob.df$Center.of.Bounds ), base::max( uncalibrated.days.goldstandard.cob.df$Gold.Standard ) ); 
+    pdf( "Scatterplot of Center of Bounds vs Gold Standard.pdf" );
+    ggplot( uncalibrated.days.goldstandard.cob.df, aes( x = Center.of.Bounds, y = Gold.Standard ) ) + geom_point( stat = "identity", size = 4, mapping = aes( color = Region, shape = Time ) ) + 
+      guides(fill=FALSE) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+          panel.background = element_blank(), axis.line = element_line(colour = "black"),
+         legend.text =
+              element_text(
+                  colour="black",size=14
+               ),
+         legend.title =
+              element_text(
+                  colour="black",size=14,face="bold"
+               ),
+         axis.text.x =
+              element_text(
+                  angle = 45, vjust = 0.95, hjust=0.95,
+                  colour="black",size=18,face="bold"
+               ),
+          axis.text.y =
+              element_text(
+                  colour="black",size=18,face="bold"
+               ),
+          axis.title.x =
+              element_text(
+                  colour="black",size=16,face="bold"
+               ),
+          axis.title.y =
+              element_text(
+                  colour="black",size=16,face="bold"
+               )
+            ) + ylab( "Gold Standard Days Since Infection" ) + xlab( "Predicted Days Since Infection (COB)" ) +
+       geom_abline(intercept = 0, slope = 1, linetype = 3 ) +
+       scale_x_continuous(breaks = seq(50, .xymax, 50), limits = c(.xymin, .xymax)) +
+       scale_y_continuous(breaks = seq(50, .xymax, 50), limits = c(.xymin, .xymax));
+    dev.off();
+} # createScatterplotOfResultVsGoldStandard (..) 
 
 prepare.ismultiple.mat <- function ( ismultiple.mat, only.is.lasso = ismultiple.only.is.lasso, exclude.continuous.predictors = ismultiple.exclude.continuous.predictors, include.training.codes = ismultiple.include.training.codes ) {
     has.nflg <- grep( "nflg\\.", colnames( ismultiple.mat ) );

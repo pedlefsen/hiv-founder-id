@@ -127,10 +127,7 @@
 # Setup for prettier Sweave output.
 old.continue.option <- options( continue = " " )
 
-.owd <- getwd();
-setwd( "~/src/from-git/hiv-founder-id/" );
-source( "ReportTimingsAndMultiplicityResults_safetosource.R" );
-setwd( .owd );
+source( "~/src/from-git/hiv-founder-id/ReportTimingsAndMultiplicityResults_safetosource.R" );
 
 #############
 # CONFIGURATION 
@@ -165,7 +162,7 @@ if( BakeOff.RESULTS.DIR != "" ) {
 RESULTS.DIRNAME <- "raw_fixed";
 
 ## NOTE even setting this to TRUE will not force all to be recomputed. See below where force.recomputation = FALSE.
-FORCE.RECOMPUTATION <- FALSE;#TRUE;
+FORCE.RECOMPUTATION <- TRUE;
 
 @ 
 
@@ -1025,9 +1022,6 @@ dev.off();
 <<echo = FALSE, results = hide>>=
 ## For the paper's tables of fitted values we need these:
 ## For the PFitter mut.rate.coefs, convert it back, for now, to just a product of PFitter's estimate.
-# this provides "inverse.epsilon" and some other values we will use:
-source( "~/src/from-git/hiv-founder-id/daysFromLambda_safetosource.R" )
-
 ## 1m, v3
     bounded.COB.var <- "COB.sampledwidth.uniform.mtn003.time.est";
 # for 6m: bounded.COB.var <-  "COB.sampledwidth.uniform.hvtn502.time.est";
@@ -3419,141 +3413,6 @@ Research reported in this document was partially supported by the Bill and Melin
 % Fig of two types of phylogenetic tree:
 % A closely related question and one central to within-host modeling is whether the sequence data are sufficiently well-modeled by a very simple independent-random-variation model with no family tree structure (a “star-like” model; figure XA), or a branching process model (your typical phylogenetic tree; figure XB).
 
-
-<<echo = FALSE, results = hide>>=
-## Ok now load the COB estimates and make a scatter plot for the paper.
-uncalibrated.v3.1m.days   <- read.csv( "Uncalibrated Estimators of v3 Days at 1m data.csv"   );
-uncalibrated.v3.6m.days   <- read.csv( "Uncalibrated Estimators of v3 Days at 6m data.csv"   );
-uncalibrated.nflg.1m.days <- read.csv( "Uncalibrated Estimators of nflg Days at 1m data.csv" );
-uncalibrated.nflg.6m.days <- read.csv( "Uncalibrated Estimators of nflg Days at 6m data.csv" );
-
-uncalibrated.days.goldstandard.cob.df <-
-    data.frame( rbind( 
-        cbind( uncalibrated.v3.1m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "1-2M", Region = "V3" ),
-        cbind( uncalibrated.v3.6m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "~6M", Region = "V3" ),
-        cbind( uncalibrated.nflg.1m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "1-2M", Region = "NFLG" ),
-        cbind( uncalibrated.nflg.6m.days[ , c( "Gold.Standard", "Center.of.Bounds" ) ], Time = "~6M", Region = "NFLG" )
-        ) );
-.xymin <- base::min( base::min( uncalibrated.days.goldstandard.cob.df$Center.of.Bounds ), base::min( uncalibrated.days.goldstandard.cob.df$Gold.Standard ) ); 
-.xymax <- base::max( base::max( uncalibrated.days.goldstandard.cob.df$Center.of.Bounds ), base::max( uncalibrated.days.goldstandard.cob.df$Gold.Standard ) ); 
-pdf( "Scatterplot of Center of Bounds vs Gold Standard.pdf" );
-ggplot( uncalibrated.days.goldstandard.cob.df, aes( x = Center.of.Bounds, y = Gold.Standard ) ) + geom_point( stat = "identity", size = 4, mapping = aes( color = Region, shape = Time ) ) + 
-  guides(fill=FALSE) +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
-      panel.background = element_blank(), axis.line = element_line(colour = "black"),
-     legend.text =
-          element_text(
-              colour="black",size=14
-           ),
-     legend.title =
-          element_text(
-              colour="black",size=14,face="bold"
-           ),
-     axis.text.x =
-          element_text(
-              angle = 45, vjust = 0.95, hjust=0.95,
-              colour="black",size=18,face="bold"
-           ),
-      axis.text.y =
-          element_text(
-              colour="black",size=18,face="bold"
-           ),
-      axis.title.x =
-          element_text(
-              colour="black",size=16,face="bold"
-           ),
-      axis.title.y =
-          element_text(
-              colour="black",size=16,face="bold"
-           )
-        ) + ylab( "Gold Standard Days Since Infection" ) + xlab( "Predicted Days Since Infection (COB)" ) +
-   geom_abline(intercept = 0, slope = 1, linetype = 3 ) +
-   scale_x_continuous(breaks = seq(50, .xymax, 50), limits = c(.xymin, .xymax)) +
-   scale_y_continuous(breaks = seq(50, .xymax, 50), limits = c(.xymin, .xymax));
-dev.off();
-
-cors <- list( "nflg 1m" = cor( uncalibrated.nflg.1m.days[ , "Gold.Standard" ], uncalibrated.nflg.1m.days[ , "Center.of.Bounds" ] ), "nflg 6m" = cor( uncalibrated.nflg.6m.days[ , "Gold.Standard" ], uncalibrated.nflg.6m.days[ , "Center.of.Bounds" ] ), "v3 1m" = cor( uncalibrated.v3.1m.days[ , "Gold.Standard" ], uncalibrated.v3.1m.days[ , "Center.of.Bounds" ] ), "v3 6m" = cor( uncalibrated.v3.6m.days[ , "Gold.Standard" ], uncalibrated.v3.6m.days[ , "Center.of.Bounds" ] ) );
-## For the figure legend:
-cors
-# $`nflg 1m`
-# [1] 0.4517099
-# 
-# $`nflg 6m`
-# [1] 0.3459186
-# 
-# $`v3 1m`
-# [1] 0.3718909
-# 
-# $`v3 6m`
-# [1] 0.1836405
-lapply( cors, function( .x ) { sprintf( "%0.2f", .x ) } )
-# $`nflg 1m`
-# [1] "0.45"
-# 
-# $`nflg 6m`
-# [1] "0.35"
-# 
-# $`v3 1m`
-# [1] "0.37"
-# 
-# $`v3 6m`
-# [1] "0.18"
-
-## More info:
-# > cor.test( uncalibrated.v3.1m.days[ , "Gold.Standard" ], uncalibrated.v3.1m.days[ , "Center.of.Bounds" ] )
-# 
-# 	Pearson's product-moment correlation
-# 
-# data:  uncalibrated.v3.1m.days[, "Gold.Standard"] and uncalibrated.v3.1m.days[, "Center.of.Bounds"]
-# t = 1.6997, df = 18, p-value = 0.1064
-# alternative hypothesis: true correlation is not equal to 0
-# 95 percent confidence interval:
-#  -0.08454304  0.69932430
-# sample estimates:
-#       cor 
-# 0.3718909 
-# 
-# > cor.test( uncalibrated.v3.6m.days[ , "Gold.Standard" ], uncalibrated.v3.6m.days[ , "Center.of.Bounds" ] )
-# 
-# 	Pearson's product-moment correlation
-# 
-# data:  uncalibrated.v3.6m.days[, "Gold.Standard"] and uncalibrated.v3.6m.days[, "Center.of.Bounds"]
-# t = 0.74727, df = 16, p-value = 0.4657
-# alternative hypothesis: true correlation is not equal to 0
-# 95 percent confidence interval:
-#  -0.3097898  0.5991423
-# sample estimates:
-#       cor 
-# 0.1836405 
-# 
-# > cor.test( uncalibrated.nflg.1m.days[ , "Gold.Standard" ], uncalibrated.nflg.1m.days[ , "Center.of.Bounds" ] )
-# 
-# 	Pearson's product-moment correlation
-# 
-# data:  uncalibrated.nflg.1m.days[, "Gold.Standard"] and uncalibrated.nflg.1m.days[, "Center.of.Bounds"]
-# t = 2.9523, df = 34, p-value = 0.005684
-# alternative hypothesis: true correlation is not equal to 0
-# 95 percent confidence interval:
-#  0.1446390 0.6794181
-# sample estimates:
-#       cor 
-# 0.4517099 
-# 
-# > cor.test( uncalibrated.nflg.6m.days[ , "Gold.Standard" ], uncalibrated.nflg.6m.days[ , "Center.of.Bounds" ] )
-# 
-# 	Pearson's product-moment correlation
-# 
-# data:  uncalibrated.nflg.6m.days[, "Gold.Standard"] and uncalibrated.nflg.6m.days[, "Center.of.Bounds"]
-# t = 2.0856, df = 32, p-value = 0.04508
-# alternative hypothesis: true correlation is not equal to 0
-# 95 percent confidence interval:
-#  0.00877993 0.61244214
-# sample estimates:
-#       cor 
-# 0.3459186 
-
-
-@ 
 
 <<echo = FALSE, results = hide>>=
 ## To test my maths about relating auc to sensitivity / specificity when there's only one confusion matrix.

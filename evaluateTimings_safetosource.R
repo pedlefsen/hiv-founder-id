@@ -11,23 +11,21 @@ source( "getResultsByRegionAndTime_safetosource.R" );
 source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
-GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
-#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
-#RESULTS.DIRNAME <- "raw_edited_20160216";
-
-RESULTS.DIR <-  "/fast/bakeoff_merged_analysis_sequences_results/results/";
-#RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
-RESULTS.DIRNAME <- "raw_fixed";
-
-HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS <- c(); #c( "v3_not_nflg", "X6m.not.1m" );
-
-## Run it in all four configurations of INCLUDE.INTERCEPT and HELPFUL.ADDITIONAL.COLS to match what was done for the paper:
-
-#HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
-HELPFUL.ADDITIONAL.COLS <- c();
-
-INCLUDE.INTERCEPT <- FALSE;
-#INCLUDE.INTERCEPT <- TRUE;
+## These should be set externally.
+# GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
+# 
+# RESULTS.DIR <-  "/fast/bakeoff_merged_analysis_sequences_filteredPre2017/results/";
+# RESULTS.DIRNAME <- "raw_fixed";
+# 
+# HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS <- c(); #c( "v3_not_nflg", "X6m.not.1m" );
+# 
+# ## Run it in all four configurations of INCLUDE.INTERCEPT and HELPFUL.ADDITIONAL.COLS to match what was done for the paper:
+# 
+# #HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
+# HELPFUL.ADDITIONAL.COLS <- c();
+# 
+# INCLUDE.INTERCEPT <- FALSE;
+# #INCLUDE.INTERCEPT <- TRUE;
 
 THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
 
@@ -155,7 +153,7 @@ evaluateTimings <- function (
   partition.bootstrap.samples = 100,
   partition.bootstrap.num.cores = detectCores(),
   regions = c( "nflg", "v3" ),
-  times = c( "1m", "6m" )
+  times = c( "1w", "1m", "6m" )
   #regions = c( "nflg", "v3", "rv217_v3" ),
   #times = c( "1m", "6m", "1m6m" )
 )
@@ -564,7 +562,7 @@ evaluateTimings <- function (
         } else if( the.time == "1m.6m" ) {
             .lower.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.lower";
             .upper.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.upper";
-        } else {
+        } else { # 1m or 1w
             .lower.bound.colname <- "sampledwidth_uniform_mtn003.lower";
             .upper.bound.colname <- "sampledwidth_uniform_mtn003.upper";
         }
@@ -1892,10 +1890,10 @@ evaluateTimings <- function (
 
         # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
         if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, ifelse( the.time == "1w", 1, 2 ) ) ), "viralload" ] ) ) } );
         } else {
             stopifnot( the.region == "v3" );
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, ifelse( the.time == "1w", 1, 2 ) ) ), "viralload" ] ) ) } );
         }
         ## Add log plasma viral load (lPVL).
         results.with.lPVL <- cbind( results.in, log( pvl.at.the.time ) );
@@ -1974,6 +1972,14 @@ evaluateTimings <- function (
               center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
                 round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
               } );
+              if( is.null( dim( center.of.bounds.table ) ) ) {
+                  center.of.bounds.table.flat <- center.of.bounds.table;
+                  center.of.bounds.table <-
+                      matrix( nrow = 1, ncol = length( center.of.bounds.table.flat ) );
+                  colnames( center.of.bounds.table ) <- names( center.of.bounds.table.flat );
+                  rownames( center.of.bounds.table ) <- names( the.artificial.bounds );
+                  center.of.bounds.table[ 1, ] <- center.of.bounds.table.flat;
+              }
               colnames( center.of.bounds.table ) <-
                 paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
               
