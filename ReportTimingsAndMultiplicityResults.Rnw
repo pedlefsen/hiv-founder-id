@@ -1025,8 +1025,8 @@ dev.off();
 <<echo = FALSE, results = hide>>=
 ## For the paper's tables of fitted values we need these:
 ## For the PFitter mut.rate.coefs, convert it back, for now, to just a product of PFitter's estimate.
+# this provides "inverse.epsilon" and some other values we will use:
 source( "~/src/from-git/hiv-founder-id/daysFromLambda_safetosource.R" )
-inverse.epsilon <- 1/default.epsilon;
 
 ## 1m, v3
     bounded.COB.var <- "COB.sampledwidth.uniform.mtn003.time.est";
