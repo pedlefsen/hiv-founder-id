@@ -33,7 +33,7 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                } );
            names( results.by.time ) <- times;
 
-           if( !all( c( "1w", "1m", "6m" ) %in% times ) ) {
+           if( !all( c( "1m", "6m" ) %in% times ) ) {
                return( results.by.time );
            }
            .vars <- setdiff( names( results.by.time[[1]] ), "evaluated.results" );
@@ -112,10 +112,8 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                    ## Add a new bounds.type called "sampledwidth_uniform_1mmtn003_6mhvtn502"
                    great.new.bounds.table <-
                        missing.column.safe.rbind(
-                           results.by.time[[ "1w" ]][[ .varname ]][[ "sampledwidth_uniform_mtn003" ]],
                            results.by.time[[ "1m" ]][[ .varname ]][[ "sampledwidth_uniform_mtn003" ]],
                            results.by.time[[ "6m" ]][[ .varname ]][[ "sampledwidth_uniform_hvtn502" ]],
-                           "1w",
                            "1m",
                            "6m"
                        );
@@ -124,29 +122,24 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                } else if( .varname == gold.standard.varname ) {
                    # one dimensional
                    .rv <- c( 
-                             results.by.time[[ "1w" ]][[ .varname ]],
                              results.by.time[[ "1m" ]][[ .varname ]],
                              results.by.time[[ "6m" ]][[ .varname ]]
                        );
                      names( .rv ) <-
-                         c( paste( names( results.by.time[[ "1w" ]][[ .varname ]] ), "1w", sep = "." ),
-                           paste( names( results.by.time[[ "1m" ]][[ .varname ]] ), "1m", sep = "." ),
+                         c( paste( names( results.by.time[[ "1m" ]][[ .varname ]] ), "1m", sep = "." ),
                            paste( names( results.by.time[[ "6m" ]][[ .varname ]] ), "6m", sep = "." ) );
                    return( .rv );
                } else {
                      .rv <- 
                        missing.column.safe.rbind(
-                           results.by.time[[ "1w" ]][[ .varname ]],
                            results.by.time[[ "1m" ]][[ .varname ]],
                            results.by.time[[ "6m" ]][[ .varname ]],
-                           "1w",
                            "1m",
                            "6m"
                        );
                      if( .varname == "results.covars.per.person.with.extra.cols" ) {
                        .x <-
                          c(
-                           rep( 0, nrow( results.by.time[[ "1w" ]][[ .varname ]] ) ),
                            rep( 0, nrow( results.by.time[[ "1m" ]][[ .varname ]] ) ),
                            rep( 1, nrow( results.by.time[[ "6m" ]][[ .varname ]] ) )
                          );
@@ -215,13 +208,11 @@ getResultsByRegionAndTime <- function ( gold.standard.varname, get.results.for.r
                if( ( paste( .colname.root, "sampledwidth.uniform.mtn003.time.est", sep = "." ) %in% colnames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ) ) && ( paste( .colname.root, "sampledwidth.uniform.hvtn502.time.est", sep = "." ) %in% colnames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ) ) ) {
                  stillanother.new.estimates.table <-
                    rbind(
-                     results.by.time[[ "1w" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.mtn003.time.est", sep = "." ), drop = FALSE ],
                      results.by.time[[ "1m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.mtn003.time.est", sep = "." ), drop = FALSE ],
                      results.by.time[[ "6m" ]][[ "results.per.person" ]][ , paste( .colname.root, "sampledwidth.uniform.hvtn502.time.est", sep = "." ), drop = FALSE ]
                    );
                  rownames( stillanother.new.estimates.table ) <-
                    c(
-                     paste( rownames( results.by.time[[ "1w" ]][[ "results.per.person" ]] ), "1w", sep = "." ),
                      paste( rownames( results.by.time[[ "1m" ]][[ "results.per.person" ]] ), "1m", sep = "." ),
                      paste( rownames( results.by.time[[ "6m" ]][[ "results.per.person" ]] ), "6m", sep = "." )
                    );
