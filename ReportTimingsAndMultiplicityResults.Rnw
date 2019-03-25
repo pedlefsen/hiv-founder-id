@@ -3471,8 +3471,8 @@ sd( caprisa002.gold.standard.timings.6m )
 # So: the mean (SD) of the CAPRISA 002 gold standard days since infection for the 1m samples is 62.4 (4.9) and for the 6m samples is 180 (12.1).
 
 ## I used that info above, to make these rows. Here I save the table.
-data.sources.for.paper.table <- cbind( rv217 = rv217.row, caprisa002 = caprisa002.row );
-write.csv( data.sources.for.paper.table, "data_sources_for_paper.csv" );
+# data.sources.for.paper.table <- cbind( rv217 = rv217.row, caprisa002 = caprisa002.row );
+# write.csv( data.sources.for.paper.table, "data_sources_for_paper.csv" );
 
 @ 
 
