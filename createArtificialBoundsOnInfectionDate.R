@@ -2,8 +2,19 @@
 
 source( "getDaysSinceInfection_safetosource.R" );
 
-results.dirname <- "raw_edited_20160216";
+## Configure which results we are displaying.
+BakeOff.RESULTS.DIR <- Sys.getenv( "BakeOff_RESULTS_DIR" );
+if( BakeOff.RESULTS.DIR != "" ) {
+     RESULTS.DIR <- BakeOff.RESULTS.DIR;
+} else {
+    #RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_unfiltered/results/";
+    RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_filteredPre2017/results/";
+    #RESULTS.DIR <- "/fast/bakeoff_merged_analysis_sequences_filtered2019/results/";
+}
+
+results.dirname <- "raw_fixed";
 #results.dirname <- "raw";
+
 bounds.subdirname <- "bounds";
 
 # force.recomputation <- FALSE;
@@ -17,16 +28,16 @@ caprisa002.gold.standard.infection.dates <- as.Date( as.character( caprisa002.go
 names( caprisa002.gold.standard.infection.dates ) <- as.character( caprisa002.gold.standard.infection.dates.in[,1] );
 
 # These are from HVTN 502 / HVTN 504 (STEP), which had a scheduled visit every 6 months (I believe) during the period after the vaccination phase, but these values I believe include everyone (those infected during vaccination, during the main trial, and even during unblinded followup (HVTN 504). I excluded one very high outlier value (1496).  The range of the remaining are from 18 to 495.
-hvtn502.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v502.csv", sep = "" ), header = TRUE )[[1]];
+hvtn502.timing.windows.of.infecteds <- read.table( file = paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v502.csv", sep = "" ), header = TRUE )[[1]];
 
 # These are from HVTN 503 (Phambili), which had the same visit schedule as HVTN 502, but was halted early. I've excluded the two zero-valued days_negminpos and the two high outliers: 742 and 1008.  The rest are in the reasonable 1-month to 1-year range.
-hvtn503.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v503.csv", sep = "" ), header = TRUE )[[1]];
+hvtn503.timing.windows.of.infecteds <- read.table( file = paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v503.csv", sep = "" ), header = TRUE )[[1]];
 
 # These are from HVTN 505, which during this period (blinded-phase of study, not unblinded followup) had a scheduled visit every 3 months, though it may have included more frequent visits during the vaccination phase (I do not know).
-hvtn505.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v505.csv", sep = "" ), header = TRUE )[[1]];
+hvtn505.timing.windows.of.infecteds <- read.table( file = paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_v505.csv", sep = "" ), header = TRUE )[[1]];
 
-# These are from MTN 003, which had a 4-week visit window but at this point there is some confusion over whether testing was conducted every 4 weeks or every 12 weeks (3 months).  Perhaps taking a look at it will help to resolve this.
-mtn003.timing.windows.of.infecteds <- read.table( file = paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_m003.csv", sep = "" ), header = TRUE )[[1]];
+# These are from MTN 003, which had a 4-week visit window but this have a long large tail.
+mtn003.timing.windows.of.infecteds <- read.table( file = paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/infectionWindowInDays_m003.csv", sep = "" ), header = TRUE )[[1]];
 
 ## Some exploration suggests that the 503 data are quite different from the 502 data.
 ## Also, the distribution of the 502 and 505 data is pretty similar if you scale by the ratio of means (which is nearly 2 = 6 months / 3 months, the ratio of the window widths).
@@ -81,7 +92,7 @@ sd.sixmonths <- ( mean.sixmonths / mean( .scaled.pooled.widths.excludingrighttai
 # Create the fake 1-month data by sampling from the actual pooled widths, rescaled.
 sixmonths.rescaled.pooled.widths <- .scaled.pooled.widths * ( mean.sixmonths / mean( .scaled.pooled.widths ) );
 
-regions <- c( "nflg", "v3", "rv217_v3" );
+regions <- c( "nflg", "v3" );
 
 # Eg interval.center = 0, interval.width = 35, interval.center.percentile = 0.5
 create.deterministic.interval.generation.fn <- function( interval.center.percentile ) {
@@ -153,7 +164,7 @@ createArtificialBoundsOnInfectionDate <-
                     cat( the.time, fill = T );
 
                     .days.since.infection.filename <-
-                        paste( "/fh/fast/edlefsen_p/bakeoff_analysis_results/", results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
+                        paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/sampleDates.tbl", sep = "" );
                     if( the.region == "v3" ) {
                         days.since.infection <-
                             getDaysSinceInfection(
@@ -175,7 +186,7 @@ createArtificialBoundsOnInfectionDate <-
                     
                     ## Write it out as we go.
                     .artificial.bounds.dirname <-
-                        paste( "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/", results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
+                        paste( RESULTS.DIR, results.dirname, "/", bounds.subdirname, "/", the.region, "/", the.time, "/", sep = "" );
                     dir.create( .artificial.bounds.dirname, recursive = TRUE, showWarnings = FALSE );
                     .artificial.bounds.filename <-
                         paste( .artificial.bounds.dirname, "artificialBounds_", output.file.suffix, sep = "" );
@@ -193,6 +204,29 @@ createArtificialBoundsOnInfectionDate <-
 
 ## DO it.
 
+## Uniform-center, sampled from onemonth.rescaled.pooled.widths.
+# set.seed( 98103 );
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = onemonth.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_onemonth.tab", times = c( "1m", "1m6m" ) );
+# 1w was done separately:
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = onemonth.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_onemonth.tab", times = "1w" )
+
+## Uniform-center, sampled from mtn003.timing.windows.of.infecteds (one-monthly, nominally)
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = mtn003.timing.windows.of.infecteds, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_mtn003.tab", times = c( "1m", "1m6m" ) );
+# 1w was done separately:
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = mtn003.timing.windows.of.infecteds, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_mtn003.tab", times = "1w" );
+
+## Uniform-center, sampled from sixmonth.rescaled.pooled.widths.
+# set.seed( 98103 );
+# createArtificialBoundsOnInfectionDate( interval.width.in.days = sixmonths.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_sixmonths.tab", times = c( "6m" ) );
+
+## Uniform-center, sampled from hvtn502.timing.windows.of.infecteds (sixmonthly, nominally)
+set.seed( 98103 );
+createArtificialBoundsOnInfectionDate( interval.width.in.days = hvtn502.timing.windows.of.infecteds, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_hvtn502.tab", times = c( "6m" ) );
+
+## ARCHIVE:
 # ## Deterministic, 5 weeks, centered.
 # createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = create.deterministic.interval.generation.fn( 0.5 ), output.file.suffix = "deterministic_5weeks_centered.tab" );
 # ## Deterministic, 5 weeks, 10th percentile.
@@ -207,14 +241,6 @@ createArtificialBoundsOnInfectionDate <-
 # ## Gamma-width Uniform-center, mean 5 weeks, SD 1 week.
 # set.seed( 98103 );
 # createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 5 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_5weeks.tab", times = c( "1m", "1m6m" ) );
-
-## Uniform-center, sampled from onemonth.rescaled.pooled.widths.
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = onemonth.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_onemonth.tab", times = c( "1m", "1m6m" ) );
-
-## Uniform-center, sampled from mtn003.timing.windows.of.infecteds (one-monthly, nominally)
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = mtn003.timing.windows.of.infecteds, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_mtn003.tab", times = c( "1m", "1m6m" ) );
 
 # ## Uniform-center, 5 weeks.
 # set.seed( 98103 );
@@ -234,14 +260,6 @@ createArtificialBoundsOnInfectionDate( interval.width.in.days = mtn003.timing.wi
 ## Gamma-width Uniform-center, mean 30 weeks, SD 6 weeks.
 # set.seed( 98103 );
 # createArtificialBoundsOnInfectionDate( interval.width.in.days = ( 30 * 7 ), interval.generation.fn = gamma.uniform.interval.generation.fn, output.file.suffix = "gammawidth_uniform_30weeks.tab", times = c( "6m" ) );
-
-## Uniform-center, sampled from sixmonth.rescaled.pooled.widths.
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = sixmonths.rescaled.pooled.widths, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_sixmonths.tab", times = c( "6m" ) );
-
-## Uniform-center, sampled from hvtn502.timing.windows.of.infecteds (sixmonthly, nominally)
-set.seed( 98103 );
-createArtificialBoundsOnInfectionDate( interval.width.in.days = hvtn502.timing.windows.of.infecteds, interval.generation.fn = sampledwidth.uniform.interval.generation.fn, output.file.suffix = "sampledwidth_uniform_hvtn502.tab", times = c( "6m" ) );
 
 ## Uniform-center, 30 weeks.
 # set.seed( 98103 );

@@ -11,24 +11,21 @@ source( "getResultsByRegionAndTime_safetosource.R" );
 source( "writeResultsTables_safetosource.R" );
 source( "summarizeCovariatesOnePerParticipant_safetosource.R" );
 
-GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
-#SEQUENCES.DIR <- "/fh/fast/edlefsen_p/bakeoff/analysis_sequences/";
-#RESULTS.DIR <- "/fh/fast/edlefsen_p/bakeoff_analysis_results/";
-#RESULTS.DIRNAME <- "raw_edited_20160216";
-
-RESULTS.DIR <- SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results/results/";
-#RESULTS.DIR <- SEQUENCES.DIR <- "/fast/bakeoff_merged_analysis_sequences_results_2019/results/";
-RESULTS.DIRNAME <- "raw_fixed";
-
-HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS <- c(); #c( "v3_not_nflg", "X6m.not.1m" );
-
-## Run it in all four configurations of INCLUDE.INTERCEPT and HELPFUL.ADDITIONAL.COLS to match what was done for the paper:
-
-#HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
-HELPFUL.ADDITIONAL.COLS <- c();
-
-INCLUDE.INTERCEPT <- FALSE;
-#INCLUDE.INTERCEPT <- TRUE;
+## These should be set externally.
+# GOLD.STANDARD.DIR <- "/fh/fast/edlefsen_p/bakeoff/gold_standard/";
+# 
+# RESULTS.DIR <-  "/fast/bakeoff_merged_analysis_sequences_filteredPre2017/results/";
+# RESULTS.DIRNAME <- "raw_fixed";
+# 
+# HELPFUL.ADDITIONAL.COLS.WITH.INTERACTIONS <- c(); #c( "v3_not_nflg", "X6m.not.1m" );
+# 
+# ## Run it in all four configurations of INCLUDE.INTERCEPT and HELPFUL.ADDITIONAL.COLS to match what was done for the paper:
+# 
+# #HELPFUL.ADDITIONAL.COLS <- c( "lPVL" );
+# HELPFUL.ADDITIONAL.COLS <- c();
+# 
+# INCLUDE.INTERCEPT <- FALSE;
+# #INCLUDE.INTERCEPT <- TRUE;
 
 THE.RESULTS.DIR <- RESULTS.DIR; # to avoid "promise already under evaluation" errors
 
@@ -129,7 +126,7 @@ evaluateTimings.compute.config.string <- function (
 #' @param include.all.vars.in.lasso if FALSE, include only the "helpful.additional.cols" and "helpful.additional.cols.with.interactions" and the estimators and interactors among these vars that are tested via the non-lasso anaylsis (if use.glm.validate = TRUE). If include.all.vars.in.lasso = TRUE (the default), then as many additional covariates as possible will be included by parsing output from the identify-founders script (but note that apart from "lPVL" - log plasma viral load - these are mostly sequence statistics, eg. PFitter-computed maximum and mean Hamming distances among sequences.
 #' @param helpful.additional.cols extra cols to be included in the glm and lasso: Note that interactions will be added only with members of the other set (helpful.additional.cols.with.interactions), not, with each other in this set.
 #' @param helpful.additional.cols.with.interactions extra cols to be included in the glm both as-is and interacting with each other and with members of the helpful.additional.cols set.
-#' @param results.dirname the subdirectory of SEQUENCES.DIR and also of RESULTS.DIR
+#' @param results.dirname the subdirectory of RESULTS.DIR
 #' @param force.recomputation if FALSE (default) and if there is a saved version called timings.results.by.region.and.time.Rda (under bakeoff_analysis_results/results.dirname), then that file will be loaded; otherwise the results will be recomputed and saved in that location.
 #' @param partition.bootstrap.seed the random seed to use when bootstrapping samples by selecting one partition number per ptid, repeatedly; we do it this way because there are an unequal number of partitions, depending on sampling depth.
 #' @param partition.bootstrap.samples the number of bootstrap replicates to conduct; the idea is to get an estimate of the variation in estimates and results (errors) across these samples.
@@ -156,7 +153,7 @@ evaluateTimings <- function (
   partition.bootstrap.samples = 100,
   partition.bootstrap.num.cores = detectCores(),
   regions = c( "nflg", "v3" ),
-  times = c( "1m", "6m" )
+  times = c( "1w", "1m", "6m" )
   #regions = c( "nflg", "v3", "rv217_v3" ),
   #times = c( "1m", "6m", "1m6m" )
 )
@@ -244,9 +241,9 @@ evaluateTimings <- function (
         function ( the.region, the.time, the.ptids, partition.size = NA ) {
         ## Add to results: "infer" results.
         if( is.na( partition.size ) ) {
-            infer.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+            infer.results.directories <- dir( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
         } else {
-            #infer.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region, "/", the.time, "/partitions", sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
+            #infer.results.directories <- dir( paste( RESULTS.DIR, results.dirname, "/", the.region, "/", the.time, "/partitions", sep = "" ), "founder-inference-bakeoff_", full.name = TRUE );
             stop( "TODO: When there are some Infer results run on partitions, evaluate the results here" );
         }
         # Special: for v3, separate out the caprisa seqs from the rv217 seqs
@@ -293,8 +290,8 @@ evaluateTimings <- function (
           gsub( "^.+_artificialBounds_(.+)_\\d+/.+$", "\\1", names( infer.results.list ) );
         infer.results.bounds.type[ grep( "csv$", infer.results.bounds.type ) ] <- NA;
         infer.results.nobounds.table <- infer.results[ is.na( infer.results.bounds.type ), , drop = FALSE ];
-        infer.results.bounds.types <- setdiff( unique( infer.results.bounds.type ), NA );
 
+        infer.results.bounds.types <- setdiff( unique( infer.results.bounds.type ), NA );
         ## Exclude old/outdated bounds
         infer.results.bounds.types <- 
           grep( "(one|six)month", infer.results.bounds.types, invert = TRUE, value = TRUE );
@@ -305,33 +302,51 @@ evaluateTimings <- function (
         names( infer.results.bounds.tables ) <- infer.results.bounds.types;
 
         # Add just the estimates from infer (not the CIs) to the results table.
-        new.results.columns <-
-          matrix( NA, nrow = length( the.ptids ), ncol = 1 + length( infer.results.bounds.tables ) );
-        rownames( new.results.columns ) <- the.ptids;
-        colnames( new.results.columns ) <- c( "Infer.time.est", infer.results.bounds.types );
+        if( nrow( infer.results.nobounds.table ) > 0 ) {
+            new.results.columns <-
+              matrix( NA, nrow = length( the.ptids ), ncol = 1 + length( infer.results.bounds.tables ) );
+            rownames( new.results.columns ) <- the.ptids;
+            colnames( new.results.columns ) <- c( "Infer.time.est", infer.results.bounds.types );
+            .shared.ptids.nobounds <-
+                intersect( the.ptids, rownames( infer.results.nobounds.table ) );
+            .result.ignored <- sapply( .shared.ptids.nobounds, function( .ptid ) {
+                .infer.subtable <-
+                    infer.results.nobounds.table[ rownames( infer.results.nobounds.table ) == .ptid, 1, drop = FALSE ];
+                #stopifnot( sum( rownames( infer.results.nobounds.table ) == .ptid ) == nrow( .infer.subtable ) );
+                if( sum( rownames( infer.results.nobounds.table ) == .ptid ) != nrow( .infer.subtable ) ) {
+                    ## TODO: REMOVE
+                    cat( paste( "There are missing unbounded Infer results for ptid", .ptid, "in region", the.region, "at time", the.time ), fill = TRUE );
+                }
+                # But there might be fewer of these than there are rows in the results.table (if eg there are 3 input fasta files and infer results for only 2 of them).
+                #stopifnot( nrow( .infer.subtable ) <= sum( rownames( new.results.columns ) == .ptid ) );
+                if( nrow( .infer.subtable ) < sum( rownames( new.results.columns ) == .ptid ) ) {
+                  .infer.subtable <- rbind( .infer.subtable, matrix( NA, nrow = ( sum( rownames( new.results.columns ) == .ptid ) - nrow( .infer.subtable ) ), ncol = ncol( .infer.subtable ) ) );
+                }
+                new.results.columns[ rownames( new.results.columns ) == .ptid, 1 ] <<-
+                    .infer.subtable;
+                return( NULL );
+            } );
+        } else {
+            new.results.columns <-
+              matrix( NA, nrow = length( the.ptids ), ncol = length( infer.results.bounds.tables ) );
+            rownames( new.results.columns ) <- the.ptids;
+            colnames( new.results.columns ) <- infer.results.bounds.types;
+            .shared.ptids.nobounds <- c();
+        }
         
-        .shared.ptids.nobounds <-
-            intersect( rownames( new.results.columns ), rownames( infer.results.nobounds.table ) );
-        .result.ignored <- sapply( .shared.ptids.nobounds, function( .ptid ) {
-            .infer.subtable <-
-                infer.results.nobounds.table[ rownames( infer.results.nobounds.table ) == .ptid, 1, drop = FALSE ];
-            stopifnot( sum( rownames( infer.results.nobounds.table ) == .ptid ) == nrow( .infer.subtable ) );
-            # But there might be fewer of these than there are rows in the results.table (if eg there are 3 input fasta files and infer results for only 2 of them).
-            stopifnot( nrow( .infer.subtable ) <= sum( rownames( new.results.columns ) == .ptid ) );
-            if( nrow( .infer.subtable ) < sum( rownames( new.results.columns ) == .ptid ) ) {
-              .infer.subtable <- rbind( .infer.subtable, matrix( NA, nrow = ( sum( rownames( new.results.columns ) == .ptid ) - nrow( .infer.subtable ) ), ncol = ncol( .infer.subtable ) ) );
-            }
-            new.results.columns[ rownames( new.results.columns ) == .ptid, 1 ] <<-
-                .infer.subtable;
-            return( NULL );
-        } );
         .result.ignored <- sapply( names( infer.results.bounds.tables ), function ( .bounds.type ) {
+            print( .bounds.type );
           .shared.ptids <-
               intersect( rownames( new.results.columns ), rownames( infer.results.bounds.tables[[ .bounds.type ]] ) );
-          ..result.ignored <- sapply( .shared.ptids, function( .ptid ) {
+            ..result.ignored <- sapply( .shared.ptids, function( .ptid ) {
+                print( .ptid );
               .infer.subtable <-
                 infer.results.bounds.tables[[ .bounds.type ]][ rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid, 1, drop = FALSE ];
-              stopifnot( sum( rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid ) == nrow( .infer.subtable ) );
+              #stopifnot( sum( rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid ) == nrow( .infer.subtable ) );
+              if( sum( rownames( infer.results.bounds.tables[[ .bounds.type ]] ) == .ptid ) != nrow( .infer.subtable ) ) {
+                    ## TODO: REMOVE
+                    cat( paste( "There are missing bounded Infer results for ptid", .ptid, "in region", the.region, "at time", the.time, "using bounds", .bounds.type ), fill = TRUE );
+                }
               # But there might be fewer of these than there are rows in the results.table (if eg there are 3 input fasta files and infer results for only 2 of them).
               stopifnot( nrow( .infer.subtable ) <= sum( rownames( new.results.columns ) == .ptid ) );
               if( nrow( .infer.subtable ) < sum( rownames( new.results.columns ) == .ptid ) ) {
@@ -340,11 +355,15 @@ evaluateTimings <- function (
               new.results.columns[ rownames( new.results.columns ) == .ptid, .bounds.type ] <<-
                   .infer.subtable;
               return( NULL );
-          } );                       
+          } );
           return( NULL );
         } );
-          
-        colnames( new.results.columns ) <- c( "Infer.time.est", paste( "Infer", gsub( "_", ".", infer.results.bounds.types ), "time.est", sep = "." ) );
+
+        if( nrow( infer.results.nobounds.table ) > 0 ) {
+            colnames( new.results.columns ) <- c( "Infer.time.est", paste( "Infer", gsub( "_", ".", infer.results.bounds.types ), "time.est", sep = "." ) );
+        } else {
+            colnames( new.results.columns ) <- paste( "Infer", gsub( "_", ".", infer.results.bounds.types ), "time.est", sep = "." );
+        }
         return( new.results.columns );
     } # get.infer.results.columns (..)
 
@@ -353,7 +372,7 @@ evaluateTimings <- function (
         stopifnot( is.na( partition.size ) ); # TODO: Implement support for anchre on partitions.
         stopifnot( the.time == "1m6m" ); # There's only anchre results for longitudinal data.
         ## Add to results: "anchre" results. (only at 1m6m)
-        anchre.results.directories <- dir( paste( SEQUENCES.DIR, results.dirname, "/", the.region, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
+        anchre.results.directories <- dir( paste( RESULTS.DIR, results.dirname, "/", the.region, "/1m6m", sep = "" ), "anchre", full.name = TRUE );
         if( length( anchre.results.directories ) == 0 ) {
             return( NULL );
         }
@@ -543,7 +562,7 @@ evaluateTimings <- function (
         } else if( the.time == "1m.6m" ) {
             .lower.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.lower";
             .upper.bound.colname <- "sampledwidth_uniform_1mmtn003_6mhvtn502.upper";
-        } else {
+        } else { # 1m or 1w
             .lower.bound.colname <- "sampledwidth_uniform_mtn003.lower";
             .upper.bound.colname <- "sampledwidth_uniform_mtn003.upper";
         }
@@ -1871,10 +1890,10 @@ evaluateTimings <- function (
 
         # Note that we use the pvl at the earliest time ie for "1m6m" we use timepoint 2.
         if( the.region == "nflg" || ( length( grep( "rv217", the.region ) ) > 0 ) ) {
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( rv217.pvl.in[ ( rv217.pvl.in[ , "ptid" ] == .ptid ) & ( rv217.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, ifelse( the.time == "1w", 1, 2 ) ) ), "viralload" ] ) ) } );
         } else {
             stopifnot( the.region == "v3" );
-            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, 2 ) ), "viralload" ] ) ) } );
+            pvl.at.the.time <- sapply( rownames( results.in ), function( .ptid ) { as.numeric( as.character( caprisa002.pvl.in[ ( caprisa002.pvl.in[ , "ptid" ] == .ptid ) & ( caprisa002.pvl.in[ , "timepoint" ] == ifelse( the.time == "6m", 3, ifelse( the.time == "1w", 1, 2 ) ) ), "viralload" ] ) ) } );
         }
         ## Add log plasma viral load (lPVL).
         results.with.lPVL <- cbind( results.in, log( pvl.at.the.time ) );
@@ -1953,6 +1972,14 @@ evaluateTimings <- function (
               center.of.bounds.table <- sapply( names( the.artificial.bounds ), function ( .artificial.bounds.name ) {
                 round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
               } );
+              if( is.null( dim( center.of.bounds.table ) ) ) {
+                  center.of.bounds.table.flat <- center.of.bounds.table;
+                  center.of.bounds.table <-
+                      matrix( nrow = 1, ncol = length( center.of.bounds.table.flat ) );
+                  colnames( center.of.bounds.table ) <- names( center.of.bounds.table.flat );
+                  rownames( center.of.bounds.table ) <- names( the.artificial.bounds );
+                  center.of.bounds.table[ 1, ] <- center.of.bounds.table.flat;
+              }
               colnames( center.of.bounds.table ) <-
                 paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
               

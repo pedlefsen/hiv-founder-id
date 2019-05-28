@@ -1,0 +1,18 @@
+diff --git a/src/utilities.c b/src/utilities.c
+index 3d50bed..a8fc5ea 100644
+--- a/src/utilities.c
++++ b/src/utilities.c
+@@ -8406,6 +8406,13 @@ t_tree *Dist_And_BioNJ(calign *cdata, t_mod *mod, option *io)
+       
+       tree      = mat->tree;
+       tree->mat = mat;
++
++      // Added by Paul T. Edlefsen Feb 14, 2019, see https://groups.google.com/forum/#!topic/phyml-forum/yeIwFkwsI8c
++      Print_Mat(mat);
++      // Paul added this to skip making the tree, just output the distance
++      // matrix and exit.  When compiling with this, phyml should be
++      // renamed eg to phyml_matrixonly 
++      Warn_And_Exit("");
+     }
+   else
+     {

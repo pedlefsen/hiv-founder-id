@@ -16,6 +16,18 @@ ln -s /fast/bakeoff_merged_analysis_sequences_unfiltered/bounds results/raw_fixe
 ./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ &
 ./runAllListsLocally2.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ &
 
+## To fix because I forgot to install phyml the first time oops:
+ cd ~/src/from-git/hiv-founder-id 
+# nflg
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m/ &
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/6m/ &
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/nflg/1m6m/ &
+
+# v3
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m/ &
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/6m/ &
+./runAllListsLocallyPhyML.sh /fast/bakeoff_merged_analysis_sequences_unfiltered/results/raw_fixed/v3/1m6m/ &
+
 ## For the PREAST/PrankenBeast/Infer results:
 cd ~/src/from-git/PREAST
 ## unbounded results: 

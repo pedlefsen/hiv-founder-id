@@ -1,5 +1,5 @@
 # If partition.size is not NA, then the results will be subsetted to just partitions of that size, meaning fasta files ending in _p[partition.size]_[\d]+.fasta
-readIdentifyFounders <- function ( identify.founders.tab.filename, partition.size = NA ) {
+readIdentifyFounders <- function ( identify.founders.tab.filename, partition.size = NA, check.for.updates = TRUE ) {
     ## TODO: REMOVE
     #print( identify.founders.tab.filename );
              results.in <- read.delim( identify.founders.tab.filename, sep = "\t" );
@@ -64,6 +64,37 @@ readIdentifyFounders <- function ( identify.founders.tab.filename, partition.siz
                  t( apply( results, 1, function( .row ) {
                      ifelse( .row[ single.exceptInSites.colnames.nb ] == 0, 1, .row[ single.exceptInSites.colnames ] )
                  } ) );
+
+             if( check.for.updates ) {
+                 ## Look for other files with a similar name.
+                identify.founders.tab.filename.dir <-
+                    gsub( "^(.*?\\/)([^\\/]+?)$", "\\1", identify.founders.tab.filename, perl = TRUE );
+                identify.founders.tab.filename.short <-
+                    gsub( "^.*?\\/?([^\\/]+?)$", "\\1", identify.founders.tab.filename, perl = TRUE );
+                identify.founders.tab.filename.short.nosuffix <-
+                    gsub( "^([^\\.]+)(\\..+)?$", "\\1", identify.founders.tab.filename.short, perl = TRUE );
+                updated.identify.founders.files <-
+                    grep( paste( identify.founders.tab.filename.short.nosuffix, "_.*.tab", sep = "" ), dir( identify.founders.tab.filename.dir, full = TRUE ), value = TRUE );
+                # For each one, load it using this same function, but prefer the values we load to the existing values.  Note that if there are discrepancies among the files, this will arbitrarily select a version of each copy, dependent on the file processing order.
+                for( updated.identify.founders.file in updated.identify.founders.files ) {
+                    ## TODO: REMOVE?
+                    cat( paste( "UPDATING", identify.founders.tab.filename, "using results in file", updated.identify.founders.file ), fill = TRUE );
+                    .results.updated <- readIdentifyFounders( updated.identify.founders.file, partition.size = partition.size, check.for.updates = FALSE );
+                    stopifnot( nrow( .results.updated ) == nrow( results ) );
+                    .colnames.in.common <- intersect( colnames( .results.updated ), colnames( results ) );
+                    .new.colnames <- setdiff( colnames( .results.updated ), .colnames.in.common );
+                    if( length( .colnames.in.common ) > 0 ) {
+                        ## TODO: REMOVE?
+                        cat( paste( "UPDATED COLUMNS:", paste( .colnames.in.common, collapse = ", " ) ), fill = TRUE );
+                        results[ , .colnames.in.common ] <- .results.updated[ , .colnames.in.common ];
+                    }
+                    if( length( .new.colnames ) > 0 ) {
+                        ## TODO: REMOVE?
+                        cat( paste( "NEW COLUMNS:", paste( .new.colnames, collapse = ", " ) ), fill = TRUE );
+                        results <- cbind( results, .results.updated[ , .new.colnames, drop = FALSE ] );
+                    }
+                } # End foreach updated.identify.founders.file
+             } # End if check.for.updates
              
              return( results );
 } # readIdentifyFounders (..)
