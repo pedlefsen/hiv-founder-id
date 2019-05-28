@@ -577,7 +577,7 @@ sub identify_founders {
           }
       }
       #my $R_hypermut_command = "\"export hiv_founder_pipeline_dir=\"$pipeline_dir\"; export removeHypermutatedSequences_fixWith=\"$fix_hypermutated_sequences_with\"; export removeHypermutatedSequences_fixInsteadOfRemove=\"$fix_hypermutated_sequences\"; export removeHypermutatedSequences_pValueThreshold=\"$hypermut2_pValueThreshold\"; export removeHypermutatedSequences_inputFilename=\"$fasta_file\"; export removeHypermutatedSequences_outputDir=\"$output_path_dir_for_input_fasta_file\"; R -f removeHypermutatedSequences.R --vanilla --slave; cd ..\"";
-      my $R_hypermut_command = "Rscript hypermutR.R --input_file=\"$fasta_file\" --p_value=\"$hypermut2_pValueThreshold\" --ancestor=\"consensus\"";
+      my $R_hypermut_command = "hypermutR.R --input_file=\"$fasta_file\" --p_value=\"$hypermut2_pValueThreshold\" --ancestor=\"consensus\"";
       my ( $fasta_file_short_hypermut, $hypermut_output_file );
       if( $fix_hypermutated_sequences ) {
         $fasta_file_short_hypermut = "${fasta_file_short_nosuffix}_fixHypermutatedSequencesWith${fix_hypermutated_sequences_with}.fasta";
