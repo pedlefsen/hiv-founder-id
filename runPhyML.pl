@@ -236,6 +236,10 @@ sub runPhyML {
       $flag = 1;
       next;
     }
+    if( $line =~ /Type enter to exit./ ) {
+      $flag = 0;
+      next;
+    }
     if( $flag && $line =~ /^(\d+)$/ ) {
 #      $count = $1;
       next;
