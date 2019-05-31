@@ -19,6 +19,6 @@ tail -n 1 /home/docker/example/example_7/identify_founders.tab >> /home/docker/e
 
 # run estimateInfectionTime.R
 
-/home/docker/hiv-founder-id/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/home/docker/identify_founders.tab --estimator=pfitter
+/home/docker/hiv-founder-id/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/home/docker/example/identify_founders.tab --estimator=pfitter
 
-/home/docker/hiv-founder-id/estimateInfectionTime.R --model_structure=full --identify_founders.tab=/home/docker/identify_founders.tab --vl_file=/home/docker/vl_diff.csv --bounds_file=/home/docker/bounds_diff.csv --estimator=pfitter
+/home/docker/hiv-founder-id/estimateInfectionTime.R --model_structure=full --identify_founders.tab=/home/docker/example/identify_founders.tab --vl_file=/home/docker/vl_diff.csv --bounds_file=/home/docker/bounds_diff.csv --estimator=pfitter
