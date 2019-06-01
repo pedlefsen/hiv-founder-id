@@ -88,6 +88,7 @@ if (file.exists(file.path(mod_co_file, 'model_coefficients.csv'))){
   stop(paste('Neither ', file.path(mod_co_file, 'model_coefficients.csv') , ' nor ', file.exists(mod_co_file) , ' exists.', sep = ''))
 }
 
+# enforces bounds after estimation has already been performed
 bounds_enforcer <- function(bounds_file, results){
   bounds_dat <- read.csv(bounds_file, stringsAsFactors = FALSE)
   results$time_since_infection_bounded <- NA_real_
@@ -115,10 +116,124 @@ bounds_enforcer <- function(bounds_file, results){
   results
 }
 
+# predicts infection time using the full model
 predict_with_full_model <- function(opt, identify_founders_tab, estimator_column_name, time_and_region, all_coeffs){
 
   coeffs <- subset(all_coeffs, y_type == 'time_since_infection' & model_structure == 'full')
   coeffs <- coeffs[,c(-1, -2)]
+
+  which_row <- (coeffs$time_and_region == time_and_region) & (coeffs$estimator_column_name == estimator_column_name)
+  rel_coeff <- coeffs[which_row, c('term', 'coeff')]
+
+  coeff_est       <- rel_coeff[rel_coeff$term == 'est',       'coeff']
+  coeff_Intercept <- rel_coeff[rel_coeff$term == 'Intercept', 'coeff']
+  coeff_lPVL      <- rel_coeff[rel_coeff$term == 'lPVL',      'coeff']
+  coeff_lPVL_est  <- rel_coeff[rel_coeff$term == 'lPVL:est',  'coeff']
+  coeff_bound     <- rel_coeff[rel_coeff$term == 'bound',     'coeff']
+  coeff_bound_est <- rel_coeff[rel_coeff$term == 'bound:est', 'coeff']
+
+  vl_dat <- read.csv(opt$vl_file, stringsAsFactors = FALSE)
+  bounds_dat <- read.csv(opt$bounds_file, stringsAsFactors = FALSE)
+
+  results <- NULL
+  for (i in 1:nrow(bounds_dat)){
+    
+    bounds_indx <- i
+    bounds_identifier <- bounds_dat[i, 1]
+    lower_bound <- bounds_dat[i, 'lower']
+    upper_bound <- bounds_dat[i, 'upper']
+
+    vl_indx <- which(grepl(as.character(bounds_identifier), as.character(vl_dat[,1])))
+    vl_identifier <- as.character(vl_dat[,1])[ vl_indx ]
+    
+    ift_indx <- which(grepl(as.character(bounds_identifier), as.character(identify_founders_tab[,1])))
+    ift_identifier <- as.character(identify_founders_tab[,1])[ ift_indx ]
+
+    est <- identify_founders_tab[ift_indx, estimator_column_name]
+    vl <- vl_dat[vl_indx, 'vl']
+    bound <- bounds_dat[bounds_indx, 'upper']
+
+    time_since_infection <- coeff_Intercept + 
+                              coeff_est * est + 
+                              vl * coeff_lPVL + 
+                              vl * est * coeff_lPVL_est + 
+                              bound * coeff_bound + 
+                              bound * est * coeff_bound_est
+
+    time_since_infection_bounded <- time_since_infection
+    if (time_since_infection < lower_bound) {
+      time_since_infection_bounded <- lower_bound
+    }
+    if (time_since_infection > upper_bound) {
+      time_since_infection_bounded <- upper_bound
+    }
+
+    results <- rbind(results, 
+      data.frame(identify_founders_tab_indx = ift_identifier,
+                 bounds_indx = bounds_identifier,
+                 vl_indx = vl_identifier,
+                 time_since_infection = time_since_infection,
+                 time_since_infection_bounded = time_since_infection_bounded,
+                 stringsAsFactors = FALSE),
+      stringsAsFactors = FALSE)
+  }
+
+  results <- bounds_enforcer(opt$bounds_file, results)
+  results
+}
+
+# predicts infection time using the slope only model
+predict_with_slope_model <- function(opt, identify_founders_tab, estimator_column_name, time_and_region, all_coeffs){
+  
+  coeffs <- subset(all_coeffs, y_type == 'time_since_infection' & model_structure == 'slope')
+  coeffs <- coeffs[,c(-1, -2)]
+
+  which_row <- (coeffs$time_and_region == time_and_region) & (coeffs$estimator_column_name == estimator_column_name)
+  coeff_est <- coeffs[which_row, 'coeff']
+
+  results <- NULL
+
+  for (i in 1:nrow(identify_founders_tab)){
+    est <- identify_founders_tab[i, estimator_column_name]
+    indx <- identify_founders_tab[i, 1]
+    results <- rbind(results, 
+      data.frame(identify_founders_tab_indx = indx,
+                 time_since_infection = est * coeff_est,
+                 stringsAsFactors = FALSE),
+      stringsAsFactors = FALSE)
+  }
+  if (!is.null(opt$bounds_file)){
+    results <- bounds_enforcer(opt$bounds_file, results)
+  }
+  results
+}
+
+# main loop
+if (opt$model_structure == 'full'){
+  results <- predict_with_full_model(opt = opt, 
+                          identify_founders_tab = identify_founders_tab, 
+                          estimator_column_name = estimator_column_name,
+                          time_and_region = time_and_region,
+                          all_coeffs = all_coeffs)
+} else {
+  results <- predict_with_slope_model(opt = opt, 
+                                      identify_founders_tab = identify_founders_tab, 
+                                      estimator_column_name = estimator_column_name,
+                                      time_and_region = time_and_region,
+                                      all_coeffs = all_coeffs)
+}
+
+out_name <- file.path(dirname(opt$identify_founders.tab), 
+                             paste('infection_time_estimates_', 
+                                   opt$model_structure,
+                                   '_',
+                                   opt$time_and_region,
+                                   '.csv', sep = ''))
+print(results)
+print(paste("Results written to ", out_name, sep = ''))
+write.csv(results, out_name, 
+          row.names = FALSE)
+
 
 #  coeffs <- data.frame(time_and_region = rep("", 72),
 #                       estimator_column_name = rep("", 72),
@@ -199,70 +314,7 @@ predict_with_full_model <- function(opt, identify_founders_tab, estimator_column
 #  coeffs[71, ] <- list('6m_pooled', "multifounder.Synonymous.PFitter.time.est", 'bound',     0.06)
 #  coeffs[72, ] <- list('6m_pooled', "multifounder.Synonymous.PFitter.time.est", 'bound:est', -0.00)
 
-  which_row <- (coeffs$time_and_region == time_and_region) & (coeffs$estimator_column_name == estimator_column_name)
-  rel_coeff <- coeffs[which_row, c('term', 'coeff')]
 
-  coeff_est       <- rel_coeff[rel_coeff$term == 'est',       'coeff']
-  coeff_Intercept <- rel_coeff[rel_coeff$term == 'Intercept', 'coeff']
-  coeff_lPVL      <- rel_coeff[rel_coeff$term == 'lPVL',      'coeff']
-  coeff_lPVL_est  <- rel_coeff[rel_coeff$term == 'lPVL:est',  'coeff']
-  coeff_bound     <- rel_coeff[rel_coeff$term == 'bound',     'coeff']
-  coeff_bound_est <- rel_coeff[rel_coeff$term == 'bound:est', 'coeff']
-
-  vl_dat <- read.csv(opt$vl_file, stringsAsFactors = FALSE)
-  bounds_dat <- read.csv(opt$bounds_file, stringsAsFactors = FALSE)
-
-  results <- NULL
-  for (i in 1:nrow(bounds_dat)){
-    
-    bounds_indx <- i
-    bounds_identifier <- bounds_dat[i, 1]
-    lower_bound <- bounds_dat[i, 'lower']
-    upper_bound <- bounds_dat[i, 'upper']
-
-    vl_indx <- which(grepl(as.character(bounds_identifier), as.character(vl_dat[,1])))
-    vl_identifier <- as.character(vl_dat[,1])[ vl_indx ]
-    
-    ift_indx <- which(grepl(as.character(bounds_identifier), as.character(identify_founders_tab[,1])))
-    ift_identifier <- as.character(identify_founders_tab[,1])[ ift_indx ]
-
-    est <- identify_founders_tab[ift_indx, estimator_column_name]
-    vl <- vl_dat[vl_indx, 'vl']
-    bound <- bounds_dat[bounds_indx, 'upper']
-
-    time_since_infection <- coeff_Intercept + 
-                              coeff_est * est + 
-                              vl * coeff_lPVL + 
-                              vl * est * coeff_lPVL_est + 
-                              bound * coeff_bound + 
-                              bound * est * coeff_bound_est
-
-    time_since_infection_bounded <- time_since_infection
-    if (time_since_infection < lower_bound) {
-      time_since_infection_bounded <- lower_bound
-    }
-    if (time_since_infection > upper_bound) {
-      time_since_infection_bounded <- upper_bound
-    }
-
-    results <- rbind(results, 
-      data.frame(identify_founders_tab_indx = ift_identifier,
-                 bounds_indx = bounds_identifier,
-                 vl_indx = vl_identifier,
-                 time_since_infection = time_since_infection,
-                 time_since_infection_bounded = time_since_infection_bounded,
-                 stringsAsFactors = FALSE),
-      stringsAsFactors = FALSE)
-  }
-
-  results <- bounds_enforcer(opt$bounds_file, results)
-  results
-}
-
-predict_with_slope_model <- function(opt, identify_founders_tab, estimator_column_name, time_and_region, all_coeffs){
-  
-  coeffs <- subset(all_coeffs, y_type == 'time_since_infection' & model_structure == 'slope')
-  coeffs <- coeffs[,c(-1, -2)]
 
 #  coeffs <- data.frame(time_and_region = rep("", 12),
 #                       estimator_column_name = rep("", 12),
@@ -281,50 +333,5 @@ predict_with_slope_model <- function(opt, identify_founders_tab, estimator_colum
 #  coeffs[10, ] <- list("6m_pooled", "Synonymous.PFitter.time.est",              2.03)
 #  coeffs[11, ] <- list("6m_pooled", "multifounder.PFitter.time.est",            0.82)
 #  coeffs[12, ] <- list("6m_pooled", "multifounder.Synonymous.PFitter.time.est", 2.65)
-
-  which_row <- (coeffs$time_and_region == time_and_region) & (coeffs$estimator_column_name == estimator_column_name)
-  coeff_est <- coeffs[which_row, 'coeff']
-
-  results <- NULL
-
-  for (i in 1:nrow(identify_founders_tab)){
-    est <- identify_founders_tab[i, estimator_column_name]
-    indx <- identify_founders_tab[i, 1]
-    results <- rbind(results, 
-      data.frame(identify_founders_tab_indx = indx,
-                 time_since_infection = est * coeff_est,
-                 stringsAsFactors = FALSE),
-      stringsAsFactors = FALSE)
-  }
-  if (!is.null(opt$bounds_file)){
-    results <- bounds_enforcer(opt$bounds_file, results)
-  }
-  results
-}
-
-if (opt$model_structure == 'full'){
-  results <- predict_with_full_model(opt = opt, 
-                          identify_founders_tab = identify_founders_tab, 
-                          estimator_column_name = estimator_column_name,
-                          time_and_region = time_and_region,
-                          all_coeffs = all_coeffs)
-} else {
-  results <- predict_with_slope_model(opt = opt, 
-                                      identify_founders_tab = identify_founders_tab, 
-                                      estimator_column_name = estimator_column_name,
-                                      time_and_region = time_and_region,
-                                      all_coeffs = all_coeffs)
-}
-
-out_name <- file.path(dirname(opt$identify_founders.tab), 
-                             paste('infection_time_estimates_', 
-                                   opt$model_structure,
-                                   '_',
-                                   opt$time_and_region,
-                                   '.csv', sep = ''))
-print(results)
-print(paste("Results written to ", out_name, sep = ''))
-write.csv(results, out_name, 
-          row.names = FALSE)
 
 
