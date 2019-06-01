@@ -25,4 +25,6 @@ cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
 
 /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --estimator=pfitter
 
+/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
+
 /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/estimateInfectionTime.R --model_structure=full --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --vl_file=tests/example_data_v2/vl_diff.csv --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
