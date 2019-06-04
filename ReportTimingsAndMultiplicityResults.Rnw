@@ -162,7 +162,7 @@ if( BakeOff.RESULTS.DIR != "" ) {
 RESULTS.DIRNAME <- "raw_fixed";
 
 ## NOTE even setting this to TRUE will not force all to be recomputed. See below where force.recomputation = FALSE.
-FORCE.RECOMPUTATION <- TRUE;
+FORCE.RECOMPUTATION <- FALSE;
 
 @ 
 
