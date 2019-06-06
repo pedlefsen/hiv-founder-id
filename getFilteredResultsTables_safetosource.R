@@ -451,7 +451,7 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
         } else {
             .formula <- as.formula( paste( "is.one.founder ~ 0 + ", paste( model.vars, collapse = "+" ) ) );
         }
-        evaluate.specific.isMultiple.model.formula( results.by.region.and.time, .formula, step = step, regions = regions, times = times );
+        return( evaluate.specific.isMultiple.model.formula( results.by.region.and.time, .formula, step = step, regions = regions, times = times ) );
         } # evaluate.specific.isMultiple.model (..)
 
         evaluate.specific.isMultiple.model.formula <-
@@ -480,3 +480,17 @@ uses.by.evaluator <- sapply( all.evaluators, function ( the.evaluator ) {
         }
        return( .lm );
         } # evaluate.specific.isMultiple.model.formula (..)
+
+        compute.pearson.R.of.specific.isMultiple.predictor.with.gold.standard <-
+            function ( .lm, use.residuals = FALSE ) {
+                if( use.residuals ) {
+                    cor( .lm$model$is.one.founder, residuals( .lm ) )
+                } else {
+                    .var <- .lm$model[ , setdiff( names( .lm$model ), "is.one.founder" ) ];
+                    if( ( length( .var ) == 1 ) && is.na( .var  ) ) {
+                        return( NA );
+                    } else {
+                        return( cor( .lm$model$is.one.founder, .var ) );
+                    }
+                }
+        } # compute.pearson.R.of.specific.isMultiple.predictor.with.gold.standard (..)
