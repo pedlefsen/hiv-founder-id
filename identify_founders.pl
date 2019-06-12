@@ -1226,13 +1226,13 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_chi_sq_p_value;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_is_poisson;
  #       print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_is_starlike;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_assertion_low;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_assertion_high;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_fits;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_P;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_Q;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_R;
         # TODO make this less nasty
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_assertion_low;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_assertion_high;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_fits;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_P;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_Q;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_R;
         # Error supression in the worst way.
         print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_assertion_low;
         print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_assertion_high;
