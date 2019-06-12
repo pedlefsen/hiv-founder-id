@@ -1189,27 +1189,28 @@ sub identify_founders {
          # my ( $multifounder_starlike_text ) = ( $multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
          # my $multifounder_PFitter_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
  
-        # DS results
-        my $multifounder_DSStarPhyTest_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSStarPhyTest.out`;
-        my ( $multifounder_DSStarPhyTest_fitstext ) =
-           ( $multifounder_DSStarPhyTest_fitter_stats_raw =~ /^DSStarPhyTest that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
-        my $multifounder_DSStarPhyTest_fits = "0";
-        if( $multifounder_DSStarPhyTest_fitstext =~ /^OK$/ ) {
-          $multifounder_DSStarPhyTest_fits = "1";
-        }
-        my ( $multifounder_DSStarPhyTest_assertion_low, $multifounder_DSStarPhyTest_assertion_high, $multifounder_DSStarPhyTest_P, $multifounder_DSStarPhyTest_Q, $multifounder_DSStarPhyTest_R ) =
-          ( $multifounder_DSStarPhyTest_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(P \<?= (\S+), Q \<?= (\S+), R \<?= (\S+)\)/ );
-
-
-         # print "Multi-Founder PoissonFitter Determination: ";
-         # if( $multifounder_PFitter_is_starlike ) {
-         #   print "Star-Like Phylogenies within clusters";
-         # } else {
-         #   print "Non-Star-Like Phylogenies within clusters";
-        # }
-        print "Multi-Founder DS StarPhy Test: $multifounder_DSStarPhyTest_fitstext (P=$multifounder_DSStarPhyTest_P, Q=$multifounder_DSStarPhyTest_Q, R=$multifounder_DSStarPhyTest_R).\n";
-        #print "\n$multifounder_PFitter_fitter_stats_raw\n";
+         # TODO uncomment and make it work.
+         #        # DS results
+         #        my $multifounder_DSStarPhyTest_fitter_stats_raw =
+         #          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_DSStarPhyTest.out`;
+         #        my ( $multifounder_DSStarPhyTest_fitstext ) =
+         #           ( $multifounder_DSStarPhyTest_fitter_stats_raw =~ /^DSStarPhyTest that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+         #        my $multifounder_DSStarPhyTest_fits = "0";
+         #        if( $multifounder_DSStarPhyTest_fitstext =~ /^OK$/ ) {
+         #          $multifounder_DSStarPhyTest_fits = "1";
+         #        }
+         #        my ( $multifounder_DSStarPhyTest_assertion_low, $multifounder_DSStarPhyTest_assertion_high, $multifounder_DSStarPhyTest_P, $multifounder_DSStarPhyTest_Q, $multifounder_DSStarPhyTest_R ) =
+         #          ( $multifounder_DSStarPhyTest_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(P \<?= (\S+), Q \<?= (\S+), R \<?= (\S+)\)/ );
+         #
+         #
+         #         # print "Multi-Founder PoissonFitter Determination: ";
+         #         # if( $multifounder_PFitter_is_starlike ) {
+         #         #   print "Star-Like Phylogenies within clusters";
+         #         # } else {
+         #         #   print "Non-Star-Like Phylogenies within clusters";
+         #        # }
+         #        print "Multi-Founder DS StarPhy Test: $multifounder_DSStarPhyTest_fitstext (P=$multifounder_DSStarPhyTest_P, Q=$multifounder_DSStarPhyTest_Q, R=$multifounder_DSStarPhyTest_R).\n";
+         #        #print "\n$multifounder_PFitter_fitter_stats_raw\n";
         
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_lambda;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_se;
@@ -1231,6 +1232,14 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_P;
         print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_Q;
         print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_R;
+        # TODO make this less nasty
+        # Error supression in the worst way.
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_assertion_low;
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_assertion_high;
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_fits;
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_P;
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_Q;
+        print OUTPUT_TABLE_FH "\tnot run";#, $multifounder_DSStarPhyTest_R;
 
         ## mark
 

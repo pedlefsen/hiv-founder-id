@@ -228,6 +228,8 @@ out_name <- file.path(dirname(opt$identify_founders.tab),
                                    opt$model_structure,
                                    '_',
                                    opt$time_and_region,
+                                   '_',
+                                   opt$estimator,
                                    '.csv', sep = ''))
 print(results)
 print(paste("Results written to ", out_name, sep = ''))
