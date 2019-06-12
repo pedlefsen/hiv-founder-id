@@ -1271,26 +1271,27 @@ sub identify_founders {
          # my ( $multifounder_starlike_text ) = ( $multifounder_starlike_raw =~ m/(FOLLOWS|DOES NOT FOLLOW) A STAR-PHYLOGENY/ );
          # my $multifounder_PFitter_synonymous_is_starlike = ( $multifounder_starlike_text eq "FOLLOWS" );
  
-        # DS results
-        my $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =
-          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_DSStarPhyTest.out`;
-        my ( $multifounder_DSStarPhyTest_synonymous_fitstext ) =
-           ( $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =~ /^DSStarPhyTest that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
-        my $multifounder_DSStarPhyTest_synonymous_fits = "0";
-        if( $multifounder_DSStarPhyTest_synonymous_fitstext =~ /^OK$/ ) {
-          $multifounder_DSStarPhyTest_synonymous_fits = "1";
-        }
-        my ( $multifounder_DSStarPhyTest_synonymous_assertion_low, $multifounder_DSStarPhyTest_synonymous_assertion_high, $multifounder_DSStarPhyTest_synonymous_P, $multifounder_DSStarPhyTest_synonymous_Q, $multifounder_DSStarPhyTest_synonymous_R ) =
-          ( $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(P \<?= (\S+), Q \<?= (\S+), R \<?= (\S+)\)/ );
-
-         # print "Multi-Founder PoissonFitter Determination (masking out synonymous codons): ";
-         # if( $multifounder_PFitter_synonymous_is_starlike ) {
-         #   print "Star-Like Phylogenies within clusters";
-         # } else {
-         #   print "Non-Star-Like Phylogenies within clusters";
-        # }
-        print "Multi-Founder DS StarPhy Test (masking out synonymous codons): $multifounder_DSStarPhyTest_synonymous_fitstext (P=$multifounder_DSStarPhyTest_synonymous_P, Q=$multifounder_DSStarPhyTest_synonymous_Q, R=$multifounder_DSStarPhyTest_synonymous_R).\n";
-        #print "\n$multifounder_PFitter_synonymous_fitter_stats_raw\n";
+         #         # TODO uncomment and fix
+         #        # DS results
+         #        my $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =
+         #          `cat ${output_path_dir_for_input_fasta_file}/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_MultiFounderPoissonFitterDir/${fasta_file_short_nosuffix}_maskNonsynonymousCodons_DSStarPhyTest.out`;
+         #        my ( $multifounder_DSStarPhyTest_synonymous_fitstext ) =
+         #           ( $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =~ /^DSStarPhyTest that intersequence rate = 2 x seq-consensus rate: (BAD|OK)$/m );
+         #        my $multifounder_DSStarPhyTest_synonymous_fits = "0";
+         #        if( $multifounder_DSStarPhyTest_synonymous_fitstext =~ /^OK$/ ) {
+         #          $multifounder_DSStarPhyTest_synonymous_fits = "1";
+         #        }
+         #        my ( $multifounder_DSStarPhyTest_synonymous_assertion_low, $multifounder_DSStarPhyTest_synonymous_assertion_high, $multifounder_DSStarPhyTest_synonymous_P, $multifounder_DSStarPhyTest_synonymous_Q, $multifounder_DSStarPhyTest_synonymous_R ) =
+         #          ( $multifounder_DSStarPhyTest_synonymous_fitter_stats_raw =~ /There is .*evidence against the assertion that the Poisson rate between sequences is between (\S+) and (\S+) times the rate of sequences to the consensus \(P \<?= (\S+), Q \<?= (\S+), R \<?= (\S+)\)/ );
+         #
+         #         # print "Multi-Founder PoissonFitter Determination (masking out synonymous codons): ";
+         #         # if( $multifounder_PFitter_synonymous_is_starlike ) {
+         #         #   print "Star-Like Phylogenies within clusters";
+         #         # } else {
+         #         #   print "Non-Star-Like Phylogenies within clusters";
+         #        # }
+         #        print "Multi-Founder DS StarPhy Test (masking out synonymous codons): $multifounder_DSStarPhyTest_synonymous_fitstext (P=$multifounder_DSStarPhyTest_synonymous_P, Q=$multifounder_DSStarPhyTest_synonymous_Q, R=$multifounder_DSStarPhyTest_synonymous_R).\n";
+         #        #print "\n$multifounder_PFitter_synonymous_fitter_stats_raw\n";
         
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_lambda;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_se;
@@ -1306,12 +1307,19 @@ sub identify_founders {
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_chi_sq_p_value;
         print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_is_poisson;
  #       print OUTPUT_TABLE_FH "\t", $multifounder_PFitter_synonymous_is_starlike;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_assertion_low;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_assertion_high;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_fits;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_P;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_Q;
-        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_R;
+ #       # TODO make less nasty
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_assertion_low;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_assertion_high;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_fits;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_P;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_Q;
+ #        print OUTPUT_TABLE_FH "\t", $multifounder_DSStarPhyTest_synonymous_R;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_assertion_low;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_assertion_high;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_fits;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_P;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_Q;
+        print OUTPUT_TABLE_FH "\tnot run"; #, $multifounder_DSStarPhyTest_synonymous_R;
         ## endmark
       } # End if $num_clusters > 1
     } # End if $run_PFitter
