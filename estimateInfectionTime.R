@@ -231,8 +231,10 @@ out_name <- file.path(dirname(opt$identify_founders.tab),
                                    '_',
                                    opt$estimator,
                                    '.csv', sep = ''))
+cat('\n\n')
+cat(paste('Infection time estimation completed for ', nrow(results), ' samples.\n\n', sep = '')
 print(results)
-print(paste("Results written to ", out_name, sep = ''))
+cat(paste("\n\nResults written to ", out_name , '\n\n', sep = ''))
 write.csv(results, out_name, 
           row.names = FALSE)
 
