@@ -2,17 +2,17 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p01_mu_1_50k.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p02_mu_2_50k.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p03_mu_3_50k.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p04_mu_4_50k.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p05_mu_5_50k.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p06_mu_1_50k_hyper.fasta"
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p07_mu_5_50k_hyper.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_1.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_2.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_3.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_4.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_5.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_6.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_7.fasta"
 )
 
 # TODO: Specify output folder
-output_folder="/tmp/hf_example_v3/"
+output_folder="/tmp/hf_example_v2/"
 
 # TODO: Specify path to the pipeline folder
 pipeline_folder="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id"
