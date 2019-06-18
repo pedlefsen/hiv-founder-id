@@ -2,13 +2,13 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/docker/example/p01_mu_1_50k.fasta"
-"/home/docker/example/p02_mu_2_50k.fasta"
-"/home/docker/example/p03_mu_3_50k.fasta"
-"/home/docker/example/p04_mu_4_50k.fasta"
-"/home/docker/example/p05_mu_5_50k.fasta"
-"/home/docker/example/p06_mu_1_50k_hyper.fasta"
-"/home/docker/example/p07_mu_5_50k_hyper.fasta"
+"/home/docker/example/example_1.fasta"
+"/home/docker/example/example_2.fasta"
+"/home/docker/example/example_3.fasta"
+"/home/docker/example/example_4.fasta"
+"/home/docker/example/example_5.fasta"
+"/home/docker/example/example_6.fasta"
+"/home/docker/example/example_7.fasta"
 )
 
 # TODO: Specify output folder
@@ -61,7 +61,7 @@ done
 echo "
 
 =======================================
-STEP 2: Calling estimateInfectionTime.R
+STEP 2: Calling estimateInfectoinTime.R
 =======================================
 
 "
