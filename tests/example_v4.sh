@@ -2,22 +2,21 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/docker/example/p01_mu_4_50k_gen_8.fasta"
-"/home/docker/example/p02_mu_5_50k_gen_8.fasta"
-"/home/docker/example/p03_mu_4_50k_gen_10.fasta"
-"/home/docker/example/p04_mu_5_50k_gen_10.fasta"
-"/home/docker/example/p05_mu_4_50k_gen_12.fasta"
-"/home/docker/example/p06_mu_5_50k_gen_12.fasta"
-"/home/docker/example/p07_mu_4_50k_gen_8_hyper.fasta"
-"/home/docker/example/p08_mu_5_50k_gen_12_hyper.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p01_mu_3_50k_gen_8.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p02_mu_4_50k_gen_8.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p03_mu_3_50k_gen_10.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p04_mu_4_50k_gen_10.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p05_mu_3_50k_gen_12.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p06_mu_4_50k_gen_12.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p07_mu_3_50k_gen_8_hyper.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v4/p08_mu_4_50k_gen_12_hyper.fasta"
 )
 
-
 # TODO: Specify output folder
-output_folder="/home/docker/example"
+output_folder="/tmp/example_v4"
 
 # TODO: Specify path to the pipeline folder
-pipeline_folder="/home/docker/hiv-founder-id"
+pipeline_folder="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id"
 
 # End of configuration section.
 
@@ -65,17 +64,17 @@ echo "
 =======================================
 STEP 2: Calling estimateInfectionTime.R
 =======================================
-
 "
 
 $pipeline_folder/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=$output_folder/identify_founders.tab --estimator=pfitter
 
 echo "
-Estimation complete. To explore other calibrated models, either look at the output of '$pipeline_folder/estimateInfectionTime.R -h' or see the commented-out portion at the bottom of the script that was just run.
+Estimation complete. 
+To explore other calibrated models, either look at the output of '$pipeline_folder/estimateInfectionTime.R -h'.
 "
 
 # Example of using estimateInfectionTime.R with a bounds file
-#$pipeline_folder/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
+#$pipeline_folder/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=$output_folder/identify_founders.tab --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
 #
 # Example of using estimateInfectionTime.R with the (overfitted) full model
-#$pipeline_folder/estimateInfectionTime.R --model_structure=full --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --vl_file=tests/example_data_v2/vl_diff.csv --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
+#$pipeline_folder/estimateInfectionTime.R --model_structure=full --identify_founders.tab=$output_folder/identify_founders.tab --vl_file=tests/example_data_v2/vl_diff.csv --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter

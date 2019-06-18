@@ -2,7 +2,6 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/example_1.fasta"
 "/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p01_mu_1_50k.fasta"
 "/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p02_mu_2_50k.fasta"
 "/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v3/p03_mu_3_50k.fasta"

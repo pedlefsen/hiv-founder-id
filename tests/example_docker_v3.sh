@@ -2,16 +2,14 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/docker/example/p01_mu_4_50k_gen_8.fasta"
-"/home/docker/example/p02_mu_5_50k_gen_8.fasta"
-"/home/docker/example/p03_mu_4_50k_gen_10.fasta"
-"/home/docker/example/p04_mu_5_50k_gen_10.fasta"
-"/home/docker/example/p05_mu_4_50k_gen_12.fasta"
-"/home/docker/example/p06_mu_5_50k_gen_12.fasta"
-"/home/docker/example/p07_mu_4_50k_gen_8_hyper.fasta"
-"/home/docker/example/p08_mu_5_50k_gen_12_hyper.fasta"
+"/home/docker/example/p01_mu_1_50k.fasta"
+"/home/docker/example/p02_mu_2_50k.fasta"
+"/home/docker/example/p03_mu_3_50k.fasta"
+"/home/docker/example/p04_mu_4_50k.fasta"
+"/home/docker/example/p05_mu_5_50k.fasta"
+"/home/docker/example/p06_mu_1_50k_hyper.fasta"
+"/home/docker/example/p07_mu_5_50k_hyper.fasta"
 )
-
 
 # TODO: Specify output folder
 output_folder="/home/docker/example"
