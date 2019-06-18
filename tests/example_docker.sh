@@ -12,7 +12,6 @@ declare -a input_files=(
 "/home/docker/example/p08_mu_4_50k_gen_12_hyper.fasta"
 )
 
-
 # TODO: Specify output folder
 output_folder="/home/docker/example"
 
@@ -49,7 +48,7 @@ mkdir -p $output_folder
 for ((i = 0; i<$in_len; i++)); do
   c_out_folder="$(basename -- ${input_files[$i]})"
   c_out_folder="${c_out_folder%.*}"
-  printf "\n\nNow running identify_founders.pl on file number $i.\nFile name: ${input_files[$i]}.\nOutput will be generated in $output_folder/$c_out_folder.\nDetailed output from identify_founders.pl:\n-------------------------------\n"
+  printf "\n\n\nNow running identify_founders.pl on file number $i.\n\nFile name: ${input_files[$i]}.\nOutput will be generated in $output_folder/$c_out_folder.\nDetailed output from identify_founders.pl:\n-------------------------------\n"
   perl identify_founders.pl -PRT -o $output_folder/$c_out_folder ${input_files[$i]}
   if [ $i -eq 0 ]
   then

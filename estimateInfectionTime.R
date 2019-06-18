@@ -18,11 +18,11 @@
 # -- Synonymous PFitter
 # -- Multifounder PFitter
 # -- Multifounder Synonymous PFitter
-# -- The other estimators are not supported by this script, but the user can modify this script to use them by just extending the approach.
+# -- The other estimators are not supported by this script, but the user can modify this script to use them.
 
-# An important note on formats:
+# An important note on file formats:
 # Information from the three different files must be linked together.
-# The identify_founders.tab is indexed by the name of the input fasta file
+# The identify_founders.tab is indexed by the name of the input fasta file.
 # The viral load and bounds files MUST be indexed by THE SAME unique patient identifier that occurs in the name of the input file to the pipeline that will end up as the index for the identify_founders.tab file. The names of the files are scanned with regular expressions for the patient identifier, so care must be taken to prevent spurious matches. For example, if a patient identifier is just the number 1, then you can't have an identifier 10 since the 1 will match 10 when using regular expression. This can be prevented by left padding the ids with 0's or prepending a character string to them.
 # For the Full model, the identifiers will be read from the bounds file. If the identifier cannot be found in the index columns of both the viral load and identify_founders.tab files, no timing estimate will be produced for it.
 # If the bounds file is specified, then an additional estimate will be produced in a column named time_since_infection_bounded that is a variation of the time_since_infection column that is restricted so that it lies within the bounds.
@@ -58,7 +58,7 @@ make_option("--verbose",
            )
 
 opt <- parse_args(OptionParser(option_list = option_list,
-                  description = "Predicts times of HIV infection from sequence data from samples very soon after infection."))
+                  description = "Predicts times of HIV infection from sequence data from samples very soon after infection. Comments at the start of this script provides some guidelines about the required file formats."))
 
 # Processing settings relevant to ALL model structures:
 identify_founders_tab <- read.delim(opt$identify_founders.tab, sep = '\t', stringsAsFactors = FALSE)
