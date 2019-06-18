@@ -2,20 +2,20 @@
 
 # TODO: List input files
 declare -a input_files=(
-"/home/docker/example/example_1.fasta"
-"/home/docker/example/example_2.fasta"
-"/home/docker/example/example_3.fasta"
-"/home/docker/example/example_4.fasta"
-"/home/docker/example/example_5.fasta"
-"/home/docker/example/example_6.fasta"
-"/home/docker/example/example_7.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_1.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_2.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_3.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_4.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_5.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_6.fasta"
+"/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id/tests/example_data_v2/example_7.fasta"
 )
 
 # TODO: Specify output folder
-output_folder="/home/docker/example"
+output_folder="/tmp/hf_example_v2/"
 
 # TODO: Specify path to the pipeline folder
-pipeline_folder="/home/docker/hiv-founder-id"
+pipeline_folder="/home/phillipl/projects/hiv-founder-id/code/hiv-founder-id"
 
 # End of configuration section.
 

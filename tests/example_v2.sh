@@ -1,6 +1,14 @@
-# run identify_founders.pl
+echo "
+This is an example script demonstrating the software used in the manuscript:
+'Combining HIV-1 Viral Genetics and Statistical Modeling to Improve Very Recent Time-of-infection Estimation Towards Enhanced Vaccine Efficacy Assessment'.
 
-mkdir /tmp/hf_example_v2
+This script will:
+1) Call identify_founders.pl repeatedly to compute metrics based on input alignment files.
+2) Collate all these metrics into a single file.
+3) Call estimateInfectionTime.R to use the calibrated models to produce/refine the metrics produced by identify_founders.pl.
+"
+
+mkdir -p /tmp/hf_example_v2
 
 cd /home/phillipl/projects/hiv-founder-id/code/hiv-founder-id
 
