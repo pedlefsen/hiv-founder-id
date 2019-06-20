@@ -102,11 +102,12 @@ if (opt$debug){
   if (is.null(opt$bounds_file)){
     cat('\nBounds file option not specified.\n')
   } else if (file.exists(opt$bounds_file)){
+    cat("\nStructure of Bounds File:\n")
     print(str(read.csv(opt$bounds_file, stringsAsFactors = FALSE)))
   } else {
-    cat("\nStrucutre of Bounds File:\n")
     cat("\nValue specified for bounds file, ", opt$bounds_file, " does not point to a file that exists.\n\n")
   }
+  cat("\n\nViral Loads file:\n-----------------\n\n")
   if (is.null(opt$vl_file)){
     cat('\nViral loads file option not specified.\n')
   } else if (file.exists(opt$vl_file)){
