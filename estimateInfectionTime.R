@@ -54,7 +54,11 @@ make_option("--path_to_model_coefficients_file",
 make_option("--verbose",
             action = "store_true",
             default = FALSE,
-            help = "Produces verbose output")
+            help = "Produces verbose output"),
+make_option("--debug",
+            action = "store_true",
+            default = FALSE,
+            help = "Prints out the structure detected for the vl_file and bounds_file as well as all the options that were selected.")
            )
 
 opt <- parse_args(OptionParser(option_list = option_list,
@@ -88,6 +92,30 @@ if (file.exists(file.path(mod_co_file, 'model_coefficients.csv'))){
   all_coeffs <- read.csv(mod_co_file, stringsAsFactors = FALSE)
 } else {
   stop(paste('Neither ', file.path(mod_co_file, 'model_coefficients.csv') , ' nor ', file.exists(mod_co_file) , ' exists.', sep = ''))
+}
+
+if (opt$debug){
+  cat('\n\n=====================\nDEBUG\n=====================\n\n')
+  cat("\nopt:\n----\n\n")
+  print(opt)
+  cat("\n\nBounds file:\n------------\n\n")
+  if (is.null(opt$bounds_file)){
+    cat('\nBounds file option not specified.\n')
+  } else if (file.exists(opt$bounds_file)){
+    print(str(read.csv(opt$bounds_file, stringsAsFactors = FALSE)))
+  } else {
+    cat("\nStrucutre of Bounds File:\n")
+    cat("\nValue specified for bounds file, ", opt$bounds_file, " does not point to a file that exists.\n\n")
+  }
+  if (is.null(opt$vl_file)){
+    cat('\nViral loads file option not specified.\n')
+  } else if (file.exists(opt$vl_file)){
+    cat("\nStrucutre of Viral Loads file:\n")
+    print(str(read.csv(opt$vl_file, stringsAsFactors = FALSE)))
+  } else {
+    cat("\nValue specified for viral loads file, ", opt$vl_file, " does not point to a file that exists.\n\n")
+  }
+  cat('\n\nEnd of Debugging output\n\n')
 }
 
 # enforces bounds after estimation has already been performed

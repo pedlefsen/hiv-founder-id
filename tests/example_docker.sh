@@ -18,6 +18,12 @@ output_folder="/home/docker/example"
 # TODO: Specify path to the pipeline folder
 pipeline_folder="/home/docker/hiv-founder-id"
 
+# TODO: Optional: Specify viral loads file
+vl_file="/home/docker/example/vl_diff.csv"
+
+# TODO: Optional: Specify bounds file
+bounds_file="/home/docker/example/bounds_diff.csv"
+
 # End of configuration section.
 
 echo "
@@ -49,7 +55,7 @@ for ((i = 0; i<$in_len; i++)); do
   c_out_folder="$(basename -- ${input_files[$i]})"
   c_out_folder="${c_out_folder%.*}"
   printf "\n\n\n=========================================\nNow running identify_founders.pl on file number $i.\n\nFile name: ${input_files[$i]}.\nOutput will be generated in $output_folder/$c_out_folder.\nDetailed output from identify_founders.pl:\n-------------------------------\n"
-  perl identify_founders.pl -PRT -o $output_folder/$c_out_folder ${input_files[$i]}
+  perl identify_founders.pl -PRTC -o $output_folder/$c_out_folder ${input_files[$i]}
   if [ $i -eq 0 ]
   then
     rm $output_folder/identify_founders.tab
@@ -69,12 +75,13 @@ STEP 2: Calling estimateInfectionTime.R
 
 $pipeline_folder/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=$output_folder/identify_founders.tab --estimator=pfitter
 
-echo "
-Estimation complete. To explore other calibrated models, either look at the output of '$pipeline_folder/estimateInfectionTime.R -h' or see the commented-out portion at the bottom of the script that was just run.
-"
-
 # Example of using estimateInfectionTime.R with a bounds file
 #$pipeline_folder/estimateInfectionTime.R --model_structure=slope --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
 #
 # Example of using estimateInfectionTime.R with the (overfitted) full model
-#$pipeline_folder/estimateInfectionTime.R --model_structure=full --identify_founders.tab=/tmp/hf_example_v2/identify_founders.tab --vl_file=tests/example_data_v2/vl_diff.csv --bounds_file=tests/example_data_v2/bounds_diff.csv --estimator=pfitter
+#$pipeline_folder/estimateInfectionTime.R --model_structure=full --identify_founders.tab=$output_folder/identify_founders.tab --vl_file=$vl_file --bounds_file=$bounds_file --estimator=pfitter --debug
+
+echo "
+Estimation complete. To explore other calibrated models, either look at the output of '$pipeline_folder/estimateInfectionTime.R -h' or see the commented-out portion at the bottom of the script that was just run.
+"
+
