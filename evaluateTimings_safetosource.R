@@ -294,7 +294,10 @@ evaluateTimings <- function (
         infer.results.bounds.types <- setdiff( unique( infer.results.bounds.type ), NA );
         ## Exclude old/outdated bounds
         infer.results.bounds.types <- 
-          grep( "(one|six)month", infer.results.bounds.types, invert = TRUE, value = TRUE );
+            grep( "(one|six)month", infer.results.bounds.types, invert = TRUE, value = TRUE );
+        ## TODO: Handle shifted results.
+        infer.results.bounds.types <- 
+          grep( "shifted", infer.results.bounds.types, invert = TRUE, value = TRUE );
 
         infer.results.bounds.tables <- lapply( infer.results.bounds.types, function ( .bounds.type ) {
           return( infer.results[ !is.na( infer.results.bounds.type ) & ( infer.results.bounds.type == .bounds.type ), , drop = FALSE ] );
@@ -467,6 +470,8 @@ evaluateTimings <- function (
         days.est.cols <- grep( "PFitter|(DS)?Star[Pp]hy(Test)?", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
         # Also exclude anything time-dependent with times we don't use anymore.
         days.est.cols <- grep( "(one|six)month", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
+        ## TODO: handle shifted
+        days.est.cols <- grep( "shifted", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
        if( the.time == "1m.6m" ) {
          # Then keep the 1mmtn003.6mhvtn502 results, but not each separately.
          days.est.cols <- grep( "\\.mtn|\\.hvtn", days.est.cols, invert = TRUE, perl = TRUE, value = TRUE );
@@ -494,6 +499,9 @@ evaluateTimings <- function (
         # For COB and infer, use only the real-data sources (mtn003 or hvtn502). So exclude the "mtn003" and "sixmonths" ones.
         .keep.cols <-
             grep( "\\.(one|six)months?\\.", .keep.cols, value = TRUE, invert = TRUE );
+        ## TODO: ADD OPTION TO KEEP and USE SHIFTED RESULTS
+        .keep.cols <-
+            grep( "shifted", .keep.cols, value = TRUE, invert = TRUE );
 
         .donotkeep.cols <- c( grep( "DS\\.Star[pP]y\\.(fits|founders|is.starlike)", .keep.cols, value = TRUE ) );
         .donotkeep.cols <- c( .donotkeep.cols, "StarPhy.founders", "InSites.founders", "multifounder.DS.Starphy.fits" );
@@ -503,6 +511,8 @@ evaluateTimings <- function (
         Infer.cols <- grep( "Infer", .keep.cols, value = TRUE );
         ## Exclude Infer cols for obsolete bounds.
         Infer.cols <- grep( "(one|six)month", Infer.cols, value = TRUE, invert = TRUE );
+        ## TODO: hanlde shifted
+        Infer.cols <- grep( "shifted", Infer.cols, value = TRUE, invert = TRUE );
         ## Actually also exclude the ones that don't match the time
         if( the.time == "1m.6m" ) {
           Infer.cols <- grep( "\\.mtn|\\.hvtn", Infer.cols, value = TRUE, invert = TRUE );
@@ -512,6 +522,8 @@ evaluateTimings <- function (
         COB.cols <- grep( "^COB", .keep.cols, value = TRUE );
         ## Exclude COB cols for obsolete bounds.
         COB.cols <- grep( "(one|six)month", COB.cols, value = TRUE, invert = TRUE );
+        ## TODO: Handle shifted
+        COB.cols <- grep( "shifted", COB.cols, value = TRUE, invert = TRUE );
         ## Actually also exclude the ones that don't match the time
         if( the.time == "1m.6m" ) {
           COB.cols <- grep( "\\.mtn|\\.hvtn", COB.cols, value = TRUE, invert = TRUE );
@@ -553,7 +565,7 @@ evaluateTimings <- function (
         ## DO NOT Undo conversion of the colnames (X is added before "6m.not.1m").  We want it to be called "X6m.not.1m" so it can work in the regression formulas.
         #colnames( results.covars.per.person.df ) <- colnames( results.covars.per.person.with.extra.cols );
 
-        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
+        regression.df <- cbind( data.frame( days.since.infection = days.since.infection[ rownames( results.covars.per.person.df ) ] ), results.covars.per.person.df, lapply( the.artificial.bounds[ grep( "shifted", grep( "(one|six)month", names( the.artificial.bounds ), invert = TRUE, value = TRUE ), invert = TRUE, value = TRUE ) ], function( .mat ) { .mat[ rownames( results.covars.per.person.df ), , drop = FALSE ] } ) );
         
         ## Ok build a regression model, including only the helpful.additional.cols and helpful.additional.cols.with.interactions (and interactions among them), and also the lower and upper bounds associated with either 5 weeks or 30 weeks, depending on the.time (if there's a 1m sample, uses "mtn003").
         if( ( the.time == "6m" ) || ( the.time == "1m6m" ) ) {
@@ -1973,12 +1985,23 @@ evaluateTimings <- function (
                 round( apply( the.artificial.bounds[[ .artificial.bounds.name ]], 1, mean ) )
               } );
               if( is.null( dim( center.of.bounds.table ) ) ) {
-                  center.of.bounds.table.flat <- center.of.bounds.table;
-                  center.of.bounds.table <-
-                      matrix( nrow = 1, ncol = length( center.of.bounds.table.flat ) );
-                  colnames( center.of.bounds.table ) <- names( center.of.bounds.table.flat );
-                  rownames( center.of.bounds.table ) <- names( the.artificial.bounds );
-                  center.of.bounds.table[ 1, ] <- center.of.bounds.table.flat;
+                  if( is.list( center.of.bounds.table ) && all( names( the.artificial.bounds ) == names( center.of.bounds.table ) ) ) {
+                      center.of.bounds.table.fixed <-
+                          matrix( NA, nrow = length( center.of.bounds.table ), ncol = length( center.of.bounds.table[[ 1 ]] ) );
+                      rownames( center.of.bounds.table.fixed ) <- names( center.of.bounds.table );
+                      colnames( center.of.bounds.table.fixed ) <- names( center.of.bounds.table[[ 1 ]] );
+                      for( .bounds.name in rownames( center.of.bounds.table.fixed ) ) {
+                          center.of.bounds.table.fixed[ .bounds.name, names( center.of.bounds.table[[ .bounds.name ]] ) ] <- center.of.bounds.table[[ .bounds.name ]];
+                      }
+                      center.of.bounds.table <- t( center.of.bounds.table.fixed );
+                  } else {
+                      center.of.bounds.table.flat <- center.of.bounds.table;
+                      center.of.bounds.table <-
+                          matrix( nrow = 1, ncol = length( center.of.bounds.table.flat ) );
+                      colnames( center.of.bounds.table ) <- names( center.of.bounds.table.flat );
+                      rownames( center.of.bounds.table ) <- names( the.artificial.bounds );
+                      center.of.bounds.table[ 1, ] <- center.of.bounds.table.flat;
+                  }
               }
               colnames( center.of.bounds.table ) <-
                 paste( "COB", gsub( "_", ".", colnames( center.of.bounds.table ) ), "time.est", sep = "." );
@@ -1989,6 +2012,14 @@ evaluateTimings <- function (
               ## TODO: REMOVE. TEMPORARY HACK TO REMOVE OLD RESULTS. Remove "onemonth" and "sixmonths" results.
               results.per.person <-
                 results.per.person[ , grep( "uniform\\.(one|six)month", colnames( results.per.person ), invert = TRUE ), drop = FALSE ];
+              ## TODO: REMOVE. TEMPORARY HACK TO REMOVE OLD RESULTS. Remove "shifted" results.
+              results.per.person <-
+                results.per.person[ , grep( "shifted", colnames( results.per.person ), invert = TRUE ), drop = FALSE ];
+              # ## TODO: REMOVE. TEMPORARY HACK TO REMOVE all but NEW RESULTS. If there are "shifted" results, use them.
+              # if( length( grep( "shifted", colnames( results.per.person ) ) ) > 0 ) {
+              #     results.per.person <-
+              #         results.per.person[ , grep( "(?:502)|(?:003)\\.time\\.est$", colnames( results.per.person ), invert = TRUE ), drop = FALSE ];
+              # }
               
               return( list( results.per.person = results.per.person, days.since.infection = days.since.infection, results.covars.per.person.with.extra.cols = results.covars.per.person.with.extra.cols, bounds = the.artificial.bounds, evaluated.results = bound.and.evaluate.results.per.ppt( results.per.person, days.since.infection, results.covars.per.person.with.extra.cols, the.time, the.artificial.bounds ) ) );
             } else {
@@ -2061,7 +2092,7 @@ evaluateTimings <- function (
         
             matrix.of.unbounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ "unbounded" ]]$rmse } );
             mode( matrix.of.unbounded.results.rmses ) <- "numeric";
-            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "mtn003" unless the.time is "1m" in which case it is "hvtn502".
+            ## This uses the second position, which is the first of the unbounded ones, and for now the only one.  It's "mtn003" unless the.time is "6m" in which case it is "hvtn502".
             matrix.of.bounded.results.rmses <- sapply( bootstrap.results, function( .results.for.bootstrap ) { .results.for.bootstrap[[ "evaluated.results" ]][[ 2 ]]$rmse } );
             mode( matrix.of.bounded.results.rmses ) <- "numeric";
             
