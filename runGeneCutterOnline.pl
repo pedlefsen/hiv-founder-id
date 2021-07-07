@@ -45,7 +45,7 @@ sub runGeneCutterOnline {
   # opt_n means get nucleotides only, not also translated into proteins.
   # But first reset the opt vars.
   ( $opt_D, $opt_V, $opt_p, $opt_e, $opt_P, $opt_R, $opt_x, $opt_n ) = ();
-  if( not getopts('DVpe:P:R:x:n:') ) {
+  if( not getopts('DVpe:P:R:x:n') ) {
     runGeneCutterOnline_usage();
   }
   
@@ -90,6 +90,14 @@ sub runGeneCutterOnline {
   # Remove the trailing "/" if any
   if( defined( $output_path_dir ) ) {
     ( $output_path_dir ) = ( $output_path_dir =~ /^(.*[^\/])\/*$/ );
+  }
+
+  if ($DEBUG){
+    print "\nChecking the input file names and output path:";
+    print "\n\$input_fasta_file = $input_fasta_file";
+    print "\n\$input_fasta_file_path = $input_fasta_file_path";
+    print "\n\$input_fasta_file_short = $input_fasta_file_short";
+    print "\n\$output_path_dir = $output_path_dir\n";
   }
 
   # GeneCutter has a problem with certain characters in fasta headers. 
@@ -161,6 +169,14 @@ sub runGeneCutterOnline {
   
   $mech->get( "http://www.hiv.lanl.gov/content/sequence/GENE_CUTTER/cutter.html" );
 
+  if( $DEBUG ){
+    print "\n===========================================================\n";
+    print "Initial Form requested:\n";
+    #    print $mech->content();
+    print "\nEnd of initial form\n";
+    print "============================================================\n";
+  }
+
   my                                   %fields    = (
                                                 ORGANISM => "HIV-1",
                                                 UPLOAD => $fasta_file_readyForLANL,
@@ -175,6 +191,8 @@ sub runGeneCutterOnline {
                                                 VIEW => "YES"
                                                );
   if( $DEBUG ) {
+    print "\n===========================================================\n";
+    print "Content that will be submitted for the intial form\n";
     foreach my $key ( keys %fields ) {
       print $key .  " => " . $fields{ $key } . "\n";
     }
@@ -215,7 +233,7 @@ sub runGeneCutterOnline {
     print "JOB ID IS $jobID\n";
   }
   ## Results page
-  my $results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/FRAMESET_PRO.html";
+  my $results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/FRAMESET_NUCS.html"; # PL changed this from .../FRAMESET_PRO.html
   ## Actual results are here:
   my $pro_prepresults_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/printpro.html";
   my $pro_results_url = "http://www.hiv.lanl.gov/tmp/download/GENE_CUTTER/$jobID/CONTROLS_PRO.html";

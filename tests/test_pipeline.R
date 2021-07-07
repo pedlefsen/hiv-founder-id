@@ -63,7 +63,9 @@ if (opt$compact_help){
   stop()
 }
 
-print(opt)
+if (opt$verbose){
+  print(opt)
+}
 
 pipeline_dir <- opt$pipeline_dir
 if (!dir.exists(pipeline_dir)){

@@ -1,7 +1,9 @@
 test_name,fasta_file,command_flags,test_description
 "test_001","ld_seqs.fasta","-CPRFHT","Entropy only on ld_seqs.fasta"
 "test_002","ld_seqs.fasta","-PRFEHT","PhyML and Insites only on ld_seqs.fasta"
-"test_003","ld_seqs.fasta","-CPFEHT","Recombination removal via RAP on ld_seqs.fasta"
+"test_003","ld_seqs.fasta","-CPFEHT","Recombination removal via RAPR on ld_seqs.fasta"
 "test_004","ld_seqs.fasta","-CPRFET","Hypermutation removal only on ld_seqs.fasta"
 "test_005","ld_seqs_10hyp.fasta","-CPRFET","Hypermutation removal only on ld_seqs_10hyp.fasta",
 "test_006","ld_seqs.fasta","-CPREHT","PFitter only on ld_seqs_10hyp.fasta"
+"test_007","rapr_recomb.fasta","-CPFEHT","Recombination removal via RAPR on rapr_recomb.fasta"
+"test_008","rapr_recomb.fasta","-CPFET","RAPR + hypermutR on rapr_recomb.fasta"
